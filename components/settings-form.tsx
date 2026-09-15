@@ -37,7 +37,7 @@ export function SettingsForm({ settings, usingEnvCode }: { settings: Settings; u
 
   return (
     <div className="grid gap-6 lg:grid-cols-2 items-start">
-      <form onSubmit={s.submit} className="card p-5 flex flex-col gap-4">
+      <form onSubmit={s.submit} className="card p-4 sm:p-5 flex flex-col gap-4">
         <p className="eyebrow" style={{ color: "var(--muted)" }}>Thresholds</p>
         {FIELDS.map((f) => (
           <label key={f.key} className="block">
@@ -66,7 +66,7 @@ export function SettingsForm({ settings, usingEnvCode }: { settings: Settings; u
       </form>
 
       <div className="flex flex-col gap-6">
-        <form onSubmit={c.submit} data-reset="1" className="card p-5 flex flex-col gap-4">
+        <form onSubmit={c.submit} data-reset="1" className="card p-4 sm:p-5 flex flex-col gap-4">
           <p className="eyebrow" style={{ color: "var(--muted)" }}>Team code</p>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
             {usingEnvCode
@@ -96,12 +96,12 @@ export function SettingsForm({ settings, usingEnvCode }: { settings: Settings; u
           </button>
         </form>
 
-        <form action="/api/logout" method="post" className="card p-5 flex items-center justify-between gap-3">
+        <form action="/api/logout" method="post" className="card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="eyebrow" style={{ color: "var(--muted)" }}>This device</p>
             <p className="text-sm">Sign out of the tracker on this phone.</p>
           </div>
-          <button type="submit" className="btn btn-ghost text-sm">Sign out</button>
+          <button type="submit" className="btn btn-ghost text-sm shrink-0">Sign out</button>
         </form>
       </div>
     </div>

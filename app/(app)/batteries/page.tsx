@@ -16,11 +16,11 @@ export default async function BatteriesPage() {
           </p>
           <h1 className="display text-4xl sm:text-5xl">Batteries</h1>
         </div>
-        <div className="flex gap-2">
-          <a href="/api/export/batteries" className="btn btn-ghost text-sm">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <a href="/api/export/batteries" className="btn btn-ghost text-sm shrink-0">
             Export CSV
           </a>
-          <Link href="/batteries/new" className="btn btn-primary text-sm">
+          <Link href="/batteries/new" className="btn btn-primary text-sm flex-1 sm:flex-none">
             Add battery <span aria-hidden>→</span>
           </Link>
         </div>

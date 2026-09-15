@@ -82,9 +82,19 @@ export function describeEvent(e: BatteryEvent): string {
 
 export function EventRow({ event, batteryName }: { event: BatteryEvent; batteryName?: string }) {
   return (
-    <li className="flex gap-3 py-2.5" style={{ borderBottom: "1px solid var(--line)" }}>
-      <span className={`pill ${TONE[event.type]} shrink-0 self-start mt-0.5`}>{EVENT_LABEL[event.type]}</span>
-      <div className="min-w-0 flex-1">
+    <li className="py-3 sm:py-2.5 sm:flex sm:gap-3" style={{ borderBottom: "1px solid var(--line)" }}>
+      {/* Mobile: type + time on one row, description below. Desktop: three columns. */}
+      <div className="flex items-center justify-between gap-3 sm:contents">
+        <span className={`pill ${TONE[event.type]} shrink-0 sm:self-start sm:mt-0.5`}>{EVENT_LABEL[event.type]}</span>
+        <time
+          className="mono text-[11px] shrink-0 sm:order-last sm:self-start sm:mt-1"
+          style={{ color: "var(--muted)" }}
+          dateTime={event.occurred_at}
+        >
+          {fmtDateTime(event.occurred_at)}
+        </time>
+      </div>
+      <div className="min-w-0 flex-1 mt-1.5 sm:mt-0">
         <p className="text-sm break-words">
           {batteryName && (
             <Link href={`/batteries/${encodeURIComponent(batteryName)}`} className="font-semibold mr-1.5 hover:underline">
@@ -94,9 +104,6 @@ export function EventRow({ event, batteryName }: { event: BatteryEvent; batteryN
           <span className={event.type === "beak_test" || event.type === "cba_test" ? "mono" : ""}>{describeEvent(event)}</span>
         </p>
       </div>
-      <time className="mono text-[11px] shrink-0 self-start mt-1" style={{ color: "var(--muted)" }} dateTime={event.occurred_at}>
-        {fmtDateTime(event.occurred_at)}
-      </time>
     </li>
   );
 }

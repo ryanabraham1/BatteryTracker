@@ -44,7 +44,7 @@ export function LoginForm({ next }: { next: string }) {
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          className="w-full rounded-lg px-4 py-3.5 text-lg outline-none"
+          className="w-full rounded-lg px-4 py-3.5 text-lg outline-none min-h-[52px]"
           style={{
             background: "rgba(255,255,255,0.06)",
             border: `1px solid ${error ? "var(--bad)" : "rgba(189,168,238,0.35)"}`,
@@ -54,6 +54,8 @@ export function LoginForm({ next }: { next: string }) {
           onChange={(e) => setCode(e.target.value)}
           placeholder="••••••••"
           type="password"
+          inputMode="text"
+          enterKeyHint="go"
         />
       </label>
       {error && (
@@ -61,7 +63,7 @@ export function LoginForm({ next }: { next: string }) {
           {error}
         </p>
       )}
-      <button type="submit" disabled={busy || !code} className="btn btn-plum text-base py-3.5 mt-2">
+      <button type="submit" disabled={busy || !code} className="btn btn-plum text-base py-4 mt-2">
         {busy ? "Checking…" : "Open tracker"} <span aria-hidden>→</span>
       </button>
     </form>

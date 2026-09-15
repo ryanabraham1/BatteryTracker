@@ -27,7 +27,7 @@ function Panel({ title, unit, data, refs, domain, mono = true }: {
       ) : (
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+            <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
               <XAxis
                 dataKey="t"
                 type="number"
@@ -42,7 +42,7 @@ function Panel({ title, unit, data, refs, domain, mono = true }: {
                 tick={{ fontSize: 10, fontFamily: "var(--font-mono)", fill: "var(--muted)" }}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                width={40}
               />
               <Tooltip
                 labelFormatter={(t) => new Date(Number(t)).toLocaleString()}
@@ -85,7 +85,7 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
   }
   volt.sort((a, b) => a.t - b.t);
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Panel
         title="Beak IR"
         unit="mΩ"

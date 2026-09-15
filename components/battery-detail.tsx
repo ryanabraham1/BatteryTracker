@@ -47,16 +47,20 @@ export function BatteryDetail({
   return (
     <>
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-4 mb-5">
-        <HealthRing score={health.score} badge={health.badge} />
+      <Link href="/batteries" className="md:hidden inline-flex items-center gap-1 text-sm mb-3 min-h-[36px]" style={{ color: "var(--muted)" }}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+        Batteries
+      </Link>
+      <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-5">
+        <HealthRing score={health.score} badge={health.badge} size={72} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <StatusPill status={battery.status} />
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+            {battery.status !== "active" && <StatusPill status={battery.status} />}
             <StatePill state={battery.state} />
             <span className="chip">{durationShort(inState)} in {STATE_LABEL[battery.state].toLowerCase()}</span>
             {health.restRemainingMin > 0 && <span className="chip" style={{ color: "var(--warn)" }}>rests {health.restRemainingMin}m</span>}
           </div>
-          <h1 className="display text-5xl sm:text-6xl truncate">{battery.name}</h1>
+          <h1 className="display text-4xl sm:text-6xl break-words">{battery.name}</h1>
           <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
             {battery.brand_model || "Unknown model"} · {battery.capacity_ah} Ah
             {battery.purchase_date && <> · bought {fmtDate(battery.purchase_date)}</>}
@@ -65,7 +69,7 @@ export function BatteryDetail({
             <p className="text-sm mt-1" style={{ color: "var(--bad)" }}>Retired: {battery.retired_reason}</p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="hidden sm:flex gap-2 shrink-0">
           <Link href={`/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">Edit</Link>
           <button type="button" className={`btn text-sm ${retired ? "btn-primary" : "btn-ghost"}`} onClick={() => act("retire")}>
             {retired ? "Un-retire" : "Retire"}
@@ -84,15 +88,21 @@ export function BatteryDetail({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
-        <button type="button" className="btn btn-primary py-3 text-sm" onClick={() => act("move")}>Move state</button>
+      {/* Actions — "Move state" spans the full width on phones since it's the most-used one */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-3 sm:mb-6">
+        <button type="button" className="btn btn-primary py-3.5 sm:py-3 text-sm col-span-2 sm:col-span-1" onClick={() => act("move")}>Move state</button>
         <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => act("usage")}>Log usage</button>
         <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => act("beak")}>Beak test</button>
         <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => act("cba")}>CBA test</button>
         <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => act("charge")}>Log charge</button>
         <button type="button" className="btn btn-danger py-3 text-sm" onClick={() => act("incident")}>Flag incident</button>
         <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => act("note")}>Add note</button>
+      </div>
+      <div className="sm:hidden grid grid-cols-2 gap-2 mb-6">
+        <Link href={`/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">Edit</Link>
+        <button type="button" className={`btn text-sm ${retired ? "btn-primary" : "btn-ghost"}`} onClick={() => act("retire")}>
+          {retired ? "Un-retire" : "Retire"}
+        </button>
       </div>
 
       {/* Stats */}
@@ -144,11 +154,11 @@ export function BatteryDetail({
       )}
 
       {/* Timeline */}
-      <div className="flex flex-wrap items-center gap-2 mb-2">
-        <p className="eyebrow mr-2" style={{ color: "var(--muted)" }}>Timeline</p>
-        <button type="button" className="tile py-1 px-2.5 text-xs" data-selected={filter === "all"} onClick={() => setFilter("all")}>All</button>
+      <p className="eyebrow mb-2" style={{ color: "var(--muted)" }}>Timeline</p>
+      <div className="hscroll no-scrollbar md:flex-wrap md:mx-0 md:px-0 mb-2">
+        <button type="button" className="tile tile-chip text-sm" data-selected={filter === "all"} onClick={() => setFilter("all")}>All</button>
         {EVENT_TYPES.map((t) => (
-          <button key={t} type="button" className="tile py-1 px-2.5 text-xs" data-selected={filter === t} onClick={() => setFilter(t)}>
+          <button key={t} type="button" className="tile tile-chip text-sm" data-selected={filter === t} onClick={() => setFilter(t)}>
             {EVENT_LABEL[t]}
           </button>
         ))}

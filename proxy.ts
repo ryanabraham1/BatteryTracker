@@ -25,10 +25,9 @@ export async function proxy(request: NextRequest) {
   const secret = process.env.SESSION_SECRET ?? "";
   const ok = await hasValidSignature(request.cookies.get(COOKIE)?.value, secret);
 
-  if (pathname === "/login") {
-    if (ok) return NextResponse.redirect(new URL("/", request.url));
-    return NextResponse.next();
-  }
+  // /login decides for itself (it does the full DB-backed check), so a stale
+  // cookie with a valid signature can't bounce between / and /login.
+  if (pathname === "/login") return NextResponse.next();
   if (!ok) {
     const url = new URL("/login", request.url);
     if (pathname !== "/") url.searchParams.set("next", pathname);

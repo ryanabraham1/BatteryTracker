@@ -28,6 +28,8 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
   const { compMode, matchLabel } = useCompMode();
   const [pending, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Phones show one column at a time; the tab strip picks which. Desktop shows all five.
+  const [tab, setTab] = useState<BatteryState>("ready");
 
   const columns = useMemo(() => {
     const live = items.filter((i) => i.battery.status !== "retired");
@@ -72,12 +74,37 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
 
   return (
     <>
+      {/* Mobile state tabs */}
+      <div className="md:hidden sticky top-[calc(56px+env(safe-area-inset-top))] z-20 -mx-4 px-4 py-2 mb-2 border-b" style={{ background: "var(--paper)", borderColor: "var(--line)" }} role="tablist" aria-label="Battery state">
+        <div className="hscroll no-scrollbar">
+          {STATES.map((state) => {
+            const active = tab === state;
+            const n = columns[state].length;
+            return (
+              <button
+                key={state}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className="tile tile-chip flex items-center gap-2 text-sm"
+                data-selected={active}
+                onClick={() => setTab(state)}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `var(--${STATE_TONE[state]})` }} />
+                <span className="font-medium">{STATE_LABEL[state]}</span>
+                <span className="mono text-xs font-semibold" style={{ color: active ? "var(--purple-dark)" : "var(--muted)" }}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {STATES.map((state) => {
           const list = columns[state];
           return (
-            <section key={state} className="min-w-0">
-              <header className="flex items-center justify-between mb-2 px-0.5">
+            <section key={state} className={`min-w-0 ${tab === state ? "" : "hidden md:block"}`}>
+              <header className="hidden md:flex items-center justify-between mb-2 px-0.5">
                 <h2 className="eyebrow flex items-center gap-2" style={{ color: `var(--${STATE_TONE[state]})` }}>
                   <span className="w-2 h-2 rounded-full" style={{ background: `var(--${STATE_TONE[state]})` }} />
                   {STATE_LABEL[state]}
@@ -88,8 +115,8 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
               </header>
               <div className="flex flex-col gap-2">
                 {list.length === 0 && (
-                  <div className="rounded-[10px] border border-dashed p-4 text-center text-xs" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
-                    {state === "ready" ? "Nothing ready" : "—"}
+                  <div className="rounded-[10px] border border-dashed p-6 md:p-4 text-center text-sm md:text-xs" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
+                    {state === "ready" ? "Nothing ready" : `Nothing ${STATE_LABEL[state].toLowerCase()}`}
                   </div>
                 )}
                 {list.map((item) => (
@@ -103,7 +130,7 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
                       compMode && state === "in_robot" ? (
                         <button
                           type="button"
-                          className="btn btn-danger w-full py-2.5 text-sm"
+                          className="btn btn-danger w-full text-sm"
                           disabled={pending && busyId === item.battery.id}
                           onClick={(e) => {
                             e.stopPropagation();

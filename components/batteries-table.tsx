@@ -12,6 +12,16 @@ import { useNow } from "./board";
 type SortKey = "name" | "health" | "state" | "cycles" | "beak" | "cba";
 type Filter = "all" | BatteryStatus;
 
+const SORT_LABEL: Record<SortKey, string> = {
+  name: "Name",
+  health: "Health",
+  state: "State",
+  cycles: "Cycles",
+  beak: "Last Beak",
+  cba: "Last CBA",
+};
+const DESC_DEFAULT: SortKey[] = ["health", "cycles", "beak", "cba"];
+
 export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
   const sp = useSearchParams();
   const q = (sp.get("q") ?? "").trim().toLowerCase();
@@ -59,7 +69,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
             if (active) setDir(dir === 1 ? -1 : 1);
             else {
               setSort(key);
-              setDir(key === "health" || key === "cycles" ? -1 : 1);
+              setDir(DESC_DEFAULT.includes(key) ? -1 : 1);
             }
           }}
         >
@@ -79,7 +89,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
 
   return (
     <>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="hscroll no-scrollbar md:flex-wrap md:mx-0 md:px-0 mb-3">
         {(
           [
             ["all", "All"],
@@ -88,13 +98,77 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
             ["retired", "Retired"],
           ] as [Filter, string][]
         ).map(([k, label]) => (
-          <button key={k} type="button" className="tile py-1.5 px-3 text-sm" data-selected={filter === k} onClick={() => setFilter(k)}>
-            {label} <span className="mono text-xs" style={{ color: "var(--muted)" }}>{counts[k]}</span>
+          <button key={k} type="button" className="tile tile-chip text-sm" data-selected={filter === k} onClick={() => setFilter(k)}>
+            {label} <span className="mono text-xs ml-1" style={{ color: "var(--muted)" }}>{counts[k]}</span>
           </button>
         ))}
       </div>
 
-      <div className="card overflow-x-auto">
+      {/* Mobile: sort picker + card list */}
+      <div className="md:hidden">
+        <div className="flex items-center gap-2 mb-3">
+          <label className="flex-1 min-w-0">
+            <span className="sr-only">Sort by</span>
+            <select
+              className="input py-2"
+              value={sort}
+              onChange={(e) => {
+                const key = e.target.value as SortKey;
+                setSort(key);
+                setDir(DESC_DEFAULT.includes(key) ? -1 : 1);
+              }}
+              aria-label="Sort by"
+            >
+              {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
+                <option key={k} value={k}>Sort: {SORT_LABEL[k]}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn btn-ghost px-3 shrink-0"
+            onClick={() => setDir(dir === 1 ? -1 : 1)}
+            aria-label={dir === 1 ? "Ascending — tap for descending" : "Descending — tap for ascending"}
+          >
+            {dir === 1 ? "↑ Asc" : "↓ Desc"}
+          </button>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {rows.map(({ battery: b, health: h }) => (
+            <li key={b.id}>
+              <Link href={`/batteries/${encodeURIComponent(b.name)}`} className="card p-3.5 flex flex-col gap-2.5 block active:bg-[var(--purple-soft)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="display text-2xl truncate">{b.name}</p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: "var(--muted)" }}>{b.brand_model || "—"} · {b.capacity_ah} Ah · {b.cycle_count} cyc</p>
+                  </div>
+                  <HealthPill badge={h.badge} score={h.score} />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <StatePill state={b.state} />
+                  {b.status !== "active" && <StatusPill status={b.status} />}
+                  {h.latestBeak ? (
+                    <span className="chip">Beak {fmtNum(h.latestBeak.voltage, 2)} V · {fmtNum(h.latestBeak.internal_resistance_mohm)} mΩ · {timeAgo(h.latestBeak.at, now)}</span>
+                  ) : (
+                    <span className="chip">no Beak</span>
+                  )}
+                  {h.latestCba ? (
+                    <span className="chip">CBA {fmtNum(h.latestCba.measured_ah, 2)} Ah ({Math.round(h.latestCba.pct)}%) · {timeAgo(h.latestCba.at, now)}</span>
+                  ) : (
+                    <span className="chip">no CBA</span>
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))}
+          {rows.length === 0 && (
+            <li className="card p-8 text-center text-sm" style={{ color: "var(--muted)", borderStyle: "dashed" }}>No batteries match.</li>
+          )}
+        </ul>
+      </div>
+
+      {/* Desktop: sortable table */}
+      <div className="card overflow-x-auto hidden md:block">
         <table className="w-full text-sm min-w-[720px]">
           <thead style={{ borderBottom: "1px solid var(--line)" }}>
             <tr>

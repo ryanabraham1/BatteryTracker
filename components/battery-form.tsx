@@ -27,10 +27,10 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
   }
 
   return (
-    <form onSubmit={submit} className="card p-5 flex flex-col gap-4 max-w-lg">
+    <form onSubmit={submit} className="card p-4 sm:p-5 flex flex-col gap-4 max-w-lg">
       <label className="block">
         <span className="label">Name</span>
-        <input name="name" required className="input display text-2xl" placeholder="Thor" defaultValue={battery?.name} autoFocus={!editing} />
+        <input name="name" required className="input display text-2xl" placeholder="Thor" defaultValue={battery?.name} autoFocus={!editing} autoCapitalize="words" enterKeyHint="next" />
       </label>
       <label className="block">
         <span className="label">Brand / model</span>
@@ -43,7 +43,7 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
         </label>
         <label className="block">
           <span className="label">Purchased</span>
-          <input name="purchase_date" type="date" className="input mono text-sm" defaultValue={battery?.purchase_date ?? ""} />
+          <input name="purchase_date" type="date" className="input mono" defaultValue={battery?.purchase_date ?? ""} />
         </label>
       </div>
       <div className="grid grid-cols-2 gap-3">

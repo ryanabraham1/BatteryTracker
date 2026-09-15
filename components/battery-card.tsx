@@ -6,7 +6,7 @@ import { HealthPill } from "./ui";
 
 export function restRemaining(item: BatteryWithHealth, now: number): number {
   if (item.battery.state !== "ready" || !item.health.restedAt) return 0;
-  return Math.max(0, Math.ceil((new Date(item.health.restedAt).getTime() - now) / 60_000));
+  return Math.max(0, Math.round((new Date(item.health.restedAt).getTime() - now) / 60_000));
 }
 
 export function BatteryCard({

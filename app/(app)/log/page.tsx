@@ -1,6 +1,7 @@
 import { getAllEvents, getBatteries } from "@/lib/data";
 import { EventRow } from "@/components/event-row";
 import { EVENT_LABEL, EVENT_TYPES } from "@/lib/types";
+import { MobileCollapse } from "@/components/mobile-collapse";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function LogPage(props: PageProps<"/log">) {
   if (batteryId) qs.set("battery", batteryId);
   if (from) qs.set("from", from);
   if (to) qs.set("to", to);
+  const activeFilters = [type, batteryId, from, to].filter(Boolean).length;
 
   return (
     <>
@@ -32,10 +34,12 @@ export default async function LogPage(props: PageProps<"/log">) {
         <a href={`/api/export/events?${qs.toString()}`} className="btn btn-ghost text-sm">Export CSV</a>
       </div>
 
-      <form className="card p-3 mb-4 grid grid-cols-2 md:grid-cols-5 gap-2 items-end" method="get">
+      {/* On phones the filters fold away behind a toggle row; on md+ they're always open. */}
+      <MobileCollapse label="Filters" badge={activeFilters} defaultOpen={activeFilters > 0} className="card mb-4">
+      <form className="p-3 pt-0 md:pt-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end" method="get">
         <label className="block">
           <span className="label">Type</span>
-          <select name="type" className="input py-2 text-sm" defaultValue={type}>
+          <select name="type" className="input" defaultValue={type}>
             <option value="">All</option>
             {EVENT_TYPES.map((t) => (
               <option key={t} value={t}>{EVENT_LABEL[t]}</option>
@@ -44,7 +48,7 @@ export default async function LogPage(props: PageProps<"/log">) {
         </label>
         <label className="block">
           <span className="label">Battery</span>
-          <select name="battery" className="input py-2 text-sm" defaultValue={batteryId}>
+          <select name="battery" className="input" defaultValue={batteryId}>
             <option value="">All</option>
             {batteries.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -53,17 +57,18 @@ export default async function LogPage(props: PageProps<"/log">) {
         </label>
         <label className="block">
           <span className="label">From</span>
-          <input name="from" type="date" className="input py-2 text-sm mono" defaultValue={from} />
+          <input name="from" type="date" className="input mono" defaultValue={from} />
         </label>
         <label className="block">
           <span className="label">To</span>
-          <input name="to" type="date" className="input py-2 text-sm mono" defaultValue={to} />
+          <input name="to" type="date" className="input mono" defaultValue={to} />
         </label>
         <div className="flex gap-2 col-span-2 md:col-span-1">
-          <button type="submit" className="btn btn-primary py-2 text-sm flex-1">Filter</button>
-          <a href="/log" className="btn btn-ghost py-2 text-sm">Clear</a>
+          <button type="submit" className="btn btn-primary text-sm flex-1">Filter</button>
+          <a href="/log" className="btn btn-ghost text-sm">Clear</a>
         </div>
       </form>
+      </MobileCollapse>
 
       <div className="card px-4">
         <ul>

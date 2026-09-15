@@ -88,7 +88,7 @@ export function BatteryActionSheet({
                   type="button"
                   disabled={pending}
                   onClick={() => quickMove(s)}
-                  className="tile flex items-center gap-2 py-3"
+                  className="tile flex items-center gap-2 py-3.5"
                 >
                   <span className="w-2 h-2 rounded-full" style={{ background: `var(--${STATE_TONE[s]})` }} />
                   <span className="font-medium">{STATE_LABEL[s]}</span>
@@ -104,18 +104,18 @@ export function BatteryActionSheet({
           <div>
             <p className="label">Log</p>
             <div className="grid grid-cols-3 gap-2">
-              <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => onView("usage")}>
+              <button type="button" className="btn btn-ghost py-3 px-2 text-sm text-center" onClick={() => onView("usage")}>
                 Log usage
               </button>
-              <button type="button" className="btn btn-ghost py-3 text-sm" onClick={() => onView("beak")}>
+              <button type="button" className="btn btn-ghost py-3 px-2 text-sm text-center" onClick={() => onView("beak")}>
                 Beak check
               </button>
-              <button type="button" className="btn btn-danger py-3 text-sm" onClick={() => onView("incident")}>
+              <button type="button" className="btn btn-danger py-3 px-2 text-sm text-center" onClick={() => onView("incident")}>
                 Flag issue
               </button>
             </div>
           </div>
-          <a href={`/batteries/${encodeURIComponent(battery.name)}`} className="btn btn-ghost">
+          <a href={`/batteries/${encodeURIComponent(battery.name)}`} className="btn btn-ghost py-3">
             Open details <span aria-hidden>→</span>
           </a>
         </div>

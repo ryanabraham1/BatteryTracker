@@ -50,19 +50,20 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="card p-4 flex flex-wrap gap-4 items-end">
+      <div className="card p-4 flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:items-end">
         <div>
           <p className="label">Competition mode</p>
           <button
             type="button"
-            className="tile py-2 px-4 font-medium"
+            className="tile py-3 px-4 font-medium w-full sm:w-auto"
             data-selected={compMode}
             onClick={() => setCompMode(!compMode)}
+            aria-pressed={compMode}
           >
-            {compMode ? "On — brownout buttons live" : "Off"}
+            {compMode ? "On — brownout buttons live" : "Off — tap to turn on"}
           </button>
         </div>
-        <label className="block flex-1 min-w-40">
+        <label className="block flex-1 sm:min-w-40">
           <span className="label">Current match label</span>
           <input
             className="input mono text-lg"
@@ -83,16 +84,23 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
         </div>
         <ol className="card divide-y" style={{ borderColor: "var(--line)" }}>
           {plan.map((row, i) => (
-            <li key={i} className="flex items-center gap-3 px-4 py-3" style={{ borderColor: "var(--line)" }}>
-              <span className="mono text-xs w-14 shrink-0" style={{ color: "var(--muted)" }}>
+            <li key={i} className="flex items-center gap-3 px-4 py-3 min-h-[60px]" style={{ borderColor: "var(--line)" }}>
+              <span className="mono text-xs w-10 sm:w-14 shrink-0" style={{ color: "var(--muted)" }}>
                 {row.match || `+${i + 1}`}
               </span>
               {row.item ? (
                 <>
-                  <Link href={`/batteries/${encodeURIComponent(row.item.battery.name)}`} className="display text-2xl flex-1 truncate">
-                    {row.item.battery.name}
-                  </Link>
-                  <span className="chip" style={row.note !== "ready" ? { color: "var(--warn)" } : undefined}>{row.note}</span>
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/batteries/${encodeURIComponent(row.item.battery.name)}`} className="display text-2xl block truncate">
+                      {row.item.battery.name}
+                    </Link>
+                    <span className="block sm:hidden mt-1">
+                      <span className="chip" style={row.note !== "ready" ? { color: "var(--warn)" } : undefined}>{row.note}</span>
+                    </span>
+                  </div>
+                  <span className="hidden sm:block">
+                    <span className="chip" style={row.note !== "ready" ? { color: "var(--warn)" } : undefined}>{row.note}</span>
+                  </span>
                   <HealthPill badge={row.item.health.badge} score={row.item.health.score} />
                 </>
               ) : (

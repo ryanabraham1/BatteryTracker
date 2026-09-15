@@ -270,12 +270,12 @@ export function ChargeForm({ battery, onDone }: { battery: Battery; onDone: () =
         Charges are usually logged automatically by moving a battery to Charging → Ready. Use this to
         back-fill a charge that happened off-board.
       </p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
         <Field label="Started">
-          <input name="started_at" type="datetime-local" required className="input mono text-sm" defaultValue={defaults.started} />
+          <input name="started_at" type="datetime-local" required className="input mono" defaultValue={defaults.started} />
         </Field>
         <Field label="Ended">
-          <input name="ended_at" type="datetime-local" className="input mono text-sm" defaultValue={defaults.ended} />
+          <input name="ended_at" type="datetime-local" className="input mono" defaultValue={defaults.ended} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">

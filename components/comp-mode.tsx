@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 interface CompCtx {
   compMode: boolean;
@@ -31,15 +31,16 @@ function readStored(): { compMode: boolean; matchLabel: string } {
   return { compMode: false, matchLabel: "" };
 }
 
-const noop = () => () => {};
-
 export function CompModeProvider({ children }: { children: ReactNode }) {
-  // true once we're on the client (localStorage is readable)
-  const hydrated = useSyncExternalStore(noop, () => true, () => false);
+  // Server and first client render agree on the defaults; localStorage is
+  // read after mount so hydration never mismatches.
   const [stored, setStored] = useState<{ compMode: boolean; matchLabel: string } | null>(null);
-  const effective = stored ?? (hydrated ? readStored() : { compMode: false, matchLabel: "" });
-  const compMode = effective.compMode;
-  const matchLabel = effective.matchLabel;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of an external store
+    setStored(readStored());
+  }, []);
+  const hydrated = stored !== null;
+  const { compMode, matchLabel } = stored ?? { compMode: false, matchLabel: "" };
 
   const persist = useCallback((c: boolean, m: string) => {
     setStored({ compMode: c, matchLabel: m });
@@ -62,6 +63,16 @@ export function CompModeProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useCompMode() {
-  return useContext(Ctx);
+const subscribeNoop = () => () => {};
+
+/**
+ * Comp state, masked to the defaults until *this* component has hydrated.
+ * Consumers can sit in Suspense boundaries that hydrate after the provider's
+ * effect has already read localStorage; without the mask they'd mismatch.
+ */
+export function useCompMode(): CompCtx {
+  const ctx = useContext(Ctx);
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  if (mounted) return ctx;
+  return { ...ctx, compMode: false, matchLabel: "", hydrated: false };
 }

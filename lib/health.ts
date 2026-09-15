@@ -218,7 +218,7 @@ export function computeHealth(
     const cameFromCharging = lastState && (lastState.data as { from?: string }).from === "charging";
     const restEnd = new Date(battery.state_changed_at).getTime() + settings.min_rest_after_charge_min * 60_000;
     restedAt = new Date(cameFromCharging ? restEnd : new Date(battery.state_changed_at).getTime()).toISOString();
-    if (cameFromCharging) restRemainingMin = Math.max(0, Math.ceil((restEnd - nowMs) / 60_000));
+    if (cameFromCharging) restRemainingMin = Math.max(0, Math.round((restEnd - nowMs) / 60_000));
   }
 
   return {
