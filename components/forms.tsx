@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import type { BeakResult } from "@/app/actions";
+import type { BeakReading } from "@/lib/beak-ocr";
 import type { ActionName } from "@/lib/offline-actions";
 import {
   IR_TIER_LABEL,
@@ -15,6 +16,7 @@ import {
   type IncidentKind,
   type UsageContext,
 } from "@/lib/types";
+import { BeakScan } from "./beak-scan";
 import { useCompMode } from "./comp-mode";
 import { useOffline } from "./offline";
 
@@ -193,10 +195,30 @@ export function UsageForm({ battery, onDone }: { battery: Battery; onDone: () =>
   );
 }
 
-/** The three Battery Beak readouts. Shared by plain checks and pre/post-match. */
+/**
+ * The three Battery Beak readouts, plus "Scan Beak screen" which OCRs a photo
+ * of the Beak's OLED and fills them in. Shared by plain checks and pre/post-match.
+ * The extra readings the screen shows (V1/V2 under load, Status) ride along as
+ * hidden fields when a scan supplied them.
+ */
 function BeakFields({ autoFocus = true }: { autoFocus?: boolean }) {
+  const [v, setV] = useState("");
+  const [ir, setIr] = useState("");
+  const [pct, setPct] = useState("");
+  const [extra, setExtra] = useState<Pick<BeakReading, "v1" | "v2" | "status">>({});
   return (
     <>
+      <BeakScan
+        onReading={(r) => {
+          if (r.v0 !== undefined) setV(r.v0.toFixed(2));
+          if (r.rint_mohm !== undefined) setIr(String(r.rint_mohm));
+          if (r.charge_pct !== undefined) setPct(String(r.charge_pct));
+          setExtra({ v1: r.v1, v2: r.v2, status: r.status });
+        }}
+      />
+      <input type="hidden" name="v1" value={extra.v1 ?? ""} />
+      <input type="hidden" name="v2" value={extra.v2 ?? ""} />
+      <input type="hidden" name="beak_status" value={extra.status ?? ""} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Voltage (V)">
           <input
@@ -208,6 +230,8 @@ function BeakFields({ autoFocus = true }: { autoFocus?: boolean }) {
             className="input mono text-lg"
             placeholder="12.8"
             autoFocus={autoFocus}
+            value={v}
+            onChange={(e) => setV(e.target.value)}
           />
         </Field>
         <Field label="IR (mΩ)">
@@ -219,11 +243,24 @@ function BeakFields({ autoFocus = true }: { autoFocus?: boolean }) {
             inputMode="decimal"
             className="input mono text-lg"
             placeholder="12.5"
+            value={ir}
+            onChange={(e) => setIr(e.target.value)}
           />
         </Field>
       </div>
       <Field label="Charge %">
-        <input name="charge_pct" type="number" step="1" min="0" max="200" inputMode="numeric" className="input mono" placeholder="115" />
+        <input
+          name="charge_pct"
+          type="number"
+          step="1"
+          min="0"
+          max="200"
+          inputMode="numeric"
+          className="input mono"
+          placeholder="115"
+          value={pct}
+          onChange={(e) => setPct(e.target.value)}
+        />
       </Field>
     </>
   );

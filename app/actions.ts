@@ -10,6 +10,8 @@ import {
   type Battery,
   type BatteryState,
   type BatteryStatus,
+  BEAK_STATUSES,
+  type BeakStatus,
   type BeakTestData,
   type CbaTestData,
   type IncidentData,
@@ -195,6 +197,13 @@ function beakFromForm(form: FormData): BeakTestData {
   const data: BeakTestData = { voltage: v, internal_resistance_mohm: ir };
   const pct = num(form.get("charge_pct"));
   if (pct !== undefined) data.charge_pct = pct;
+  // Extra readings only a screen scan provides.
+  const v1 = num(form.get("v1"));
+  const v2 = num(form.get("v2"));
+  if (v1 !== undefined) data.v1 = v1;
+  if (v2 !== undefined) data.v2 = v2;
+  const status = str(form.get("beak_status"));
+  if (status && BEAK_STATUSES.includes(status as BeakStatus)) data.beak_status = status as BeakStatus;
   return data;
 }
 

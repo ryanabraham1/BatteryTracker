@@ -72,7 +72,7 @@ Every change to a battery produces an event. This is the "what's going on" log.
 **`state_change`** — `{ from, to }`
 **`charge`** — `{ charger?: string, started_at, ended_at, resting_voltage_after? }`
 **`usage`** — `{ context: "match" | "practice" | "other", match_label?: string, voltage_before?, voltage_after?, charge_pct_before?, charge_pct_after?, ir_before_mohm?, ir_after_mohm?, duration_min?, driver_rating?: 1–5 }`
-**`beak_test`** — `{ voltage, internal_resistance_mohm, charge_pct?, phase?: "pre_match" | "post_match", match_label? }` (Battery Beak; `phase` set by the pre/post-match sheets)
+**`beak_test`** — `{ voltage, internal_resistance_mohm, charge_pct?, v1?, v2?, beak_status?: "Good" | "Fair" | "Bad" | "Charge Battery", phase?: "pre_match" | "post_match", match_label? }` (Battery Beak; `voltage` is the no-load V0, `v1`/`v2` the 1 A / 18 A readings and `beak_status` the Beak's verdict — the last three come from scanning the screen; `phase` set by the pre/post-match sheets)
 **`load_test`** — `{ loaded_voltage, held_10s: boolean, open_voltage?, notes? }` (100 A load tester: hold 10 s; fail = second drop or below `load_test_min_v`)
 **`cba_test`** — `{ measured_ah, test_current_a?, notes? }` (CBA discharge / capacity test)
 **`incident`** — `{ kind: "brownout" | "died" | "connector" | "swollen" | "other", match_label?, notes }`
@@ -175,7 +175,7 @@ Tap card in In Robot → “Log usage” sheet (voltage after, driver rating 1�
 Tap card in Cooling → “Move to Charging” → `charge` event opened. When moved to Ready, the charge event closes, `cycle_count++`, optional resting voltage prompt.
 
 **Beak check (pit routine)**
-Tap card → “Beak check” → enter V, IR, % → saved, health recomputed, warnings shown instantly.
+Tap card → “Beak check” → enter V, IR, % (or **Scan Beak screen**: photograph the Beak's OLED and on-device OCR fills them in) → saved, health recomputed, warnings shown instantly.
 
 **CBA test (shop day)**
 Battery detail → “CBA test” → enter measured Ah → capacity trend + retire recommendation if under threshold.
@@ -223,6 +223,7 @@ Battery detail → “CBA test” → enter measured Ah → capacity trend + ret
 | Database / realtime | Supabase (Postgres + Realtime) |
 | Auth | Shared team code checked in a Route Handler → signed HttpOnly cookie; Next.js middleware guards all routes except `/login` |
 | Charts | Recharts |
+| OCR | Tesseract.js (WASM, on-device) for reading the Battery Beak screen; assets self-hosted under `/ocr` |
 | Hosting | Vercel |
 | PWA | `manifest.json` + installable; offline is **not** in v1 |
 

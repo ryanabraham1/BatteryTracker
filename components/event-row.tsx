@@ -70,6 +70,8 @@ export function describeEvent(e: BatteryEvent): string {
       const x = d as unknown as BeakTestData;
       const parts = [`${fmtNum(x.voltage, 2)} V`, `${fmtNum(x.internal_resistance_mohm)} mΩ`];
       if (typeof x.charge_pct === "number") parts.push(`${x.charge_pct}%`);
+      if (typeof x.v2 === "number") parts.push(`${fmtNum(x.v2, 2)} V @ 18 A`);
+      if (x.beak_status) parts.push(`Beak: ${x.beak_status}`);
       if (x.phase) parts.push(PHASE_LABEL[x.phase] + (x.match_label ? ` ${x.match_label}` : ""));
       return parts.join(" · ");
     }

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OCR assets copied from node_modules by scripts/ocr-assets.mjs
+/public/ocr

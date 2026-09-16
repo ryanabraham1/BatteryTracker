@@ -96,10 +96,18 @@ export interface UsageData {
 }
 /** `phase` says when the Beak was read; plain pit checks leave it unset. */
 export type BeakPhase = "pre_match" | "post_match";
+export type BeakStatus = "Good" | "Fair" | "Bad" | "Charge Battery";
+export const BEAK_STATUSES: BeakStatus[] = ["Good", "Fair", "Bad", "Charge Battery"];
 export interface BeakTestData {
+  /** Open-circuit voltage (the Beak's V0). */
   voltage: number;
   internal_resistance_mohm: number;
   charge_pct?: number;
+  /** Voltage under the Beak's 1 A / 18 A loads (V1 / V2), when scanned from the screen. */
+  v1?: number;
+  v2?: number;
+  /** The Beak's own verdict, when scanned from the screen. */
+  beak_status?: BeakStatus;
   phase?: BeakPhase;
   match_label?: string;
 }

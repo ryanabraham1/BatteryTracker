@@ -3,13 +3,14 @@
  *
  *  - Page navigations: network first (6 s cap), fall back to the last cached
  *    copy of that page, then to the cached board ("/").
- *  - /_next/static and icons: cache first (hashed, immutable).
+ *  - /_next/static, icons and /ocr (Tesseract worker/WASM/traineddata for the
+ *    Beak-screen scanner): cache first.
  *  - Everything else (server actions, RSC fetches, /api, Supabase): network only.
  *
  * Server actions made while offline are queued by the app itself
  * (components/offline.tsx), not here.
  */
-const VERSION = "bt-v1";
+const VERSION = "bt-v2";
 const PAGES = `${VERSION}-pages`;
 const ASSETS = `${VERSION}-assets`;
 const NAV_TIMEOUT_MS = 6000;
@@ -46,7 +47,7 @@ self.addEventListener("fetch", (event) => {
   // RSC payloads / prefetches are not page shells; let the app handle failures.
   if (req.headers.get("RSC") === "1" || req.headers.get("Next-Router-Prefetch") === "1") return;
 
-  if (url.pathname.startsWith("/_next/static/") || /\.(png|ico|svg|json|woff2?)$/.test(url.pathname)) {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/ocr/") || /\.(png|ico|svg|json|woff2?)$/.test(url.pathname)) {
     event.respondWith(
       caches.open(ASSETS).then(async (c) => {
         const hit = await c.match(req);
