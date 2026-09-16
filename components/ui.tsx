@@ -70,3 +70,34 @@ export function Empty({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+/** Inline stroke icons (Lucide-style paths), sized to the text they sit beside. */
+const iconProps = {
+  width: "1em",
+  height: "1em",
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+  className: "inline-block align-[-0.125em] shrink-0",
+};
+
+export function CameraIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </svg>
+  );
+}
+
+export function BoltIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}

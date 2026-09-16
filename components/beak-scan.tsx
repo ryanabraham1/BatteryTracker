@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { BeakReading, ScanProgress } from "@/lib/beak-ocr";
+import { CameraIcon } from "./ui";
 
 const STEP_LABEL: Record<ScanProgress["step"], string> = {
   loading: "Loading reader…",
@@ -66,7 +67,7 @@ export function BeakScan({ onReading }: { onReading: (r: BeakReading) => void })
             </>
           ) : (
             <>
-              <span aria-hidden>📷</span> Scan Beak screen
+              <CameraIcon /> Scan Beak screen
             </>
           )}
         </button>

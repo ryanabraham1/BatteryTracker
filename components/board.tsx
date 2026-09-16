@@ -9,7 +9,7 @@ import { BatteryActionSheet, useBatteryActions } from "./battery-actions";
 import { BatteryCard, restRemaining } from "./battery-card";
 import { useCompMode } from "./comp-mode";
 import { useOffline } from "./offline";
-import { Empty } from "./ui";
+import { BoltIcon, Empty } from "./ui";
 
 export function useNow(intervalMs = 30_000) {
   const [now, setNow] = useState(() => Date.now());
@@ -183,7 +183,13 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
                               doBrownout(item.battery.id);
                             }}
                           >
-                            {busyId === item.battery.id ? "Logging…" : "⚡ Brownout"}
+                            {busyId === item.battery.id ? (
+                              "Logging…"
+                            ) : (
+                              <>
+                                <BoltIcon /> Brownout
+                              </>
+                            )}
                           </button>
                         </div>
                       ) : compMode && state === "ready" && item.battery.id === grabId ? (

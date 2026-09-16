@@ -73,7 +73,7 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
           />
         </label>
         <p className="text-xs basis-full" style={{ color: "var(--muted)" }}>
-          The match label pre-fills usage and incident logs. When comp mode is on, In-Robot cards on the board get a one-tap ⚡ Brownout button.
+          The match label pre-fills usage and incident logs. When comp mode is on, In-Robot cards on the board get a one-tap Brownout button.
         </p>
       </div>
 
