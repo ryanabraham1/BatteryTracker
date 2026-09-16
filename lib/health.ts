@@ -5,6 +5,7 @@ import {
   type BatteryStatus,
   type BeakTestData,
   type CbaTestData,
+  type CbaTier,
   type ChargeData,
   type IncidentData,
   type IrTier,
@@ -25,7 +26,7 @@ export interface HealthSummary {
   badge: HealthBadge | null;
   warnings: Warning[];
   latestBeak: (BeakTestData & { at: string }) | null;
-  latestCba: (CbaTestData & { at: string; pct: number }) | null;
+  latestCba: (CbaTestData & { at: string; pct: number; tier: CbaTier }) | null;
   latestLoad: (LoadTestData & { at: string; pass: boolean }) | null;
   /** IR band of the latest Beak reading (null when never tested). */
   irTier: IrTier | null;
@@ -49,6 +50,14 @@ export function irTierFor(ir: number, s: Settings): IrTier {
   if (ir >= s.ir_practice_mohm) return "practice";
   if (ir >= s.ir_warn_mohm) return "reserve";
   return "comp";
+}
+
+/** CBA tier: Wh cutoffs when the test recorded Wh, otherwise % of rated Ah. */
+export function cbaTierFor(d: CbaTestData, pct: number, s: Settings): CbaTier {
+  if (typeof d.measured_wh === "number") {
+    return d.measured_wh >= s.cba_a_wh ? "a" : d.measured_wh >= s.cba_b_wh ? "b" : "c";
+  }
+  return pct >= s.capacity_warn_pct ? "a" : pct >= s.capacity_fail_pct ? "b" : "c";
 }
 
 /** What status a tier implies; comp/reserve → active, practice/suspect → practice-only, retire → retired. */
@@ -106,7 +115,7 @@ export function computeHealth(
     ? (() => {
         const d = cba.data as unknown as CbaTestData;
         const pct = battery.capacity_ah > 0 ? (d.measured_ah / battery.capacity_ah) * 100 : 0;
-        return { ...d, at: cba.occurred_at, pct };
+        return { ...d, at: cba.occurred_at, pct, tier: cbaTierFor(d, pct, settings) };
       })()
     : null;
 
@@ -168,7 +177,12 @@ export function computeHealth(
       key: "capacity",
       label: "CBA capacity",
       weight: 40,
-      score: latestCba ? lerp(latestCba.pct, settings.capacity_fail_pct, 0, 100, 100) : null,
+      score: latestCba
+        ? typeof latestCba.measured_wh === "number"
+          // A-tier cutoff scores 100; one tier-width below the B cutoff scores 0
+          ? lerp(latestCba.measured_wh, 2 * settings.cba_b_wh - settings.cba_a_wh, 0, settings.cba_a_wh, 100)
+          : lerp(latestCba.pct, settings.capacity_fail_pct, 0, 100, 100)
+        : null,
     },
     {
       key: "ir",
@@ -235,7 +249,13 @@ export function computeHealth(
     const why = !latestLoad.held_10s ? "voltage dropped again within 10 s (bad cell?)" : `held at ${fmt(latestLoad.loaded_voltage)} V < ${settings.load_test_min_v} V floor`;
     warnings.push({ level: "fail", text: `Failed 100 A load test — ${why}` });
   }
-  if (latestCba) {
+  if (latestCba && typeof latestCba.measured_wh === "number") {
+    const wh = fmt(latestCba.measured_wh);
+    if (latestCba.tier === "c")
+      warnings.push({ level: "fail", text: `CBA ${wh} Wh — C-tier (< ${settings.cba_b_wh} Wh) — refresh cycle or retire` });
+    else if (latestCba.tier === "b")
+      warnings.push({ level: "warn", text: `CBA ${wh} Wh — B-tier (< ${settings.cba_a_wh} Wh)` });
+  } else if (latestCba) {
     if (latestCba.pct < settings.capacity_fail_pct)
       warnings.push({
         level: "fail",

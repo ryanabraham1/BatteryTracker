@@ -1,5 +1,5 @@
 export type BatteryStatus = "active" | "practice_only" | "retired";
-export type BatteryState = "ready" | "in_robot" | "cooling" | "charging" | "needs_attention";
+export type BatteryState = "ready" | "in_robot" | "charging" | "needs_attention";
 export type EventType =
   | "state_change"
   | "charge"
@@ -11,18 +11,16 @@ export type EventType =
   | "status_change"
   | "load_test";
 
-export const STATES: BatteryState[] = ["ready", "in_robot", "cooling", "charging", "needs_attention"];
+export const STATES: BatteryState[] = ["ready", "in_robot", "charging", "needs_attention"];
 export const STATE_LABEL: Record<BatteryState, string> = {
   ready: "Ready",
   in_robot: "In Robot",
-  cooling: "Cooling",
   charging: "Charging",
   needs_attention: "Needs Attention",
 };
 export const STATE_TONE: Record<BatteryState, "good" | "info" | "warn" | "bad"> = {
   ready: "good",
   in_robot: "info",
-  cooling: "warn",
   charging: "warn",
   needs_attention: "bad",
 };
@@ -149,6 +147,9 @@ export interface Settings {
   load_test_min_v: number;
   capacity_warn_pct: number;
   capacity_fail_pct: number;
+  /** CBA Wh tiers: A ≥ cba_a_wh, B ≥ cba_b_wh, C below. Used when a test recorded Wh. */
+  cba_a_wh: number;
+  cba_b_wh: number;
   max_cycles_warn: number;
   team_code_hash: string | null;
   updated_at: string;
@@ -165,6 +166,8 @@ export const DEFAULT_SETTINGS: Settings = {
   load_test_min_v: 10,
   capacity_warn_pct: 80,
   capacity_fail_pct: 70,
+  cba_a_wh: 130,
+  cba_b_wh: 120,
   max_cycles_warn: 200,
   team_code_hash: null,
   updated_at: new Date(0).toISOString(),
@@ -187,3 +190,8 @@ export const IR_TIER_TONE: Record<IrTier, "good" | "info" | "warn" | "bad"> = {
   suspect: "warn",
   retire: "bad",
 };
+
+/** CBA capacity tier. Wh-based when the test recorded Wh, else % of rated Ah. */
+export type CbaTier = "a" | "b" | "c";
+export const CBA_TIER_LABEL: Record<CbaTier, string> = { a: "A-tier", b: "B-tier", c: "C-tier" };
+export const CBA_TIER_TONE: Record<CbaTier, "good" | "warn" | "bad"> = { a: "good", b: "warn", c: "bad" };

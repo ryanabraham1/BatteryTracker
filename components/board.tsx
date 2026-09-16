@@ -45,7 +45,6 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
     const by: Record<BatteryState, BatteryWithHealth[]> = {
       ready: [],
       in_robot: [],
-      cooling: [],
       charging: [],
       needs_attention: [],
     };

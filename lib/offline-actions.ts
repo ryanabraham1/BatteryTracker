@@ -69,9 +69,9 @@ export function impliedState(e: OutboxEntry, current: BatteryState): BatteryStat
     case "logPreMatch":
       return get("move") === "0" ? null : "in_robot";
     case "logPostMatch":
-      return current === "in_robot" || current === "ready" ? "cooling" : null;
+      return current === "in_robot" || current === "ready" ? "charging" : null;
     case "logUsage":
-      return current === "in_robot" && get("stay") !== "1" ? "cooling" : null;
+      return current === "in_robot" && get("stay") !== "1" ? "charging" : null;
     case "logIncident":
       return get("flag") === "0" ? null : "needs_attention";
     default:

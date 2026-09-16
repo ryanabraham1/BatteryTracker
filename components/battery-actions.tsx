@@ -82,7 +82,7 @@ export function BatteryActionSheet({
         ? {
             view: "post",
             label: "Post-match check",
-            sub: "Beak + rating → Cooling",
+            sub: "Beak + rating → Charging",
           }
         : null;
 

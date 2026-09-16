@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import type { HealthSummary } from "@/lib/health";
 import { ageLabel, durationShort, fmtDate, fmtNum, minutesSince, timeAgo } from "@/lib/format";
 import {
+  CBA_TIER_LABEL,
+  CBA_TIER_TONE,
   EVENT_LABEL,
   EVENT_TYPES,
   IR_TIER_LABEL,
@@ -245,15 +247,19 @@ export function BatteryDetail({
         <Stat
           label="Last CBA"
           value={
-            health.latestCba
-              ? typeof health.latestCba.measured_wh === "number"
-                ? `${fmtNum(health.latestCba.measured_wh)} Wh`
-                : `${fmtNum(health.latestCba.measured_ah, 2)} Ah`
-              : "—"
+            health.latestCba ? (
+              <span style={{ color: `var(--${CBA_TIER_TONE[health.latestCba.tier]})` }}>
+                {typeof health.latestCba.measured_wh === "number"
+                  ? `${fmtNum(health.latestCba.measured_wh)} Wh`
+                  : `${fmtNum(health.latestCba.measured_ah, 2)} Ah`}
+              </span>
+            ) : (
+              "—"
+            )
           }
           sub={
             health.latestCba
-              ? `${fmtNum(health.latestCba.measured_ah, 2)} Ah · ${Math.round(health.latestCba.pct)}% of rated · ${timeAgo(health.latestCba.at, now)}`
+              ? `${CBA_TIER_LABEL[health.latestCba.tier]} · ${fmtNum(health.latestCba.measured_ah, 2)} Ah · ${Math.round(health.latestCba.pct)}% of rated · ${timeAgo(health.latestCba.at, now)}`
               : "never"
           }
         />

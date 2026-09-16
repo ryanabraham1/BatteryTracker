@@ -27,10 +27,10 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
         .filter((i) => i.battery.state === "ready")
         .map((i) => ({ ...i, health: { ...i.health, restRemainingMin: restRemaining(i, now) } })),
     );
-    // Batteries that will become usable soon (charging / cooling), by health.
+    // Batteries that will become usable soon (charging), by health.
     // They're appended after the ready pool so the plan degrades gracefully.
     const soon = active
-      .filter((i) => i.battery.state === "charging" || i.battery.state === "cooling")
+      .filter((i) => i.battery.state === "charging")
       .sort((a, b) => (b.health.score ?? -1) - (a.health.score ?? -1));
     const pool = [...ready, ...soon];
     const rows: { match: string; item: BatteryWithHealth | null; note: string }[] = [];
@@ -41,7 +41,7 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
         if (item.battery.state === "ready") {
           const r = restRemaining(item, now);
           note = r > 0 ? `rests ${r}m` : "ready";
-        } else note = item.battery.state === "charging" ? "still charging" : "cooling — charge first";
+        } else note = "still charging";
       }
       rows.push({ match: bump(matchLabel, n), item, note });
     }
@@ -110,7 +110,7 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
           ))}
         </ol>
         <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-          Derived from Ready order (health, then longest rested), then charging/cooling batteries by health. Recalculates live as states change.
+          Derived from Ready order (health, then longest rested), then charging batteries by health. Recalculates live as states change.
         </p>
       </div>
     </div>

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { BatteryWithHealth } from "@/lib/health";
 import { fmtNum, timeAgo } from "@/lib/format";
-import type { BatteryStatus } from "@/lib/types";
+import { CBA_TIER_TONE, type BatteryStatus } from "@/lib/types";
 import { HealthPill, StatePill, StatusPill } from "./ui";
 import { useNow } from "./board";
 
@@ -22,9 +22,11 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 const DESC_DEFAULT: SortKey[] = ["health", "cycles", "beak", "cba"];
 
-/** Wh when the CBA reported it, else the Ah figure. */
-function cbaLabel(c: NonNullable<BatteryWithHealth["health"]["latestCba"]>): string {
-  return typeof c.measured_wh === "number" ? `${fmtNum(c.measured_wh)} Wh` : `${fmtNum(c.measured_ah, 2)} Ah`;
+/** Wh when the CBA reported it, else Ah + % of rated; coloured by tier. */
+function CbaValue({ c }: { c: NonNullable<BatteryWithHealth["health"]["latestCba"]> }) {
+  const text =
+    typeof c.measured_wh === "number" ? `${fmtNum(c.measured_wh)} Wh · ${c.tier.toUpperCase()}` : `${fmtNum(c.measured_ah, 2)} Ah (${Math.round(c.pct)}%)`;
+  return <span style={{ color: `var(--${CBA_TIER_TONE[c.tier]})`, fontWeight: 600 }}>{text}</span>;
 }
 
 export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
@@ -158,7 +160,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
                     <span className="chip">no Beak</span>
                   )}
                   {h.latestCba ? (
-                    <span className="chip">CBA {cbaLabel(h.latestCba)} ({Math.round(h.latestCba.pct)}%) · {timeAgo(h.latestCba.at, now)}</span>
+                    <span className="chip">CBA <CbaValue c={h.latestCba} /> · {timeAgo(h.latestCba.at, now)}</span>
                   ) : (
                     <span className="chip">no CBA</span>
                   )}
@@ -212,7 +214,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
                 <td className="px-3 py-2.5 mono text-xs">
                   {h.latestCba ? (
                     <>
-                      {cbaLabel(h.latestCba)} ({Math.round(h.latestCba.pct)}%)
+                      <CbaValue c={h.latestCba} />
                       <div style={{ color: "var(--muted)" }}>{timeAgo(h.latestCba.at, now)}</div>
                     </>
                   ) : (

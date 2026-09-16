@@ -13,7 +13,9 @@ const FIELDS: { key: keyof Settings; label: string; unit: string; hint: string }
   { key: "ir_fail_mohm", label: "IR: retire from", unit: "mΩ", hint: "At or above → suggest retiring; IR score hits 0 here" },
   { key: "load_test_min_v", label: "Load test floor", unit: "V", hint: "100 A load test fails if the loaded voltage is below this" },
   { key: "capacity_warn_pct", label: "Capacity warn", unit: "%", hint: "CBA measured / rated below this → warn" },
-  { key: "capacity_fail_pct", label: "Capacity fail", unit: "%", hint: "Below this → recommend retire" },
+  { key: "capacity_fail_pct", label: "Capacity fail", unit: "%", hint: "Below this → recommend retire (used when a CBA has no Wh)" },
+  { key: "cba_a_wh", label: "CBA A-tier from", unit: "Wh", hint: "At or above → A-tier (green)" },
+  { key: "cba_b_wh", label: "CBA B-tier from", unit: "Wh", hint: "At or above → B-tier; below → C-tier (recommend refresh/retire)" },
   { key: "max_cycles_warn", label: "Max cycles", unit: "cycles", hint: "Age warning; cycle score hits 0 here" },
 ];
 

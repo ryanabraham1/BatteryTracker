@@ -186,7 +186,7 @@ export function UsageForm({ battery, onDone }: { battery: Battery; onDone: () =>
       </Field>
       {battery.state === "in_robot" && (
         <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Saving moves <b>{battery.name}</b> to Cooling.
+          Saving moves <b>{battery.name}</b> to Charging.
         </p>
       )}
     </ActionForm>
@@ -326,7 +326,7 @@ export function PreMatchForm({ battery, onDone }: { battery: Battery; onDone: ()
   );
 }
 
-/** Post-match: Beak reading + driver rating; logs usage with the pre-match numbers and moves to Cooling. */
+/** Post-match: Beak reading + driver rating; logs usage with the pre-match numbers and moves to Charging. */
 export function PostMatchForm({ battery, onDone }: { battery: Battery; onDone: () => void }) {
   const { compMode, matchLabel } = useCompMode();
   const { result, onSuccess } = useTierFollowUp(onDone);
@@ -374,7 +374,7 @@ export function PostMatchForm({ battery, onDone }: { battery: Battery; onDone: (
       </Field>
       {ctx === "match" && <MatchLabelField defaultValue={compMode ? matchLabel : ""} />}
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Saves the Beak reading and a usage entry (before/after from the pre-match check), then moves <b>{battery.name}</b> to Cooling.
+        Saves the Beak reading and a usage entry (before/after from the pre-match check), then moves <b>{battery.name}</b> to Charging.
       </p>
     </ActionForm>
   );

@@ -42,6 +42,13 @@ async function setState(b: Battery, to: BatteryState, now = new Date().toISOStri
   if (error) throw error;
 }
 
+/** Off the robot → straight onto the charger: state change + open charge event. */
+async function startCharging(b: Battery, now = new Date().toISOString()) {
+  if (b.state === "charging") return;
+  await setState(b, "charging", now);
+  await insertEvent(b.id, "charge", { started_at: now }, now);
+}
+
 async function loadBattery(id: string): Promise<Battery> {
   const { data, error } = await supabaseAdmin().from("batteries").select("*").eq("id", id).single();
   if (error || !data) throw new Error("Battery not found");
@@ -169,8 +176,8 @@ export async function logUsage(batteryId: string, form: FormData): Promise<Resul
       if (v !== undefined) data[k] = v;
     }
     await insertEvent(b.id, "usage", data as unknown as Record<string, unknown>);
-    // Coming off the robot → cooling
-    if (b.state === "in_robot" && form.get("stay") !== "1") await setState(b, "cooling");
+    // Coming off the robot → charging
+    if (b.state === "in_robot" && form.get("stay") !== "1") await startCharging(b);
     refresh();
   });
 }
@@ -225,7 +232,7 @@ export async function logPreMatch(batteryId: string, form: FormData): Promise<Re
  * Post-match check: Beak reading + driver rating in one sheet. Writes the
  * post-match `beak_test`, then a `usage` event whose "before" numbers come from
  * the most recent pre-match Beak (since the battery went into the robot), and
- * moves the battery to Cooling.
+ * moves the battery to Charging.
  */
 export async function logPostMatch(batteryId: string, form: FormData): Promise<Result<BeakResult>> {
   return wrap(async () => {
@@ -269,7 +276,7 @@ export async function logPostMatch(batteryId: string, form: FormData): Promise<R
       if (pre?.occurred_at) usage.duration_min = Math.max(1, Math.round((Date.parse(now) - Date.parse(pre.occurred_at)) / 60_000));
     }
     await insertEvent(b.id, "usage", usage as unknown as Record<string, unknown>, now);
-    if (b.state === "in_robot" || b.state === "ready") await setState(b, "cooling", now);
+    if (b.state === "in_robot" || b.state === "ready") await startCharging(b, now);
     refresh();
     return beakResult(b, beak);
   });
@@ -466,6 +473,8 @@ export async function updateSettings(form: FormData): Promise<Result> {
       "load_test_min_v",
       "capacity_warn_pct",
       "capacity_fail_pct",
+      "cba_a_wh",
+      "cba_b_wh",
       "max_cycles_warn",
     ];
     const patch: Record<string, number> = {};
@@ -476,6 +485,7 @@ export async function updateSettings(form: FormData): Promise<Result> {
     }
     if (!(patch.ir_warn_mohm <= patch.ir_practice_mohm && patch.ir_practice_mohm <= patch.ir_suspect_mohm && patch.ir_suspect_mohm <= patch.ir_fail_mohm))
       throw new Error("IR tiers must be in order: comp-ready ≤ practice ≤ suspect ≤ retire");
+    if (patch.cba_b_wh > patch.cba_a_wh) throw new Error("CBA B-tier cutoff must be ≤ A-tier cutoff");
     const { error } = await supabaseAdmin().from("settings").update(patch).eq("id", 1);
     if (error) throw error;
     refresh();
