@@ -6,7 +6,7 @@ Mobile-first PWA: which batteries exist, what state each is in, how healthy it i
 
 ## Setup
 
-1. **Supabase project** — create one, then run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) in the SQL editor (or `supabase db push`). It creates `batteries`, `battery_events`, `settings` (single row), enables RLS (locked down — the app uses the service role), and adds triggers that broadcast a `changed` ping on the public `board` realtime topic.
+1. **Supabase project** — create one, then run the files in [`supabase/migrations/`](supabase/migrations/) in order in the SQL editor (or `supabase db push`). It creates `batteries`, `battery_events`, `settings` (single row), enables RLS (locked down — the app uses the service role), and adds triggers that broadcast a `changed` ping on the public `board` realtime topic.
 2. **Env vars** — copy `.env.example` → `.env.local`:
    | Var | Where |
    |---|---|
@@ -27,7 +27,7 @@ Mobile-first PWA: which batteries exist, what state each is in, how healthy it i
 - `app/actions.ts` — all server actions (state moves, logging, CRUD, settings)
 - `lib/health.ts` — health score, warnings, Ready ordering
 - `lib/data.ts` — Supabase reads; `supabase/migrations/` — schema
-- `components/` — board, cards, bottom sheet, forms, charts
+- `components/` — board, cards, bottom sheet, forms, charts; `offline.tsx` + `lib/offline-actions.ts` — offline outbox; `public/sw.js` — app-shell cache
 
 ## Deploy
 

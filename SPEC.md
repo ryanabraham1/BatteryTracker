@@ -19,6 +19,8 @@ One place for the team to know **which batteries exist, what state each one is i
 - Push notifications
 - Bluetooth integration with testers
 
+(Offline support was originally out of scope; it shipped in v1.1 — see §6.8.)
+
 ## 3. Users & Access
 
 - **Single shared team code.** Enter it once on the login screen; a cookie/localStorage session keeps you signed in on that device.
@@ -63,14 +65,15 @@ Every change to a battery produces an event. This is the "what's going on" log.
 |---|---|
 | `id` | uuid |
 | `battery_id` | fk |
-| `type` | enum — `state_change` · `charge` · `usage` · `beak_test` · `cba_test` · `incident` · `note` · `status_change` |
+| `type` | enum — `state_change` · `charge` · `usage` · `beak_test` · `cba_test` · `load_test` · `incident` · `note` · `status_change` |
 | `occurred_at` | timestamp |
 | `data` | jsonb (shape depends on `type`, below) |
 
 **`state_change`** — `{ from, to }`
 **`charge`** — `{ charger?: string, started_at, ended_at, resting_voltage_after? }`
-**`usage`** — `{ context: "match" | "practice" | "other", match_label?: string, voltage_before?, voltage_after?, duration_min?, driver_rating?: 1–5 }`
-**`beak_test`** — `{ voltage, internal_resistance_mohm, charge_pct? }` (Battery Beak quick check)
+**`usage`** — `{ context: "match" | "practice" | "other", match_label?: string, voltage_before?, voltage_after?, charge_pct_before?, charge_pct_after?, ir_before_mohm?, ir_after_mohm?, duration_min?, driver_rating?: 1–5 }`
+**`beak_test`** — `{ voltage, internal_resistance_mohm, charge_pct?, phase?: "pre_match" | "post_match", match_label? }` (Battery Beak; `phase` set by the pre/post-match sheets)
+**`load_test`** — `{ loaded_voltage, held_10s: boolean, open_voltage?, notes? }` (100 A load tester: hold 10 s; fail = second drop or below `load_test_min_v`)
 **`cba_test`** — `{ measured_ah, test_current_a?, notes? }` (CBA discharge / capacity test)
 **`incident`** — `{ kind: "brownout" | "died" | "connector" | "swollen" | "other", match_label?, notes }`
 **`note`** — `{ text }`
@@ -81,8 +84,11 @@ Every change to a battery produces an event. This is the "what's going on" log.
 |---|---|---|
 | `min_rest_after_charge_min` | 30 | Don't recommend a battery until it has rested this long |
 | `max_charge_duration_min` | 240 | Flag "charging too long" |
-| `ir_warn_mohm` | 15 | Beak IR warning threshold |
-| `ir_fail_mohm` | 20 | Beak IR fail threshold |
+| `ir_warn_mohm` | 15 | IR ≥ this → **reserve** (below = comp-ready) |
+| `ir_practice_mohm` | 18 | IR ≥ this → **practice only** (suggests marking practice-only) |
+| `ir_suspect_mohm` | 23 | IR ≥ this → **suspect** |
+| `ir_fail_mohm` | 25 | IR ≥ this → **retire** (suggests retiring; IR score hits 0) |
+| `load_test_min_v` | 10 | Loaded voltage below this fails the 100 A load test |
 | `capacity_warn_pct` | 80 | CBA measured Ah / rated Ah below this → warn |
 | `capacity_fail_pct` | 70 | below this → recommend retire |
 | `max_cycles_warn` | 200 | age warning |
@@ -101,8 +107,11 @@ Computed from the most recent data available; missing inputs are skipped and wei
 | Incidents in last 30 days | 10% | 0 → 100, each incident −35 |
 | Cycle count / age | 5% | 0 cycles → 100, `max_cycles_warn` → 0 |
 
+A **failed 100 A load test** caps the score at 40 (Bad) regardless of other inputs.
+
 Also surfaces **explicit warnings** (independent of score):
-- IR above warn/fail threshold
+- IR tier (reserve / practice-only / suspect / retire) from the latest Beak reading
+- Failed load test
 - Capacity below warn/fail threshold
 - 3+ consecutive driver ratings ≤ 2
 - Any incident in the last 7 days
@@ -120,14 +129,16 @@ Also surfaces **explicit warnings** (independent of score):
 - **Ready** is sorted best-first: health score desc, then longest-rested. Top card gets a **“GRAB THIS”** tag.
 - Ready batteries still inside the rest window show a countdown chip (“rests 12m”) and sort below rested ones.
 - Each card: name (display font), health badge, last voltage, chips for cycles / last tested / time in current state.
-- Tap a card → bottom sheet with **Move to → [states]** + shortcuts **Log usage**, **Beak check**, **Flag issue**.
+- Tap a card → bottom sheet. Ready cards lead with **Pre-match check** (Beak reading + match → In Robot); In Robot cards lead with **Post-match check** (Beak + driver rating → usage event with pre/post ΔV, ΔIR → Cooling). Then **Move to → [states]** + **Log usage**, **Beak check**, **Load test**, **Flag issue**.
+- In comp mode the GRAB THIS card gets a **Pre-match check** button and In Robot cards get **Post-match** + **Brownout**.
+- Any Beak reading whose IR lands in a worse band than the battery's status prompts a one-tap **Mark practice-only / Retire**.
 - Header: team code indicator, **Log** and **Batteries** nav, search.
 - Live updates via Supabase realtime so every phone in the pit sees the same board.
 
 ### 6.3 Battery detail `/batteries/[name]`
 - Header: name, status pill, health score ring, current state + duration.
 - **Stats row:** cycles, age, last Beak V / IR, last CBA Ah, avg driver rating.
-- **Charts:** Beak IR over time, resting voltage over time, CBA capacity over time.
+- **Charts:** Beak IR over time (tier lines), voltage over time, **voltage drop per match**, **load-test V @ 100 A**, CBA capacity over time.
 - **Timeline:** full event log for this battery, newest first, filterable by type.
 - Actions: Move state, Log charge, Log usage, Beak test, CBA test, Flag incident, Add note, Edit, Retire / Un-retire.
 
@@ -147,6 +158,10 @@ Also surfaces **explicit warnings** (independent of score):
 
 ### 6.7 Settings `/settings`
 - Edit thresholds from §4.4. Change team code (requires current code).
+
+### 6.8 Offline (v1.1)
+- A service worker (`public/sw.js`) caches the app shell and the last copy of each page, so the board still opens on dead pit Wi‑Fi.
+- When offline (browser event, failed action, or failed `/api/ping`), every log/move form drops into a **localStorage outbox** instead of calling the server; the board shows the queued result immediately with a `queued` chip. The outbox replays in order on reconnect (or on next app open) — a banner shows the count.
 
 ## 7. Key Flows
 
