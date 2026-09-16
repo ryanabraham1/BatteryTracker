@@ -5,15 +5,15 @@ import type { BeakReading, ScanProgress } from "@/lib/beak-ocr";
 import { CameraIcon } from "./ui";
 
 const STEP_LABEL: Record<ScanProgress["step"], string> = {
-  loading: "Loading reader…",
-  preprocessing: "Cleaning up photo…",
+  loading: "Opening photo…",
+  preprocessing: "Finding the screen…",
   recognizing: "Reading screen…",
 };
 
 /**
  * "Scan Beak screen": opens the phone camera (or a file picker on desktop),
- * OCRs the photo on-device and hands the parsed reading to the form.
- * The OCR module is imported on demand so the ~4 MB WASM only loads when used.
+ * reads the photo on-device (lib/beak-ocr.ts) and hands the parsed reading
+ * to the form. The reader is imported on demand so it only loads when used.
  */
 export function BeakScan({ onReading }: { onReading: (r: BeakReading) => void }) {
   const [busy, setBusy] = useState<ScanProgress | null>(null);
@@ -63,7 +63,7 @@ export function BeakScan({ onReading }: { onReading: (r: BeakReading) => void })
           {busy ? (
             <>
               {STEP_LABEL[busy.step]}
-              {busy.step === "recognizing" && <span className="mono text-xs ml-1">{Math.round(busy.progress * 100)}%</span>}
+
             </>
           ) : (
             <>

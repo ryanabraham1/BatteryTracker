@@ -10,25 +10,18 @@
  *   V2: 12.586 @ 18 Amps
  *   Rint: 0.014 Ohms
  *
- * OCR runs on-device with Tesseract.js (WASM in a web worker). Assets are
- * served from /ocr (see scripts/ocr-assets.mjs) so it works offline once
- * cached.
- *
- * Tesseract was never trained on this 5×7 pixel font, and a pit photo is a
- * long way from a scan, so most of this file is getting a clean, level,
- * black-on-white image of the six rows in front of it:
+ * Everything runs on-device, in plain JavaScript, with no model to download:
  *  1. find the screen by colour — it is the only thing in frame that is both
  *     saturated yellow (Status/Charge rows) and saturated blue (readings);
- *  2. crop to it, rotate it level, and binarise per colour class with a
- *     top-hat (so the glass's grey reflection and the glow around each row
- *     drop out) and a closing that heals the OLED's dot grid;
- *  3. repair the font's slashed zeros (Ø, which read as 8) into plain 0s;
- *  4. OCR the same mask at several glyph heights and decide each field by
- *     majority vote — Tesseract's misreads vary with scale, the right answer
- *     doesn't — and leave a field blank unless two passes agree;
- *  5. parse forgivingly (O↔0, l/I↔1, S↔5, %↔digit, ":"↔"s"), identify
- *     V0/V1/V2 by the "@ N Amps" current or screen order rather than the
- *     label digit, and reject values a Beak can't display.
+ *  2. crop to it, rotate it level, and separate lit OLED pixels from the
+ *     glass's reflection and the glow around each row (`binarize`), keeping
+ *     both a mask (to find the rows and the tilt) and the graded "lit" image;
+ *  3. read the screen as the 21×6 character grid it is, matching each cell
+ *     against the Beak's own 5×7 font (lib/beak-grid.ts) — a cell that
+ *     isn't a clear match comes back as "?";
+ *  4. parse forgivingly (O↔0, l/I↔1, S↔5), identify V0/V1/V2 by the
+ *     "@ N Amps" current or screen order, drop any token with a "?" in it,
+ *     and reject values a Beak can't display.
  */
 
 import type { BeakStatus } from "./types";
@@ -50,12 +43,9 @@ export interface BeakReading {
 }
 
 export interface BeakScan {
-  /** Majority-vote result across all OCR passes. */
   reading: BeakReading;
-  /** Raw text of every pass, for the "what the reader saw" disclosure. */
+  /** The six screen lines as read ("?" = unreadable cell), for the "what the reader saw" disclosure. */
   rawText: string;
-  /** How many passes agreed on the voltage / IR (0 when unread). */
-  votes: { v0: number; rint: number };
 }
 
 export type ScanProgress = { step: "loading" | "preprocessing" | "recognizing"; progress: number };
@@ -92,9 +82,11 @@ export function parseBeakText(text: string): BeakReading {
   const volts: { v: number; slot: number | undefined }[] = [];
   // Rotated renders leave stray dots/bars at line starts; drop them so a "."
   // isn't mistaken for the label's colon.
+  // A "?" is a cell the reader couldn't decide; the whole token it sits in
+  // is unusable ("12.78?" must not become 12.78).
   const lines = text
     .split(/\r?\n/)
-    .map((l) => l.trim().replace(/^[^a-z0-9]+/i, ""))
+    .map((l) => l.replace(/\S*\?\S*/g, "?").trim().replace(/^[^a-z0-9]+/i, ""))
     .filter(Boolean);
 
   for (const line of lines) {
@@ -132,7 +124,7 @@ export function parseBeakText(text: string): BeakReading {
     }
     // Rint: 0.014 Ohms
     // Lazy number so the "O" of "Ohms" isn't swallowed as a zero.
-    // ("@" is what a leading Ø turns into when the LSTM gives up on it.)
+    // (a leading "@" is a slashed zero the reader took for the at-sign.)
     const rint = line.match(new RegExp(`^r\\s*[il1I]?\\s*[nh]\\s*[t7]?\\s*[:;.s]?\\s*(@?${NUM}?)\\s*(m)?\\s*[o0@]?h?[mn]`, "i"));
     if (rint) {
       const raw = rint[1].replace(/,/g, ".");
@@ -152,7 +144,7 @@ export function parseBeakText(text: string): BeakReading {
 
   // Place voltage rows by their identified slot; rows whose label was
   // unreadable fill the remaining slots in screen order (V0 is printed first,
-  // and its Ø is the label most often mangled).
+  // and its label is the one most often mangled).
   const slots: (number | undefined)[] = [undefined, undefined, undefined];
   for (const { v, slot } of volts) if (slot !== undefined && slots[slot] === undefined) slots[slot] = v;
   for (const { v, slot } of volts) {
@@ -167,43 +159,6 @@ export function parseBeakText(text: string): BeakReading {
   return r;
 }
 
-/**
- * Majority vote per field across several OCR passes. Ties go to the earlier
- * pass. Once three or more passes have run, a value needs two of them to
- * agree — a lone reading is more likely a misread than a fact, and a blank
- * field the user fills in beats a wrong one they might not notice.
- */
-export function voteReadings(passes: BeakReading[]): { reading: BeakReading; votes: { v0: number; rint: number } } {
-  const need = passes.length >= 3 ? 2 : 1;
-  function pick<K extends keyof BeakReading>(key: K): { value: BeakReading[K]; votes: number } {
-    const counts = new Map<string, { value: BeakReading[K]; n: number }>();
-    for (const p of passes) {
-      const v = p[key];
-      if (v === undefined) continue;
-      const k = String(v);
-      const e = counts.get(k);
-      if (e) e.n++;
-      else counts.set(k, { value: v, n: 1 });
-    }
-    let best: { value: BeakReading[K]; n: number } | undefined;
-    for (const e of counts.values()) if (!best || e.n > best.n) best = e;
-    if (!best || best.n < need) return { value: undefined, votes: best?.n ?? 0 };
-    return { value: best.value, votes: best.n };
-  }
-  const reading: BeakReading = {};
-  const v0 = pick("v0");
-  const rint = pick("rint_mohm");
-  reading.v0 = v0.value;
-  reading.rint_mohm = rint.value;
-  reading.v1 = pick("v1").value;
-  reading.v2 = pick("v2").value;
-  reading.charge_pct = pick("charge_pct").value;
-  reading.status = pick("status").value;
-  reading.chemistry = pick("chemistry").value;
-  for (const k of Object.keys(reading) as (keyof BeakReading)[]) if (reading[k] === undefined) delete reading[k];
-  return { reading, votes: { v0: v0.votes, rint: rint.votes } };
-}
-
 /** How many of the fields the app cares about were read. */
 export function scoreReading(r: BeakReading): number {
   return (r.v0 !== undefined ? 3 : 0) + (r.rint_mohm !== undefined ? 3 : 0) + (r.charge_pct !== undefined ? 1 : 0) + (r.status ? 1 : 0) + (r.v2 !== undefined ? 1 : 0);
@@ -211,9 +166,6 @@ export function scoreReading(r: BeakReading): number {
 
 // ---------------------------------------------------------------------------
 // Image preprocessing (browser only)
-
-/** Glyph (cap) heights, in px, to OCR at. Spread deliberately: misreads differ by scale, so they get outvoted. */
-const GLYPH_TARGETS_PX = [22, 26, 31, 37, 44];
 
 async function loadBitmap(file: Blob): Promise<ImageBitmap> {
   try {
@@ -230,8 +182,10 @@ interface Glyph {
   h: number;
 }
 
-interface Binarized {
+export interface Binarized {
   fg: Uint8Array; // 1 = text
+  /** Background-subtracted brightness of lit OLED pixels, 0–255: what the grid reader samples. */
+  lit: Uint8Array;
   w: number;
   h: number;
   /** Typical digit/capital height in px, from connected components. */
@@ -242,7 +196,7 @@ interface Binarized {
   skew: number;
 }
 
-/** Glyph height to aim for when re-binarising the located screen. Big enough for the Ø repair to see the holes. */
+/** Glyph height to aim for when re-binarising the located screen: about 8 px per OLED dot. */
 const TARGET_CAP_PX = 56;
 /** Where the binarisation cut sits between Otsu's threshold (0) and the lit class's mean (1). */
 const CUT_LEVEL = 0.35;
@@ -271,7 +225,7 @@ function binarize(bmp: ImageBitmap): Binarized {
   if (trusted) scale = Math.min(scale * (TARGET_CAP_PX / probe.capHeight), maxScale, 6);
   // Round 2 — at the target glyph height, and with the photo rotated level
   // first: binarising the tilted image and rotating the mask afterwards
-  // leaves ragged strokes, which is exactly what Tesseract misreads.
+  // leaves ragged strokes, which throw off the row and tilt estimates.
   return binarizeRegion(bmp, region, scale, trusted ? probe.skew : 0);
 }
 
@@ -398,7 +352,7 @@ function locateScreen(bmp: ImageBitmap): Region | null {
 /**
  * Binarise one region of the photo: colour-based text-ness, a small blur,
  * a global threshold, an optional closing for the OLED's dot grid, then
- * specks go and the slashed zeros are repaired.
+ * specks go.
  */
 function binarizeRegion(bmp: ImageBitmap, region: Region, scale: number, rotate: number): Binarized {
   // Canvas sized to the rotated region's bounding box; the region is drawn
@@ -461,6 +415,7 @@ function binarizeRegion(bmp: ImageBitmap, region: Region, scale: number, rotate:
   const pitch = sw / 170;
   const openR = Math.max(4, Math.round(pitch * 3));
   const fg = new Uint8Array(n);
+  const lit = new Uint8Array(n);
   for (const ch of [yel, blu]) {
     const bg = grayOpen(ch, w, h, openR);
     const detail = new Uint8Array(n);
@@ -476,56 +431,19 @@ function binarizeRegion(bmp: ImageBitmap, region: Region, scale: number, rotate:
     if (p99 < 12) continue;
     const lum = boxBlur3(detail, w, h);
     const thresh = otsuLevel(lum, colored);
-    for (let i = 0; i < n; i++) if (lum[i] > thresh) fg[i] = 1;
+    for (let i = 0; i < n; i++) {
+      if (lum[i] > thresh) fg[i] = 1;
+      if (lum[i] > lit[i]) lit[i] = lum[i];
+    }
   }
   // The OLED's physical pixels show as a dot grid; close the gaps (dilate
   // then erode) so each glyph is one solid shape. Dot gaps are ~0.3 pitch,
   // the gap between glyphs a full pitch, so a 0.3-pitch radius bridges one
   // and not the other.
   closeMask(fg, w, h, Math.max(1, Math.round(pitch * CLOSE_PITCH)));
-  const glyphs = cleanAndRepair(fg, w, h);
+  const glyphs = cleanMask(fg, w, h);
   const capHeight = typicalHeight(glyphs.map((g) => g.h)) || h / 12;
-  return { fg, w, h, capHeight, glyphs, skew: estimateSkew(glyphs, capHeight) };
-}
-
-/** Render the text mask (black on white) scaled so glyphs are `targetPx` tall. */
-function renderScaled(b: Binarized, targetPx: number): Promise<Blob> {
-  const factor = Math.min(1.5, targetPx / b.capHeight);
-  const src = document.createElement("canvas");
-  src.width = b.w;
-  src.height = b.h;
-  const sctx = src.getContext("2d")!;
-  const img = sctx.createImageData(b.w, b.h);
-  for (let i = 0; i < b.fg.length; i++) {
-    const v = b.fg[i] ? 0 : 255;
-    const o = i * 4;
-    img.data[o] = img.data[o + 1] = img.data[o + 2] = v;
-    img.data[o + 3] = 255;
-  }
-  sctx.putImageData(img, 0, 0);
-
-  // Scale, then rotate by the negative skew so the rows come out level. The
-  // canvas is sized to the rotated bounding box plus a margin (Tesseract
-  // likes white space around the text).
-  const sw = b.w * factor;
-  const sh = b.h * factor;
-  const cos = Math.abs(Math.cos(b.skew));
-  const sin = Math.abs(Math.sin(b.skew));
-  const pad = Math.round(targetPx);
-  const out = document.createElement("canvas");
-  out.width = Math.max(1, Math.round(sw * cos + sh * sin)) + pad * 2;
-  out.height = Math.max(1, Math.round(sw * sin + sh * cos)) + pad * 2;
-  const octx = out.getContext("2d")!;
-  octx.fillStyle = "#fff";
-  octx.fillRect(0, 0, out.width, out.height);
-  octx.imageSmoothingEnabled = true;
-  octx.imageSmoothingQuality = "high";
-  octx.translate(out.width / 2, out.height / 2);
-  octx.rotate(-b.skew);
-  octx.drawImage(src, -sw / 2, -sh / 2, sw, sh);
-  return new Promise((resolve, reject) =>
-    out.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Could not encode image"))), "image/png"),
-  );
+  return { fg, lit, w, h, capHeight, glyphs, skew: estimateSkew(glyphs, capHeight) };
 }
 
 /**
@@ -720,30 +638,13 @@ function boxBlur3(src: Uint8Array, w: number, h: number): Uint8Array {
   return out;
 }
 
-/** Height difference between the left and right thirds of a hole's edge (per-column y, -1 = no pixel). */
-function edgeTilt(edge: Int16Array): number {
-  const cols: number[] = [];
-  for (let x = 0; x < edge.length; x++) if (edge[x] !== -1) cols.push(edge[x]);
-  if (cols.length < 6) return 0;
-  const third = Math.max(1, Math.floor(cols.length / 3));
-  const mean = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
-  return Math.abs(mean(cols.slice(0, third)) - mean(cols.slice(-third)));
-}
-
 /**
- * Two jobs in one pass over the connected components of the mask:
- *
- *  - drop specks and anything glyph-sized-or-bigger-than-a-line (bezel
- *    edges, reflections), so Tesseract sees text and little else;
- *  - repair slashed zeros. The Beak's font draws zero with a slash (Ø) and
- *    Tesseract reads that as 8 — "0.010 Ohms" becomes "8.818", which for IR
- *    is a retire-vs-fine difference. Digit-sized glyphs whose two holes sit
- *    diagonally (an 8's holes stack vertically, a %'s holes are tiny) get
- *    their interior stroke erased, leaving a plain 0.
- *
- * Works in place; returns the boxes of digit-shaped glyphs.
+ * One pass over the connected components of the mask: drop specks and
+ * anything glyph-sized-or-bigger-than-a-line (bezel edges, reflections), so
+ * the row and tilt estimates see text and little else. Works in place;
+ * returns the boxes of digit-shaped glyphs.
  */
-function cleanAndRepair(fg: Uint8Array, w: number, h: number): Glyph[] {
+function cleanMask(fg: Uint8Array, w: number, h: number): Glyph[] {
   const n = w * h;
   const glyphs: Glyph[] = [];
   const label = new Int32Array(n); // 0 = unvisited, >0 component id
@@ -794,212 +695,31 @@ function cleanAndRepair(fg: Uint8Array, w: number, h: number): Glyph[] {
     if (pixels.length > 0.8 * bw * bh) continue;
     glyphs.push({ x: minX, y: minY, w: bw, h: bh });
 
-    // --- classify background inside a 1px-padded bbox: exterior vs holes
-    const x0 = Math.max(0, minX - 1);
-    const y0 = Math.max(0, minY - 1);
-    const x1 = Math.min(w - 1, maxX + 1);
-    const y1 = Math.min(h - 1, maxY + 1);
-    const cw = x1 - x0 + 1;
-    const ch = y1 - y0 + 1;
-    // 0 = unknown bg, 1 = this glyph, 2 = exterior bg, 3+ = hole ids
-    const cls = new Uint8Array(cw * ch);
-    for (let y = y0; y <= y1; y++)
-      for (let x = x0; x <= x1; x++) if (label[y * w + x] === id) cls[(y - y0) * cw + (x - x0)] = 1;
-    const flood = (seed: number, mark: number, list?: number[]) => {
-      stack.push(seed);
-      cls[seed] = mark;
-      while (stack.length) {
-        const p = stack.pop()!;
-        list?.push(p);
-        const x = p % cw;
-        const y = (p - x) / cw;
-        const step = (q: number) => {
-          if (cls[q] === 0) {
-            cls[q] = mark;
-            stack.push(q);
-          }
-        };
-        if (x > 0) step(p - 1);
-        if (x < cw - 1) step(p + 1);
-        if (y > 0) step(p - cw);
-        if (y < ch - 1) step(p + cw);
-      }
-    };
-    for (let x = 0; x < cw; x++) {
-      if (cls[x] === 0) flood(x, 2);
-      if (cls[(ch - 1) * cw + x] === 0) flood((ch - 1) * cw + x, 2);
-    }
-    for (let y = 0; y < ch; y++) {
-      if (cls[y * cw] === 0) flood(y * cw, 2);
-      if (cls[y * cw + cw - 1] === 0) flood(y * cw + cw - 1, 2);
-    }
-    // Pin-holes at a slash/ring junction are blur artifacts, not holes.
-    const minHole = Math.max(4, 0.01 * bw * bh);
-    const holes: { cx: number; cy: number; size: number; bottom: Int16Array; top: Int16Array }[] = [];
-    let mark = 3;
-    for (let p = 0; p < cw * ch && holes.length <= 2; p++) {
-      if (cls[p] !== 0) continue;
-      const list: number[] = [];
-      flood(p, Math.min(255, mark++), list);
-      if (list.length < minHole) continue;
-      let sx = 0;
-      let sy = 0;
-      // Per-column extent of the hole, to measure how its edges are tilted.
-      const bottom = new Int16Array(cw).fill(-1);
-      const top = new Int16Array(cw).fill(-1);
-      for (const q of list) {
-        const qx = q % cw;
-        const qy = (q - qx) / cw;
-        sx += qx;
-        sy += qy;
-        if (qy > bottom[qx]) bottom[qx] = qy;
-        if (top[qx] === -1 || qy < top[qx]) top[qx] = qy;
-      }
-      holes.push({ cx: sx / list.length, cy: sy / list.length, size: list.length, bottom, top });
-    }
-    if (holes.length !== 2) continue;
-    const [upper, lower] = holes[0].cy <= holes[1].cy ? holes : [holes[1], holes[0]];
-    const holeArea = upper.size + lower.size;
-    // Ø: two big holes split by a diagonal, so the edge between them is
-    // tilted. 8/B: stacked holes with a level bar between. %: tiny holes.
-    if (holeArea < 0.12 * bw * bh) continue;
-    if (Math.min(upper.size, lower.size) < 0.3 * Math.max(upper.size, lower.size)) continue;
-    if (Math.abs(upper.cy - lower.cy) < 0.2 * bh) continue;
-    if (Math.max(edgeTilt(upper.bottom), edgeTilt(lower.top)) < 0.15 * bh) continue;
-
-    // --- stroke width: first foreground run from the left on the middle rows
-    const runs: number[] = [];
-    for (let y = Math.round(bh * 0.3); y <= Math.round(bh * 0.7); y++) {
-      let x = 0;
-      while (x < cw && cls[y * cw + x] !== 1) x++;
-      let len = 0;
-      while (x + len < cw && cls[y * cw + x + len] === 1) len++;
-      if (len) runs.push(len);
-    }
-    if (!runs.length) continue;
-    runs.sort((p, q) => p - q);
-    const stroke = runs[runs.length >> 1];
-
-    // --- distance from the exterior travelling through this glyph's pixels
-    // (8-connected, so ring corners measure the same as ring sides). The ring
-    // is everything within one stroke; the slash — including the stubs where
-    // it meets the ring, which otherwise make the glyph read as 6 or 9 — is
-    // deeper, and goes.
-    const dist = new Int32Array(cw * ch).fill(-1);
-    const queue: number[] = [];
-    for (let p = 0; p < cw * ch; p++) {
-      if (cls[p] !== 1) continue;
-      const x = p % cw;
-      const y = (p - x) / cw;
-      const touchesExterior =
-        (x > 0 && cls[p - 1] === 2) || (x < cw - 1 && cls[p + 1] === 2) || (y > 0 && cls[p - cw] === 2) || (y < ch - 1 && cls[p + cw] === 2);
-      if (touchesExterior) {
-        dist[p] = 1;
-        queue.push(p);
-      }
-    }
-    for (let qi = 0; qi < queue.length; qi++) {
-      const p = queue[qi];
-      const x = p % cw;
-      const y = (p - x) / cw;
-      const d = dist[p] + 1;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= cw || ny >= ch) continue;
-          const q = ny * cw + nx;
-          if (cls[q] === 1 && dist[q] === -1) {
-            dist[q] = d;
-            queue.push(q);
-          }
-        }
-    }
-    const cut = stroke;
-    for (let p = 0; p < cw * ch; p++) {
-      if (cls[p] !== 1 || dist[p] <= cut) continue;
-      const x = (p % cw) + x0;
-      const y = (p - (p % cw)) / cw + y0;
-      fg[y * w + x] = 0;
-    }
   }
   return glyphs;
 }
 
 // ---------------------------------------------------------------------------
-// Tesseract worker (lazy singleton, torn down after a quiet minute)
 
-type TWorker = import("tesseract.js").Worker;
-let workerPromise: Promise<TWorker> | null = null;
-let idleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Let the UI paint between the heavy synchronous stages. */
+const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-async function getWorker(onProgress?: (p: ScanProgress) => void): Promise<TWorker> {
-  if (!workerPromise) {
-    workerPromise = (async () => {
-      const { createWorker, PSM, OEM } = await import("tesseract.js");
-      const worker = await createWorker("eng", OEM.LSTM_ONLY, {
-        workerPath: "/ocr/worker.min.js",
-        corePath: "/ocr",
-        langPath: "/ocr",
-        gzip: true,
-        logger: (m) => {
-          if (m.status !== "recognizing text") onProgress?.({ step: "loading", progress: m.progress });
-        },
-      });
-      await worker.setParameters({
-        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-        // Everything that can appear on the results screen, nothing else.
-        tessedit_char_whitelist: "0123456789.:%@ABCFGHLMNOPRSVabcdeghimnoprstuy",
-        preserve_interword_spaces: "1",
-        user_defined_dpi: "300",
-      });
-      return worker;
-    })().catch((e) => {
-      workerPromise = null;
-      throw e;
-    });
-  }
-  return workerPromise;
-}
-
-function scheduleTeardown() {
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    const p = workerPromise;
-    workerPromise = null;
-    p?.then((w) => w.terminate()).catch(() => {});
-  }, 60_000);
-}
-
-/**
- * OCR a photo of the Beak screen: binarise once, then recognise at several
- * glyph sizes and vote. Stops early once voltage and IR each have two
- * agreeing passes.
- */
+/** Read a photo of the Beak screen: locate and binarise, then read the character grid. */
 export async function scanBeakImage(file: Blob, onProgress?: (p: ScanProgress) => void): Promise<BeakScan> {
   onProgress?.({ step: "loading", progress: 0 });
-  const [worker, bmp] = await Promise.all([getWorker(onProgress), loadBitmap(file)]);
-  clearTimeout(idleTimer);
+  const bmp = await loadBitmap(file);
   try {
     onProgress?.({ step: "preprocessing", progress: 0 });
+    await nextFrame();
     const bin = binarize(bmp);
-    const passes: BeakReading[] = [];
-    const texts: string[] = [];
-    let result = voteReadings(passes);
-    for (let i = 0; i < GLYPH_TARGETS_PX.length; i++) {
-      onProgress?.({ step: "recognizing", progress: i / GLYPH_TARGETS_PX.length });
-      const blob = await renderScaled(bin, GLYPH_TARGETS_PX[i]);
-      const { data } = await worker.recognize(blob);
-      const text = data.text ?? "";
-      texts.push(text);
-      passes.push(parseBeakText(text));
-      result = voteReadings(passes);
-      if (i >= 2 && result.votes.v0 >= 2 && result.votes.rint >= 2) break;
-    }
+    onProgress?.({ step: "recognizing", progress: 0 });
+    await nextFrame();
+    const { readGrid } = await import("./beak-grid");
+    const grid = readGrid(bin);
     onProgress?.({ step: "recognizing", progress: 1 });
-    return { reading: result.reading, votes: result.votes, rawText: texts.map((t, i) => `— pass ${i + 1} —\n${t.trim()}`).join("\n") };
+    const rawText = grid.lines.join("\n");
+    return { reading: parseBeakText(rawText), rawText };
   } finally {
     bmp.close();
-    scheduleTeardown();
   }
 }
