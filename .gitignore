@@ -42,3 +42,6 @@ next-env.d.ts
 
 # OCR assets copied from node_modules by scripts/ocr-assets.mjs
 /public/ocr
+
+# Real Beak photos used to tune the scanner locally
+/test-photos
