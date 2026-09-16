@@ -11,6 +11,7 @@ import {
   type CbaTestData,
   type ChargeData,
   type IncidentData,
+  type LoadTestData,
   type NoteData,
   type StateChangeData,
   type StatusChangeData,
@@ -26,7 +27,10 @@ const TONE: Record<BatteryEvent["type"], string> = {
   incident: "pill-bad",
   note: "pill-muted",
   status_change: "pill-muted",
+  load_test: "pill-good",
 };
+
+const PHASE_LABEL = { pre_match: "pre-match", post_match: "post-match" } as const;
 
 export function describeEvent(e: BatteryEvent): string {
   const d = e.data;
@@ -49,20 +53,30 @@ export function describeEvent(e: BatteryEvent): string {
       const x = d as unknown as UsageData;
       const parts = [x.context + (x.match_label ? ` ${x.match_label}` : "")];
       if (typeof x.driver_rating === "number") parts.push(`rating ${x.driver_rating}/5`);
-      if (typeof x.voltage_before === "number") parts.push(`${fmtNum(x.voltage_before, 2)} V before`);
-      if (typeof x.voltage_after === "number") parts.push(`${fmtNum(x.voltage_after, 2)} V after`);
+      const vb = x.voltage_before, va = x.voltage_after;
+      if (typeof vb === "number" && typeof va === "number")
+        parts.push(`${fmtNum(vb, 2)} → ${fmtNum(va, 2)} V (${va - vb >= 0 ? "+" : "−"}${fmtNum(Math.abs(va - vb), 2)})`);
+      else if (typeof vb === "number") parts.push(`${fmtNum(vb, 2)} V before`);
+      else if (typeof va === "number") parts.push(`${fmtNum(va, 2)} V after`);
+      const ib = x.ir_before_mohm, ia = x.ir_after_mohm;
+      if (typeof ib === "number" && typeof ia === "number") parts.push(`IR ${fmtNum(ib)} → ${fmtNum(ia)} mΩ`);
+      const pb = x.charge_pct_before, pa = x.charge_pct_after;
+      if (typeof pb === "number" && typeof pa === "number") parts.push(`${pb}% → ${pa}%`);
       if (typeof x.duration_min === "number") parts.push(`${x.duration_min} min`);
+      if (x.notes) parts.push(x.notes);
       return parts.join(" · ");
     }
     case "beak_test": {
       const x = d as unknown as BeakTestData;
       const parts = [`${fmtNum(x.voltage, 2)} V`, `${fmtNum(x.internal_resistance_mohm)} mΩ`];
       if (typeof x.charge_pct === "number") parts.push(`${x.charge_pct}%`);
+      if (x.phase) parts.push(PHASE_LABEL[x.phase] + (x.match_label ? ` ${x.match_label}` : ""));
       return parts.join(" · ");
     }
     case "cba_test": {
       const x = d as unknown as CbaTestData;
       const parts = [`${fmtNum(x.measured_ah, 2)} Ah`];
+      if (typeof x.measured_wh === "number") parts.push(`${fmtNum(x.measured_wh)} Wh`);
       if (typeof x.test_current_a === "number") parts.push(`@ ${fmtNum(x.test_current_a)} A`);
       if (x.notes) parts.push(x.notes);
       return parts.join(" · ");
@@ -73,6 +87,13 @@ export function describeEvent(e: BatteryEvent): string {
     }
     case "note":
       return (d as unknown as NoteData).text;
+    case "load_test": {
+      const x = d as unknown as LoadTestData;
+      const parts = [x.held_10s ? "held 10 s" : "dropped again — FAIL", `${fmtNum(x.loaded_voltage, 2)} V under 100 A`];
+      if (typeof x.open_voltage === "number") parts.push(`${fmtNum(x.open_voltage, 2)} V open`);
+      if (x.notes) parts.push(x.notes);
+      return parts.join(" · ");
+    }
     case "status_change": {
       const x = d as unknown as StatusChangeData;
       return `${STATUS_LABEL[x.from as BatteryStatus] ?? x.from} → ${STATUS_LABEL[x.to as BatteryStatus] ?? x.to}${x.reason ? ` · ${x.reason}` : ""}`;
@@ -101,7 +122,7 @@ export function EventRow({ event, batteryName }: { event: BatteryEvent; batteryN
               {batteryName}
             </Link>
           )}
-          <span className={event.type === "beak_test" || event.type === "cba_test" ? "mono" : ""}>{describeEvent(event)}</span>
+          <span className={event.type === "beak_test" || event.type === "cba_test" || event.type === "load_test" ? "mono" : ""}>{describeEvent(event)}</span>
         </p>
       </div>
     </li>

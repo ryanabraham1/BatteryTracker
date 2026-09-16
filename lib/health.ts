@@ -1,12 +1,16 @@
-import type {
-  Battery,
-  BatteryEvent,
-  BeakTestData,
-  CbaTestData,
-  ChargeData,
-  IncidentData,
-  Settings,
-  UsageData,
+import {
+  IR_TIER_LABEL,
+  type Battery,
+  type BatteryEvent,
+  type BatteryStatus,
+  type BeakTestData,
+  type CbaTestData,
+  type ChargeData,
+  type IncidentData,
+  type IrTier,
+  type LoadTestData,
+  type Settings,
+  type UsageData,
 } from "./types";
 
 export type HealthBadge = "good" | "watch" | "bad";
@@ -22,6 +26,11 @@ export interface HealthSummary {
   warnings: Warning[];
   latestBeak: (BeakTestData & { at: string }) | null;
   latestCba: (CbaTestData & { at: string; pct: number }) | null;
+  latestLoad: (LoadTestData & { at: string; pass: boolean }) | null;
+  /** IR band of the latest Beak reading (null when never tested). */
+  irTier: IrTier | null;
+  /** Status the IR tier says this battery should have, when it differs from the current one. */
+  suggestedStatus: BatteryStatus | null;
   lastVoltage: { v: number; at: string; source: "beak" | "usage" | "charge" } | null;
   avgDriverRating: number | null;
   recentIncidents30d: number;
@@ -32,6 +41,37 @@ export interface HealthSummary {
 }
 
 const DAY = 86_400_000;
+
+/** Classify an IR reading into the tier bands from Settings. */
+export function irTierFor(ir: number, s: Settings): IrTier {
+  if (ir >= s.ir_fail_mohm) return "retire";
+  if (ir >= s.ir_suspect_mohm) return "suspect";
+  if (ir >= s.ir_practice_mohm) return "practice";
+  if (ir >= s.ir_warn_mohm) return "reserve";
+  return "comp";
+}
+
+/** What status a tier implies; comp/reserve → active, practice/suspect → practice-only, retire → retired. */
+export function statusForTier(tier: IrTier): BatteryStatus {
+  return tier === "retire" ? "retired" : tier === "practice" || tier === "suspect" ? "practice_only" : "active";
+}
+
+/** Sort key: lower is better. Untested sits between reserve and practice. */
+export function irTierRank(tier: IrTier | null): number {
+  switch (tier) {
+    case "comp": return 0;
+    case "reserve": return 1;
+    case null: return 1.5;
+    case "practice": return 2;
+    case "suspect": return 3;
+    case "retire": return 4;
+  }
+}
+
+/** A load test passes when the voltage held for the full 10 s and stayed above the floor. */
+export function loadTestPass(d: LoadTestData, s: Settings): boolean {
+  return d.held_10s && d.loaded_voltage >= s.load_test_min_v;
+}
 
 function clamp(n: number, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, n));
@@ -55,6 +95,7 @@ export function computeHealth(
 
   const beak = sorted.find((e) => e.type === "beak_test");
   const cba = sorted.find((e) => e.type === "cba_test");
+  const load = sorted.find((e) => e.type === "load_test");
   const usages = sorted.filter((e) => e.type === "usage");
   const incidents = sorted.filter((e) => e.type === "incident");
 
@@ -68,6 +109,19 @@ export function computeHealth(
         return { ...d, at: cba.occurred_at, pct };
       })()
     : null;
+
+  const latestLoad = load
+    ? (() => {
+        const d = load.data as unknown as LoadTestData;
+        return { ...d, at: load.occurred_at, pass: loadTestPass(d, settings) };
+      })()
+    : null;
+  const irTier = latestBeak ? irTierFor(latestBeak.internal_resistance_mohm, settings) : null;
+  // Only ever suggest moving *down* (active → practice-only → retired); a good
+  // reading on a retired battery is a human decision, not an auto-suggestion.
+  const RANK: Record<BatteryStatus, number> = { active: 0, practice_only: 1, retired: 2 };
+  const implied = irTier ? statusForTier(irTier) : null;
+  const suggestedStatus = implied && RANK[implied] > RANK[battery.status] ? implied : null;
 
   // Last known voltage: whichever of beak / usage-after / charge-resting is newest
   let lastVoltage: HealthSummary["lastVoltage"] = null;
@@ -158,17 +212,28 @@ export function computeHealth(
     }
     score = wsum > 0 ? Math.round(acc / wsum) : null;
   }
+  // A failed 100 A load test means a bad cell — cap the score into "Bad"
+  // regardless of how the other inputs look.
+  if (latestLoad && !latestLoad.pass) score = Math.min(score ?? 40, 40);
   const badge: HealthBadge | null =
     score === null ? null : score >= 75 ? "good" : score >= 50 ? "watch" : "bad";
 
   // ---- Explicit warnings ----------------------------------------------
   const warnings: Warning[] = [];
-  if (latestBeak) {
+  if (latestBeak && irTier) {
     const ir = latestBeak.internal_resistance_mohm;
-    if (ir >= settings.ir_fail_mohm)
-      warnings.push({ level: "fail", text: `IR ${fmt(ir)} mΩ ≥ fail (${settings.ir_fail_mohm})` });
-    else if (ir >= settings.ir_warn_mohm)
-      warnings.push({ level: "warn", text: `IR ${fmt(ir)} mΩ ≥ warn (${settings.ir_warn_mohm})` });
+    if (irTier === "retire")
+      warnings.push({ level: "fail", text: `IR ${fmt(ir)} mΩ — ${IR_TIER_LABEL.retire} band (≥ ${settings.ir_fail_mohm})` });
+    else if (irTier === "suspect")
+      warnings.push({ level: "warn", text: `IR ${fmt(ir)} mΩ — ${IR_TIER_LABEL.suspect} (≥ ${settings.ir_suspect_mohm})` });
+    else if (irTier === "practice")
+      warnings.push({ level: "warn", text: `IR ${fmt(ir)} mΩ — ${IR_TIER_LABEL.practice} band (≥ ${settings.ir_practice_mohm})` });
+    else if (irTier === "reserve")
+      warnings.push({ level: "warn", text: `IR ${fmt(ir)} mΩ — ${IR_TIER_LABEL.reserve} (≥ ${settings.ir_warn_mohm})` });
+  }
+  if (latestLoad && !latestLoad.pass) {
+    const why = !latestLoad.held_10s ? "voltage dropped again within 10 s (bad cell?)" : `held at ${fmt(latestLoad.loaded_voltage)} V < ${settings.load_test_min_v} V floor`;
+    warnings.push({ level: "fail", text: `Failed 100 A load test — ${why}` });
   }
   if (latestCba) {
     if (latestCba.pct < settings.capacity_fail_pct)
@@ -227,6 +292,9 @@ export function computeHealth(
     warnings,
     latestBeak,
     latestCba,
+    latestLoad,
+    irTier,
+    suggestedStatus,
     lastVoltage,
     avgDriverRating,
     recentIncidents30d,
@@ -246,12 +314,15 @@ export interface BatteryWithHealth {
   health: HealthSummary;
 }
 
-/** Ready order: rested before resting; then health desc; then longest in state. */
+/** Ready order: rested before resting; then IR tier; then health desc; then longest in state. */
 export function sortReady(list: BatteryWithHealth[]): BatteryWithHealth[] {
   return [...list].sort((a, b) => {
     const ar = a.health.restRemainingMin > 0 ? 1 : 0;
     const br = b.health.restRemainingMin > 0 ? 1 : 0;
     if (ar !== br) return ar - br;
+    const at = irTierRank(a.health.irTier);
+    const bt = irTierRank(b.health.irTier);
+    if (at !== bt) return at - bt;
     const as = a.health.score ?? -1;
     const bs = b.health.score ?? -1;
     if (as !== bs) return bs - as;

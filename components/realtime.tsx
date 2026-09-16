@@ -15,7 +15,10 @@ export function Realtime() {
   useEffect(() => {
     const refresh = () => {
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => router.refresh(), 250);
+      timer.current = setTimeout(() => {
+        // A refresh with no network just errors; the offline poller refreshes on reconnect.
+        if (navigator.onLine) router.refresh();
+      }, 250);
     };
 
     const sb = supabaseBrowser();

@@ -6,7 +6,9 @@ import { computeHealth, groupEvents, type BatteryWithHealth } from "./health";
 export async function getSettings(): Promise<Settings> {
   const { data, error } = await supabaseAdmin().from("settings").select("*").eq("id", 1).maybeSingle();
   if (error) throw error;
-  return (data as Settings) ?? DEFAULT_SETTINGS;
+  // Spread over defaults so a column added in a later migration has a value
+  // even before that migration has been applied.
+  return { ...DEFAULT_SETTINGS, ...((data as Partial<Settings>) ?? {}) };
 }
 
 export async function getBatteries(): Promise<Battery[]> {

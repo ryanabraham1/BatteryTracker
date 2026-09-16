@@ -2,6 +2,7 @@
 
 import type { BatteryWithHealth } from "@/lib/health";
 import { durationShort, fmtNum, minutesSince, timeAgo } from "@/lib/format";
+import { IR_TIER_LABEL, IR_TIER_TONE } from "@/lib/types";
 import { HealthPill } from "./ui";
 
 export function restRemaining(item: BatteryWithHealth, now: number): number {
@@ -15,12 +16,15 @@ export function BatteryCard({
   grab,
   onClick,
   extra,
+  queued,
 }: {
   item: BatteryWithHealth;
   now: number;
   grab?: boolean;
   onClick?: () => void;
   extra?: React.ReactNode;
+  /** An offline change for this battery is waiting to send. */
+  queued?: boolean;
 }) {
   const { battery: b, health: h } = item;
   const rest = restRemaining(item, now);
@@ -63,6 +67,16 @@ export function BatteryCard({
       </div>
 
       <div className="flex flex-wrap gap-1.5">
+        {queued && (
+          <span className="chip" style={{ color: "var(--info)", borderColor: "var(--info)", background: "var(--info-soft)" }}>
+            queued
+          </span>
+        )}
+        {h.irTier && h.irTier !== "comp" && (
+          <span className="chip" style={{ color: `var(--${IR_TIER_TONE[h.irTier]})` }} title="IR band of last Beak reading">
+            {IR_TIER_LABEL[h.irTier].toLowerCase()}
+          </span>
+        )}
         <span className="chip">{b.cycle_count} cyc</span>
         <span className="chip">{lastTest ? `tested ${timeAgo(lastTest, now)}` : "untested"}</span>
         <span className="chip">{durationShort(inState)} here</span>

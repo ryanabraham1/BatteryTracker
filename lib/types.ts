@@ -8,7 +8,8 @@ export type EventType =
   | "cba_test"
   | "incident"
   | "note"
-  | "status_change";
+  | "status_change"
+  | "load_test";
 
 export const STATES: BatteryState[] = ["ready", "in_robot", "cooling", "charging", "needs_attention"];
 export const STATE_LABEL: Record<BatteryState, string> = {
@@ -41,6 +42,7 @@ export const EVENT_TYPES: EventType[] = [
   "incident",
   "note",
   "status_change",
+  "load_test",
 ];
 export const EVENT_LABEL: Record<EventType, string> = {
   state_change: "State",
@@ -51,6 +53,7 @@ export const EVENT_LABEL: Record<EventType, string> = {
   incident: "Incident",
   note: "Note",
   status_change: "Status",
+  load_test: "Load",
 };
 
 export interface Battery {
@@ -84,11 +87,33 @@ export interface UsageData {
   match_label?: string;
   voltage_before?: number;
   voltage_after?: number;
+  // Pre/post-match Beak readings (Team 180 style) — per-match ΔV / ΔIR
+  charge_pct_before?: number;
+  charge_pct_after?: number;
+  ir_before_mohm?: number;
+  ir_after_mohm?: number;
   duration_min?: number;
   driver_rating?: number;
+  notes?: string;
 }
-export interface BeakTestData { voltage: number; internal_resistance_mohm: number; charge_pct?: number }
-export interface CbaTestData { measured_ah: number; test_current_a?: number; notes?: string }
+/** `phase` says when the Beak was read; plain pit checks leave it unset. */
+export type BeakPhase = "pre_match" | "post_match";
+export interface BeakTestData {
+  voltage: number;
+  internal_resistance_mohm: number;
+  charge_pct?: number;
+  phase?: BeakPhase;
+  match_label?: string;
+}
+/** 100 A load tester: hold 10 s, pass if the loaded voltage holds without a second drop. */
+export interface LoadTestData {
+  loaded_voltage: number;
+  held_10s: boolean;
+  open_voltage?: number;
+  notes?: string;
+}
+/** `measured_wh` is what the CBA actually reports; Ah is what the health thresholds use. */
+export interface CbaTestData { measured_ah: number; measured_wh?: number; test_current_a?: number; notes?: string }
 export interface IncidentData { kind: IncidentKind; match_label?: string; notes: string }
 export interface NoteData { text: string }
 export interface StatusChangeData { from: BatteryStatus; to: BatteryStatus; reason?: string }
@@ -101,7 +126,8 @@ export type EventData =
   | CbaTestData
   | IncidentData
   | NoteData
-  | StatusChangeData;
+  | StatusChangeData
+  | LoadTestData;
 
 export interface BatteryEvent {
   id: string;
@@ -118,6 +144,9 @@ export interface Settings {
   max_charge_duration_min: number;
   ir_warn_mohm: number;
   ir_fail_mohm: number;
+  ir_practice_mohm: number;
+  ir_suspect_mohm: number;
+  load_test_min_v: number;
   capacity_warn_pct: number;
   capacity_fail_pct: number;
   max_cycles_warn: number;
@@ -130,10 +159,31 @@ export const DEFAULT_SETTINGS: Settings = {
   min_rest_after_charge_min: 30,
   max_charge_duration_min: 240,
   ir_warn_mohm: 15,
-  ir_fail_mohm: 20,
+  ir_fail_mohm: 25,
+  ir_practice_mohm: 18,
+  ir_suspect_mohm: 23,
+  load_test_min_v: 10,
   capacity_warn_pct: 80,
   capacity_fail_pct: 70,
   max_cycles_warn: 200,
   team_code_hash: null,
   updated_at: new Date(0).toISOString(),
+};
+
+/** IR classification bands, best → worst. */
+export type IrTier = "comp" | "reserve" | "practice" | "suspect" | "retire";
+export const IR_TIERS: IrTier[] = ["comp", "reserve", "practice", "suspect", "retire"];
+export const IR_TIER_LABEL: Record<IrTier, string> = {
+  comp: "Comp-ready",
+  reserve: "Reserve",
+  practice: "Practice only",
+  suspect: "Suspect",
+  retire: "Retire",
+};
+export const IR_TIER_TONE: Record<IrTier, "good" | "info" | "warn" | "bad"> = {
+  comp: "good",
+  reserve: "info",
+  practice: "warn",
+  suspect: "warn",
+  retire: "bad",
 };

@@ -22,6 +22,11 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 const DESC_DEFAULT: SortKey[] = ["health", "cycles", "beak", "cba"];
 
+/** Wh when the CBA reported it, else the Ah figure. */
+function cbaLabel(c: NonNullable<BatteryWithHealth["health"]["latestCba"]>): string {
+  return typeof c.measured_wh === "number" ? `${fmtNum(c.measured_wh)} Wh` : `${fmtNum(c.measured_ah, 2)} Ah`;
+}
+
 export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
   const sp = useSearchParams();
   const q = (sp.get("q") ?? "").trim().toLowerCase();
@@ -153,7 +158,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
                     <span className="chip">no Beak</span>
                   )}
                   {h.latestCba ? (
-                    <span className="chip">CBA {fmtNum(h.latestCba.measured_ah, 2)} Ah ({Math.round(h.latestCba.pct)}%) · {timeAgo(h.latestCba.at, now)}</span>
+                    <span className="chip">CBA {cbaLabel(h.latestCba)} ({Math.round(h.latestCba.pct)}%) · {timeAgo(h.latestCba.at, now)}</span>
                   ) : (
                     <span className="chip">no CBA</span>
                   )}
@@ -207,7 +212,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
                 <td className="px-3 py-2.5 mono text-xs">
                   {h.latestCba ? (
                     <>
-                      {fmtNum(h.latestCba.measured_ah, 2)} Ah ({Math.round(h.latestCba.pct)}%)
+                      {cbaLabel(h.latestCba)} ({Math.round(h.latestCba.pct)}%)
                       <div style={{ color: "var(--muted)" }}>{timeAgo(h.latestCba.at, now)}</div>
                     </>
                   ) : (

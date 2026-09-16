@@ -22,6 +22,7 @@ export async function GET() {
     last_beak_ir_mohm: h.latestBeak?.internal_resistance_mohm ?? null,
     last_cba_at: h.latestCba?.at ?? null,
     last_cba_ah: h.latestCba?.measured_ah ?? null,
+    last_cba_wh: h.latestCba?.measured_wh ?? null,
     last_cba_pct: h.latestCba ? Math.round(h.latestCba.pct) : null,
     avg_driver_rating: h.avgDriverRating,
     warnings: h.warnings.map((w) => w.text).join("; "),

@@ -7,8 +7,11 @@ import type { Settings } from "@/lib/types";
 const FIELDS: { key: keyof Settings; label: string; unit: string; hint: string }[] = [
   { key: "min_rest_after_charge_min", label: "Min rest after charge", unit: "min", hint: "Don't recommend a battery until it has rested this long" },
   { key: "max_charge_duration_min", label: "Max charge duration", unit: "min", hint: "Flag “charging too long” past this" },
-  { key: "ir_warn_mohm", label: "Beak IR warn", unit: "mΩ", hint: "Internal resistance warning threshold" },
-  { key: "ir_fail_mohm", label: "Beak IR fail", unit: "mΩ", hint: "Internal resistance fail threshold (scores 0)" },
+  { key: "ir_warn_mohm", label: "IR: reserve from", unit: "mΩ", hint: "Below this is comp-ready; at or above is reserve" },
+  { key: "ir_practice_mohm", label: "IR: practice-only from", unit: "mΩ", hint: "At or above → suggest marking practice-only" },
+  { key: "ir_suspect_mohm", label: "IR: suspect from", unit: "mΩ", hint: "At or above → suspect (still practice-only)" },
+  { key: "ir_fail_mohm", label: "IR: retire from", unit: "mΩ", hint: "At or above → suggest retiring; IR score hits 0 here" },
+  { key: "load_test_min_v", label: "Load test floor", unit: "V", hint: "100 A load test fails if the loaded voltage is below this" },
   { key: "capacity_warn_pct", label: "Capacity warn", unit: "%", hint: "CBA measured / rated below this → warn" },
   { key: "capacity_fail_pct", label: "Capacity fail", unit: "%", hint: "Below this → recommend retire" },
   { key: "max_cycles_warn", label: "Max cycles", unit: "cycles", hint: "Age warning; cycle score hits 0 here" },

@@ -4,15 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { clearSessionCookie, currentCodeHash, hashCode, isAuthed, setSessionCookie } from "@/lib/auth";
-import type {
-  Battery,
-  BatteryState,
-  BatteryStatus,
-  BeakTestData,
-  CbaTestData,
-  IncidentData,
-  Settings,
-  UsageData,
+import { irTierFor, statusForTier } from "@/lib/health";
+import {
+  DEFAULT_SETTINGS,
+  type Battery,
+  type BatteryState,
+  type BatteryStatus,
+  type BeakTestData,
+  type CbaTestData,
+  type IncidentData,
+  type IrTier,
+  type LoadTestData,
+  type Settings,
+  type UsageData,
 } from "@/lib/types";
 
 type Result<T = void> = { ok: true; data?: T } | { ok: false; error: string };
@@ -23,6 +27,19 @@ async function guard() {
 
 function refresh() {
   revalidatePath("/", "layout");
+}
+
+async function loadSettings(): Promise<Settings> {
+  const { data } = await supabaseAdmin().from("settings").select("*").eq("id", 1).maybeSingle();
+  return { ...DEFAULT_SETTINGS, ...((data as Partial<Settings>) ?? {}) };
+}
+
+/** Write a state_change event and update the battery row in one go. */
+async function setState(b: Battery, to: BatteryState, now = new Date().toISOString()) {
+  if (b.state === to) return;
+  await insertEvent(b.id, "state_change", { from: b.state, to }, now);
+  const { error } = await supabaseAdmin().from("batteries").update({ state: to, state_changed_at: now }).eq("id", b.id);
+  if (error) throw error;
 }
 
 async function loadBattery(id: string): Promise<Battery> {
@@ -111,6 +128,20 @@ export async function moveState(
   });
 }
 
+/** FormData flavour of moveState so it can sit in the offline outbox. */
+export async function moveStateForm(batteryId: string, form: FormData): Promise<Result> {
+  const to = str(form.get("to")) as BatteryState | undefined;
+  if (!to) return { ok: false, error: "Missing state" };
+  return moveState(batteryId, to, { restingVoltage: num(form.get("resting_voltage")), charger: str(form.get("charger")) });
+}
+
+/** FormData flavour of setStatus for the offline outbox. */
+export async function setStatusForm(batteryId: string, form: FormData): Promise<Result> {
+  const to = str(form.get("to")) as BatteryStatus | undefined;
+  if (!to) return { ok: false, error: "Missing status" };
+  return setStatus(batteryId, to, str(form.get("reason")));
+}
+
 // ---------------------------------------------------------------------------
 // Logging
 // ---------------------------------------------------------------------------
@@ -133,28 +164,144 @@ export async function logUsage(batteryId: string, form: FormData): Promise<Resul
     if (va !== undefined) data.voltage_after = va;
     const dm = num(form.get("duration_min"));
     if (dm !== undefined) data.duration_min = dm;
+    for (const k of ["charge_pct_before", "charge_pct_after", "ir_before_mohm", "ir_after_mohm"] as const) {
+      const v = num(form.get(k));
+      if (v !== undefined) data[k] = v;
+    }
     await insertEvent(b.id, "usage", data as unknown as Record<string, unknown>);
     // Coming off the robot → cooling
-    if (b.state === "in_robot" && form.get("stay") !== "1") {
-      const now = new Date().toISOString();
-      await insertEvent(b.id, "state_change", { from: b.state, to: "cooling" }, now);
-      await supabaseAdmin().from("batteries").update({ state: "cooling", state_changed_at: now }).eq("id", b.id);
-    }
+    if (b.state === "in_robot" && form.get("stay") !== "1") await setState(b, "cooling");
     refresh();
   });
 }
 
-export async function logBeak(batteryId: string, form: FormData): Promise<Result> {
+export interface BeakResult {
+  tier: IrTier;
+  /** Status the reading implies, when it's a step down from the current one. */
+  suggestedStatus: BatteryStatus | null;
+}
+
+function beakFromForm(form: FormData): BeakTestData {
+  const v = num(form.get("voltage"));
+  const ir = num(form.get("internal_resistance_mohm"));
+  if (v === undefined || ir === undefined) throw new Error("Voltage and IR are required");
+  const data: BeakTestData = { voltage: v, internal_resistance_mohm: ir };
+  const pct = num(form.get("charge_pct"));
+  if (pct !== undefined) data.charge_pct = pct;
+  return data;
+}
+
+async function beakResult(b: Battery, data: BeakTestData): Promise<BeakResult> {
+  const settings = await loadSettings();
+  const tier = irTierFor(data.internal_resistance_mohm, settings);
+  const implied = statusForTier(tier);
+  const RANK: Record<BatteryStatus, number> = { active: 0, practice_only: 1, retired: 2 };
+  return { tier, suggestedStatus: RANK[implied] > RANK[b.status] ? implied : null };
+}
+
+/**
+ * Pre-match check: Beak reading tagged with the match, then (by default) the
+ * battery goes into the robot. One sheet instead of Beak → Move.
+ */
+export async function logPreMatch(batteryId: string, form: FormData): Promise<Result<BeakResult>> {
   return wrap(async () => {
     await guard();
-    const v = num(form.get("voltage"));
-    const ir = num(form.get("internal_resistance_mohm"));
-    if (v === undefined || ir === undefined) throw new Error("Voltage and IR are required");
-    const data: BeakTestData = { voltage: v, internal_resistance_mohm: ir };
-    const pct = num(form.get("charge_pct"));
-    if (pct !== undefined) data.charge_pct = pct;
-    await insertEvent(batteryId, "beak_test", data as unknown as Record<string, unknown>);
+    const b = await loadBattery(batteryId);
+    const data = beakFromForm(form);
+    data.phase = "pre_match";
+    const ml = str(form.get("match_label"));
+    if (ml) data.match_label = ml;
+    // Same timestamp for the reading and the state change so the post-match
+    // lookup (readings since the battery went in) always finds this one.
+    const now = new Date().toISOString();
+    await insertEvent(b.id, "beak_test", data as unknown as Record<string, unknown>, now);
+    if (form.get("move") !== "0") await setState(b, "in_robot", now);
     refresh();
+    return beakResult(b, data);
+  });
+}
+
+/**
+ * Post-match check: Beak reading + driver rating in one sheet. Writes the
+ * post-match `beak_test`, then a `usage` event whose "before" numbers come from
+ * the most recent pre-match Beak (since the battery went into the robot), and
+ * moves the battery to Cooling.
+ */
+export async function logPostMatch(batteryId: string, form: FormData): Promise<Result<BeakResult>> {
+  return wrap(async () => {
+    await guard();
+    const b = await loadBattery(batteryId);
+    const rating = num(form.get("driver_rating"));
+    if (!rating || rating < 1 || rating > 5) throw new Error("Driver rating (1–5) is required");
+    const beak = beakFromForm(form);
+    beak.phase = "post_match";
+    const ml = str(form.get("match_label"));
+    if (ml) beak.match_label = ml;
+
+    // Latest pre-match reading since this battery went into the robot.
+    const { data: pre } = await supabaseAdmin()
+      .from("battery_events")
+      .select("data, occurred_at")
+      .eq("battery_id", b.id)
+      .eq("type", "beak_test")
+      .eq("data->>phase", "pre_match")
+      // A minute of slack: the pre-match reading may have been logged just before the move.
+      .gte("occurred_at", b.state === "in_robot" ? new Date(Date.parse(b.state_changed_at) - 60_000).toISOString() : new Date(0).toISOString())
+      .order("occurred_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const preData = pre ? (pre.data as unknown as BeakTestData) : null;
+
+    const now = new Date().toISOString();
+    await insertEvent(b.id, "beak_test", beak as unknown as Record<string, unknown>, now);
+    const usage: UsageData = {
+      context: (str(form.get("context")) as UsageData["context"]) ?? "match",
+      driver_rating: rating,
+      voltage_after: beak.voltage,
+      ir_after_mohm: beak.internal_resistance_mohm,
+    };
+    if (ml) usage.match_label = ml;
+    if (beak.charge_pct !== undefined) usage.charge_pct_after = beak.charge_pct;
+    if (preData) {
+      usage.voltage_before = preData.voltage;
+      usage.ir_before_mohm = preData.internal_resistance_mohm;
+      if (preData.charge_pct !== undefined) usage.charge_pct_before = preData.charge_pct;
+      if (pre?.occurred_at) usage.duration_min = Math.max(1, Math.round((Date.parse(now) - Date.parse(pre.occurred_at)) / 60_000));
+    }
+    await insertEvent(b.id, "usage", usage as unknown as Record<string, unknown>, now);
+    if (b.state === "in_robot" || b.state === "ready") await setState(b, "cooling", now);
+    refresh();
+    return beakResult(b, beak);
+  });
+}
+
+/** 100 A load tester: loaded voltage + whether it held for 10 s. */
+export async function logLoadTest(batteryId: string, form: FormData): Promise<Result<{ pass: boolean }>> {
+  return wrap(async () => {
+    await guard();
+    const lv = num(form.get("loaded_voltage"));
+    if (lv === undefined) throw new Error("Loaded voltage is required");
+    const held = form.get("held_10s") === "1";
+    const data: LoadTestData = { loaded_voltage: lv, held_10s: held };
+    const ov = num(form.get("open_voltage"));
+    if (ov !== undefined) data.open_voltage = ov;
+    const n = str(form.get("notes"));
+    if (n) data.notes = n;
+    await insertEvent(batteryId, "load_test", data as unknown as Record<string, unknown>);
+    const settings = await loadSettings();
+    refresh();
+    return { pass: held && lv >= settings.load_test_min_v };
+  });
+}
+
+export async function logBeak(batteryId: string, form: FormData): Promise<Result<BeakResult>> {
+  return wrap(async () => {
+    await guard();
+    const b = await loadBattery(batteryId);
+    const data = beakFromForm(form);
+    await insertEvent(b.id, "beak_test", data as unknown as Record<string, unknown>);
+    refresh();
+    return beakResult(b, data);
   });
 }
 
@@ -164,6 +311,8 @@ export async function logCba(batteryId: string, form: FormData): Promise<Result>
     const ah = num(form.get("measured_ah"));
     if (ah === undefined) throw new Error("Measured Ah is required");
     const data: CbaTestData = { measured_ah: ah };
+    const wh = num(form.get("measured_wh"));
+    if (wh !== undefined) data.measured_wh = wh;
     const a = num(form.get("test_current_a"));
     if (a !== undefined) data.test_current_a = a;
     const n = str(form.get("notes"));
@@ -184,25 +333,9 @@ export async function logIncident(batteryId: string, form: FormData): Promise<Re
     const ml = str(form.get("match_label"));
     if (ml) data.match_label = ml;
     await insertEvent(b.id, "incident", data as unknown as Record<string, unknown>);
-    if (form.get("flag") !== "0" && b.state !== "needs_attention") {
-      const now = new Date().toISOString();
-      await insertEvent(b.id, "state_change", { from: b.state, to: "needs_attention" }, now);
-      await supabaseAdmin()
-        .from("batteries")
-        .update({ state: "needs_attention", state_changed_at: now })
-        .eq("id", b.id);
-    }
+    if (form.get("flag") !== "0") await setState(b, "needs_attention");
     refresh();
   });
-}
-
-/** One-tap brownout from competition mode. */
-export async function brownout(batteryId: string, matchLabel?: string): Promise<Result> {
-  const fd = new FormData();
-  fd.set("kind", "brownout");
-  fd.set("notes", "Brownout (one-tap)");
-  if (matchLabel) fd.set("match_label", matchLabel);
-  return logIncident(batteryId, fd);
 }
 
 export async function addNote(batteryId: string, form: FormData): Promise<Result> {
@@ -327,7 +460,10 @@ export async function updateSettings(form: FormData): Promise<Result> {
       "min_rest_after_charge_min",
       "max_charge_duration_min",
       "ir_warn_mohm",
+      "ir_practice_mohm",
+      "ir_suspect_mohm",
       "ir_fail_mohm",
+      "load_test_min_v",
       "capacity_warn_pct",
       "capacity_fail_pct",
       "max_cycles_warn",
@@ -338,6 +474,8 @@ export async function updateSettings(form: FormData): Promise<Result> {
       if (v === undefined || v < 0) throw new Error(`Invalid value for ${k}`);
       patch[k] = v;
     }
+    if (!(patch.ir_warn_mohm <= patch.ir_practice_mohm && patch.ir_practice_mohm <= patch.ir_suspect_mohm && patch.ir_suspect_mohm <= patch.ir_fail_mohm))
+      throw new Error("IR tiers must be in order: comp-ready ≤ practice ≤ suspect ≤ retire");
     const { error } = await supabaseAdmin().from("settings").update(patch).eq("id", 1);
     if (error) throw error;
     refresh();
