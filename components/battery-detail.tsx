@@ -110,6 +110,9 @@ export function BatteryDetail({
           )}
         </div>
         <div className="hidden sm:flex gap-2 shrink-0">
+          <a href={`/api/export/full?battery=${battery.id}`} className="btn btn-ghost text-sm">
+            Export CSV
+          </a>
           <Link href={`/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">
             Edit
           </Link>
