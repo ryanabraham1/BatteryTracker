@@ -31,10 +31,10 @@ function CbaAnalysis({ health, ratedAh, peukertK }: { health: HealthSummary; rat
   const d = c.derived;
   const tone = (pct: number) => (pct >= 90 ? "var(--good)" : pct >= 80 ? "var(--warn)" : "var(--bad)");
   const cells: { label: string; value: React.ReactNode; sub: string }[] = [];
-  if (d.expected_ah !== undefined && d.avg_a !== undefined)
+  if (d.expected_ah !== undefined && d.avg_a !== undefined && d.pct_of_expected !== undefined)
     cells.push({
-      label: "vs expected @ rate",
-      value: <span style={{ color: tone(c.pct) }}>{Math.round(c.pct)}%</span>,
+      label: c.rateCorrected ? "vs expected @ rate" : "vs expected @ rate (info)",
+      value: <span style={{ color: tone(d.pct_of_expected) }}>{Math.round(d.pct_of_expected)}%</span>,
       sub: `${fmtNum(d.expected_ah, 1)} Ah expected from ${ratedAh} Ah at ${fmtNum(d.avg_a, 1)} A (k=${peukertK})`,
     });
   if (d.avg_v !== undefined)

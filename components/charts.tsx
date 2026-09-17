@@ -211,9 +211,10 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
       load.push({ t, v: (e.data as unknown as LoadTestData).loaded_voltage });
     } else if (e.type === "cba_test") {
       const d = e.data as unknown as CbaTestData;
-      // Rate-corrected when the test recorded enough for Peukert, else % of rated.
+      // Same rule as computeHealth: BD380 tests (with a mode) are rate-corrected, legacy rows are % of rated.
       const dv = cbaDerived(d, { capacity_ah: capacityAh }, settings);
-      cap.push({ t, v: dv.pct_of_expected ?? (capacityAh > 0 ? (d.measured_ah / capacityAh) * 100 : 0) });
+      const pct = d.mode !== undefined && dv.pct_of_expected !== undefined ? dv.pct_of_expected : capacityAh > 0 ? (d.measured_ah / capacityAh) * 100 : 0;
+      cap.push({ t, v: pct });
       if (typeof d.ir_mohm === "number") cbaIr.push({ t, v: d.ir_mohm });
       if (typeof d.measured_wh === "number" && d.measured_ah > 0) loadV.push({ t, v: d.measured_wh / d.measured_ah });
     }
@@ -244,7 +245,7 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
         refs={[{ y: settings.load_test_min_v, label: "floor", color: "var(--bad)" }]}
       />
       <Panel
-        title="CBA capacity · % of expected at test rate"
+        title="CBA capacity · % of expected (BD380) or rated"
         unit="%"
         data={cap}
         refs={[

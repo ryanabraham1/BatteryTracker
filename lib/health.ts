@@ -64,8 +64,8 @@ export function irTierFor(ir: number, s: Settings): IrTier {
 
 /**
  * CBA tier. The Wh cutoffs assume the Andymark CBA's fixed low-current profile,
- * so they only apply to tests that can't be rate-corrected; a test with enough
- * data for Peukert (time or current) is judged on % of expected at its rate.
+ * so they only apply to tests that aren't rate-corrected; a BD380 test (has a
+ * mode and enough data for Peukert) is judged on % of expected at its rate.
  */
 export function cbaTierFor(d: CbaTestData, pct: number, s: Settings, rateCorrected = false): CbaTier {
   if (typeof d.measured_wh === "number" && !rateCorrected) {
@@ -129,7 +129,10 @@ export function computeHealth(
     ? (() => {
         const d = cba.data as unknown as CbaTestData;
         const derived = cbaDerived(d, battery, settings);
-        const rateCorrected = derived.pct_of_expected !== undefined;
+        // Legacy Andymark rows record a current but no mode; they were tiered on
+        // Wh at that fixed profile and must stay that way. Rate-correct only
+        // tests logged from the BD380 form (which always sets a mode).
+        const rateCorrected = d.mode !== undefined && derived.pct_of_expected !== undefined;
         const pct = rateCorrected
           ? (derived.pct_of_expected as number)
           : battery.capacity_ah > 0
