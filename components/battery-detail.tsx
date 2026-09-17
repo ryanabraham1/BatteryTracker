@@ -24,6 +24,65 @@ import { EventRow } from "./event-row";
 import { HealthRing, StatePill, StatusPill } from "./ui";
 import { useNow } from "./board";
 
+/** What the last CBA discharge implies, beyond the raw numbers the tester printed. */
+function CbaAnalysis({ health, ratedAh, peukertK }: { health: HealthSummary; ratedAh: number; peukertK: number }) {
+  const c = health.latestCba;
+  if (!c) return null;
+  const d = c.derived;
+  const tone = (pct: number) => (pct >= 90 ? "var(--good)" : pct >= 80 ? "var(--warn)" : "var(--bad)");
+  const cells: { label: string; value: React.ReactNode; sub: string }[] = [];
+  if (d.expected_ah !== undefined && d.avg_a !== undefined)
+    cells.push({
+      label: "vs expected @ rate",
+      value: <span style={{ color: tone(c.pct) }}>{Math.round(c.pct)}%</span>,
+      sub: `${fmtNum(d.expected_ah, 1)} Ah expected from ${ratedAh} Ah at ${fmtNum(d.avg_a, 1)} A (k=${peukertK})`,
+    });
+  if (d.avg_v !== undefined)
+    cells.push({
+      label: "Mean V under load",
+      value: `${fmtNum(d.avg_v, 2)} V`,
+      sub: d.avg_w !== undefined ? `≈ ${fmtNum(d.avg_w)} W · ${fmtNum(d.avg_a ?? 0, 1)} A average` : "Wh ÷ Ah",
+    });
+  if (health.cbaSoh)
+    cells.push({
+      label: "State of health",
+      value: <span style={{ color: tone(health.cbaSoh.pct) }}>{Math.round(health.cbaSoh.pct)}%</span>,
+      sub: `of first CBA test (${health.cbaSoh.unit}, ${fmtDate(health.cbaSoh.firstAt)})`,
+    });
+  if (health.cbaIrRise)
+    cells.push({
+      label: "CBA IR drift",
+      value: (
+        <span style={{ color: health.cbaIrRise.pct >= 100 ? "var(--bad)" : health.cbaIrRise.pct >= 30 ? "var(--warn)" : "var(--good)" }}>
+          {health.cbaIrRise.pct >= 0 ? "+" : ""}
+          {Math.round(health.cbaIrRise.pct)}%
+        </span>
+      ),
+      sub: `${fmtNum(health.cbaIrRise.latest)} mΩ now · best ${fmtNum(health.cbaIrRise.best)} mΩ`,
+    });
+  else if (typeof c.ir_mohm === "number")
+    cells.push({ label: "CBA IR", value: `${fmtNum(c.ir_mohm)} mΩ`, sub: "drift shows after a second test" });
+  if (typeof c.temp_external_c === "number")
+    cells.push({
+      label: "Battery temp",
+      value: `${fmtNum(c.temp_external_c)} °C`,
+      sub: typeof c.temp_internal_c === "number" ? `tester ${fmtNum(c.temp_internal_c)} °C` : "external probe",
+    });
+  if (!cells.length) return null;
+  return (
+    <div className="card p-4 mb-6">
+      <p className="eyebrow mb-3" style={{ color: "var(--muted)" }}>
+        CBA analysis
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {cells.map((x) => (
+          <Stat key={x.label} label={x.label} value={x.value} sub={x.sub} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="card p-3 min-w-0">
@@ -263,7 +322,7 @@ export function BatteryDetail({
           }
           sub={
             health.latestCba
-              ? `${CBA_TIER_LABEL[health.latestCba.tier]} · ${fmtNum(health.latestCba.measured_ah, 2)} Ah · ${Math.round(health.latestCba.pct)}% of rated · ${timeAgo(health.latestCba.at, now)}`
+              ? `${CBA_TIER_LABEL[health.latestCba.tier]} · ${fmtNum(health.latestCba.measured_ah, 2)} Ah · ${Math.round(health.latestCba.pct)}% of ${health.latestCba.rateCorrected ? "expected" : "rated"} · ${timeAgo(health.latestCba.at, now)}`
               : "never"
           }
         />
@@ -304,6 +363,9 @@ export function BatteryDetail({
           </div>
         </div>
       )}
+
+      {/* CBA-derived models: rate-corrected capacity, load voltage, fade, IR drift */}
+      {health.latestCba && <CbaAnalysis health={health} ratedAh={battery.capacity_ah} peukertK={settings.peukert_k} />}
 
       {/* Charts */}
       <div className="mb-6">

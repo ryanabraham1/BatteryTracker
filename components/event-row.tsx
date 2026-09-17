@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { fmtDateTime, fmtNum } from "@/lib/format";
 import {
+  CBA_MODE_LABEL,
+  CBA_MODE_SETPOINT,
   EVENT_LABEL,
   STATE_LABEL,
   STATUS_LABEL,
@@ -31,6 +33,12 @@ const TONE: Record<BatteryEvent["type"], string> = {
 };
 
 const PHASE_LABEL = { pre_match: "pre-match", post_match: "post-match" } as const;
+
+/** 10.92 → "10:55". */
+function fmtMinSec(min: number): string {
+  const total = Math.round(min * 60);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
 
 export function describeEvent(e: BatteryEvent): string {
   const d = e.data;
@@ -79,7 +87,17 @@ export function describeEvent(e: BatteryEvent): string {
       const x = d as unknown as CbaTestData;
       const parts = [`${fmtNum(x.measured_ah, 2)} Ah`];
       if (typeof x.measured_wh === "number") parts.push(`${fmtNum(x.measured_wh)} Wh`);
-      if (typeof x.test_current_a === "number") parts.push(`@ ${fmtNum(x.test_current_a)} A`);
+      const mode = x.mode ?? (typeof x.test_current_a === "number" ? "cc" : undefined);
+      if (mode) {
+        const sp = CBA_MODE_SETPOINT[mode];
+        const v = x[sp.key];
+        parts.push(typeof v === "number" ? `${CBA_MODE_LABEL[mode]} @ ${fmtNum(v, mode === "cr" ? 2 : 1)} ${sp.unit}` : CBA_MODE_LABEL[mode]);
+      }
+      if (typeof x.cutoff_v === "number") parts.push(`to ${fmtNum(x.cutoff_v, 1)} V`);
+      if (typeof x.duration_min === "number") parts.push(fmtMinSec(x.duration_min));
+      if (typeof x.ir_mohm === "number") parts.push(`IR ${fmtNum(x.ir_mohm)} mΩ`);
+      if (typeof x.temp_internal_c === "number" || typeof x.temp_external_c === "number")
+        parts.push(`${[x.temp_internal_c, x.temp_external_c].filter((t) => typeof t === "number").map((t) => `${fmtNum(t as number)}°`).join(" / ")}C`);
       if (x.notes) parts.push(x.notes);
       return parts.join(" · ");
     }

@@ -5,6 +5,9 @@ import type { BeakResult } from "@/app/actions";
 import type { BeakReading } from "@/lib/beak-ocr";
 import type { ActionName } from "@/lib/offline-actions";
 import {
+  CBA_MODE_LABEL,
+  CBA_MODE_SETPOINT,
+  CBA_MODES,
   IR_TIER_LABEL,
   IR_TIER_TONE,
   STATES,
@@ -13,6 +16,7 @@ import {
   type Battery,
   type BatteryState,
   type BatteryStatus,
+  type CbaMode,
   type IncidentKind,
   type UsageContext,
 } from "@/lib/types";
@@ -491,31 +495,86 @@ export function LoadTestForm({ battery, onDone, minV }: { battery: Battery; onDo
   );
 }
 
+/** Fields follow the SkyRC BD380 end-of-discharge screen (mAh, Wh, IR, temps, time). */
 export function CbaForm({ battery, onDone }: { battery: Battery; onDone: () => void }) {
+  const [mode, setMode] = useState<CbaMode>("cp");
+  const [unit, setUnit] = useState<"mah" | "ah">("mah");
+  const sp = CBA_MODE_SETPOINT[mode];
+  const ratedMah = Math.round(battery.capacity_ah * 1000);
   return (
     <ActionForm action="logCba" battery={battery} submitLabel="Save CBA test" onDone={onDone}>
-      <Field label="Measured capacity (Ah)" hint={`Rated ${battery.capacity_ah} Ah`}>
-        <input
-          name="measured_ah"
-          required
-          type="number"
-          step="0.01"
-          inputMode="decimal"
-          className="input mono text-lg"
-          placeholder="16.2"
-          autoFocus
+      <Field label="Discharge mode">
+        <Tiles<CbaMode>
+          name="mode"
+          value={mode}
+          onChange={setMode}
+          cols={4}
+          options={CBA_MODES.map((m) => ({ value: m, label: CBA_MODE_LABEL[m], sub: CBA_MODE_SETPOINT[m].unit }))}
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Total Wh">
-          <input name="measured_wh" type="number" step="0.1" inputMode="decimal" className="input mono" placeholder="136.2" />
+        <Field label={`${sp.label} (${sp.unit})`}>
+          <input
+            key={sp.key}
+            name={sp.key}
+            type="number"
+            step={mode === "cr" ? "0.01" : "0.1"}
+            inputMode="decimal"
+            className="input mono"
+            placeholder={{ cc: "7.5", cp: "380", cr: "1.5", cv: "11.2" }[mode]}
+          />
         </Field>
-        <Field label="Test current (A)">
-          <input name="test_current_a" type="number" step="0.1" inputMode="decimal" className="input mono" placeholder="7.5" />
+        <Field label="Cut-off voltage (V)">
+          <input name="cutoff_v" type="number" step="0.1" inputMode="decimal" className="input mono" placeholder="11.2" />
+        </Field>
+      </div>
+      <Field
+        label={`Capacity (${unit === "mah" ? "mAh" : "Ah"})`}
+        hint={`Rated ${unit === "mah" ? `${ratedMah} mAh` : `${battery.capacity_ah} Ah`}`}
+      >
+        <div className="flex gap-2">
+          <input
+            name="measured_capacity"
+            required
+            type="number"
+            step={unit === "mah" ? "1" : "0.01"}
+            inputMode="decimal"
+            className="input mono text-lg flex-1"
+            placeholder={unit === "mah" ? "5706" : "5.71"}
+            autoFocus
+          />
+          <input type="hidden" name="capacity_unit" value={unit} />
+          <button
+            type="button"
+            className="btn btn-ghost mono text-sm px-3"
+            onClick={() => setUnit(unit === "mah" ? "ah" : "mah")}
+            title="Switch units"
+          >
+            {unit === "mah" ? "mAh" : "Ah"}
+          </button>
+        </div>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Energy (Wh)">
+          <input name="measured_wh" type="number" step="0.1" inputMode="decimal" className="input mono" placeholder="74.8" />
+        </Field>
+        <Field label="Time to discharge" hint="mm:ss">
+          <input name="duration" type="text" inputMode="numeric" pattern="[0-9]+(:[0-5]?[0-9])?|[0-9]*\.?[0-9]+" className="input mono" placeholder="10:55" />
+        </Field>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="I.R. (mΩ)">
+          <input name="ir_mohm" type="number" step="0.1" inputMode="decimal" className="input mono" placeholder="42" />
+        </Field>
+        <Field label="Internal °C">
+          <input name="temp_internal_c" type="number" step="1" inputMode="numeric" className="input mono" placeholder="37" />
+        </Field>
+        <Field label="External °C">
+          <input name="temp_external_c" type="number" step="1" inputMode="numeric" className="input mono" placeholder="42" />
         </Field>
       </div>
       <Field label="Notes">
-        <textarea name="notes" className="input" rows={2} />
+        <textarea name="notes" className="input" rows={2} placeholder="First full charge after build…" />
       </Field>
     </ActionForm>
   );

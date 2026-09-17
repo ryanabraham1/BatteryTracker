@@ -75,7 +75,7 @@ Every change to a battery produces an event. This is the "what's going on" log.
 **`usage`** — `{ context: "match" | "practice" | "other", match_label?: string, voltage_before?, voltage_after?, charge_pct_before?, charge_pct_after?, ir_before_mohm?, ir_after_mohm?, duration_min?, driver_rating?: 1–5 }`
 **`beak_test`** — `{ voltage, internal_resistance_mohm, charge_pct?, v1?, v2?, beak_status?: "Good" | "Fair" | "Bad" | "Charge Battery", phase?: "pre_match" | "post_match", match_label? }` (Battery Beak; `voltage` is the no-load V0, `v1`/`v2` the 1 A / 18 A readings and `beak_status` the Beak's verdict — the last three come from scanning the screen; `phase` set by the pre/post-match sheets)
 **`load_test`** — `{ loaded_voltage, held_10s: boolean, open_voltage?, notes? }` (100 A load tester: hold 10 s; fail = second drop or below `load_test_min_v`)
-**`cba_test`** — `{ measured_ah, test_current_a?, notes? }` (CBA discharge / capacity test)
+**`cba_test`** — `{ measured_ah, measured_wh?, mode? (cc|cp|cr|cv), test_current_a? | test_power_w? | test_resistance_ohm? | test_voltage_v?, cutoff_v?, duration_min?, ir_mohm?, temp_internal_c?, temp_external_c?, notes? }` (CBA discharge / capacity test — fields mirror the SkyRC BD380 end-of-discharge screen)
 **`incident`** — `{ kind: "brownout" | "died" | "connector" | "swollen" | "other", match_label?, notes }`
 **`note`** — `{ text }`
 **`status_change`** — `{ from, to, reason? }`
@@ -90,7 +90,9 @@ Every change to a battery produces an event. This is the "what's going on" log.
 | `ir_suspect_mohm` | 23 | IR ≥ this → **suspect** |
 | `ir_fail_mohm` | 25 | IR ≥ this → **retire** (suggests retiring; IR score hits 0) |
 | `load_test_min_v` | 10 | Loaded voltage below this fails the 100 A load test |
-| `capacity_warn_pct` | 80 | CBA measured Ah / rated Ah below this → warn |
+| `capacity_warn_pct` | 80 | CBA measured / expected Ah below this → warn (expected = Peukert-corrected rated Ah when the test recorded time or current, else rated) |
+| `peukert_k` | 1.2 | Peukert exponent: expected Ah at current I = rated · (I₂₀ / I)^(k−1). ≈1.2 SLA, ≈1.05 lithium, 1.0 off |
+| `cba_max_temp_c` | 50 | External-probe battery temp during a CBA discharge at/above this → warn |
 | `capacity_fail_pct` | 70 | below this → recommend retire |
 | `max_cycles_warn` | 200 | age warning |
 
@@ -102,7 +104,7 @@ Computed from the most recent data available; missing inputs are skipped and wei
 
 | Input | Weight | Scoring |
 |---|---|---|
-| Latest CBA capacity % of rated | 40% | 100% → 100 pts, linearly down to `capacity_fail_pct` → 0 |
+| Latest CBA capacity % of expected (rate-corrected) or of rated | 40% | 100% → 100 pts, linearly down to `capacity_fail_pct` → 0 |
 | Latest Beak internal resistance | 30% | ≤ 10 mΩ → 100, `ir_fail_mohm` → 0 |
 | Recent driver ratings (last 5 usages) | 15% | avg rating × 20 |
 | Incidents in last 30 days | 10% | 0 → 100, each incident −35 |
@@ -139,7 +141,8 @@ Also surfaces **explicit warnings** (independent of score):
 ### 6.3 Battery detail `/batteries/[name]`
 - Header: name, status pill, health score ring, current state + duration.
 - **Stats row:** cycles, age, last Beak V / IR, last CBA Ah, avg driver rating.
-- **Charts:** Beak IR over time (tier lines), voltage over time, **voltage drop per match**, **load-test V @ 100 A**, CBA capacity over time.
+- **Charts:** Beak IR over time (tier lines), voltage over time, **voltage drop per match**, **load-test V @ 100 A**, CBA capacity (% of expected at test rate), CBA IR, CBA mean V under load.
+- **CBA analysis card:** % of Peukert-expected capacity, mean V under load (Wh ÷ Ah), state of health vs first CBA test, IR drift vs best reading (+30 % warn, 2× fail), battery temp.
 - **Timeline:** full event log for this battery, newest first, filterable by type.
 - Actions: Move state, Log charge, Log usage, Beak test, CBA test, Flag incident, Add note, Edit, Retire / Un-retire.
 

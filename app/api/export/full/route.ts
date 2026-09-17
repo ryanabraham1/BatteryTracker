@@ -55,7 +55,15 @@ const EVENT_COLUMNS = [
   // CBA
   "measured_ah",
   "measured_wh",
+  "mode",
   "test_current_a",
+  "test_power_w",
+  "test_resistance_ohm",
+  "test_voltage_v",
+  "cutoff_v",
+  "ir_mohm",
+  "temp_internal_c",
+  "temp_external_c",
   // load test
   "held_10s",
   // charge

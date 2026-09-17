@@ -13,6 +13,8 @@ import {
   BEAK_STATUSES,
   type BeakStatus,
   type BeakTestData,
+  CBA_MODES,
+  type CbaMode,
   type CbaTestData,
   type IncidentData,
   type IrTier,
@@ -71,6 +73,15 @@ function num(v: FormDataEntryValue | null | undefined): number | undefined {
   if (v === null || v === undefined || v === "") return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
+}
+/** "10:55" (mm:ss) or "10.9" (minutes) → fractional minutes. */
+function parseDuration(v: string | undefined): number | undefined {
+  if (!v) return undefined;
+  const m = /^(\d+):([0-5]?\d)$/.exec(v);
+  if (m) return Math.round((Number(m[1]) + Number(m[2]) / 60) * 100) / 100;
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error("Time should be mm:ss or minutes");
+  return n;
 }
 function str(v: FormDataEntryValue | null | undefined): string | undefined {
   if (v === null || v === undefined) return undefined;
@@ -324,13 +335,23 @@ export async function logBeak(batteryId: string, form: FormData): Promise<Result
 export async function logCba(batteryId: string, form: FormData): Promise<Result> {
   return wrap(async () => {
     await guard();
-    const ah = num(form.get("measured_ah"));
-    if (ah === undefined) throw new Error("Measured Ah is required");
-    const data: CbaTestData = { measured_ah: ah };
+    const cap = num(form.get("measured_capacity"));
+    if (cap === undefined) throw new Error("Measured capacity is required");
+    const unit = str(form.get("capacity_unit")) ?? "mah";
+    const data: CbaTestData = { measured_ah: unit === "ah" ? cap : Math.round(cap) / 1000 };
     const wh = num(form.get("measured_wh"));
     if (wh !== undefined) data.measured_wh = wh;
-    const a = num(form.get("test_current_a"));
-    if (a !== undefined) data.test_current_a = a;
+    const mode = str(form.get("mode"));
+    if (mode !== undefined) {
+      if (!CBA_MODES.includes(mode as CbaMode)) throw new Error("Bad discharge mode");
+      data.mode = mode as CbaMode;
+    }
+    for (const key of ["test_current_a", "test_power_w", "test_resistance_ohm", "test_voltage_v", "cutoff_v", "ir_mohm", "temp_internal_c", "temp_external_c"] as const) {
+      const v = num(form.get(key));
+      if (v !== undefined) data[key] = v;
+    }
+    const dur = parseDuration(str(form.get("duration")));
+    if (dur !== undefined) data.duration_min = dur;
     const n = str(form.get("notes"));
     if (n) data.notes = n;
     await insertEvent(batteryId, "cba_test", data as unknown as Record<string, unknown>);
@@ -486,6 +507,8 @@ export async function updateSettings(form: FormData): Promise<Result> {
       "capacity_fail_pct",
       "cba_a_wh",
       "cba_b_wh",
+      "peukert_k",
+      "cba_max_temp_c",
       "max_cycles_warn",
     ];
     const patch: Record<string, number> = {};
@@ -497,6 +520,7 @@ export async function updateSettings(form: FormData): Promise<Result> {
     if (!(patch.ir_warn_mohm <= patch.ir_practice_mohm && patch.ir_practice_mohm <= patch.ir_suspect_mohm && patch.ir_suspect_mohm <= patch.ir_fail_mohm))
       throw new Error("IR tiers must be in order: comp-ready ≤ practice ≤ suspect ≤ retire");
     if (patch.cba_b_wh > patch.cba_a_wh) throw new Error("CBA B-tier cutoff must be ≤ A-tier cutoff");
+    if (patch.peukert_k < 1 || patch.peukert_k > 1.6) throw new Error("Peukert exponent should be between 1.0 and 1.6");
     const { error } = await supabaseAdmin().from("settings").update(patch).eq("id", 1);
     if (error) throw error;
     refresh();

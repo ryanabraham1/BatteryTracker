@@ -119,8 +119,38 @@ export interface LoadTestData {
   open_voltage?: number;
   notes?: string;
 }
-/** `measured_wh` is what the CBA actually reports; Ah is what the health thresholds use. */
-export interface CbaTestData { measured_ah: number; measured_wh?: number; test_current_a?: number; notes?: string }
+/** Discharger mode (SkyRC BD380): constant current / power / resistance / voltage. */
+export type CbaMode = "cc" | "cp" | "cr" | "cv";
+export const CBA_MODES: CbaMode[] = ["cc", "cp", "cr", "cv"];
+export const CBA_MODE_LABEL: Record<CbaMode, string> = { cc: "CC", cp: "CP", cr: "CR", cv: "CV" };
+/** Setpoint field + unit per mode: CC → A, CP → W, CR → Ω, CV → V. */
+export const CBA_MODE_SETPOINT: Record<CbaMode, { key: keyof CbaTestData; unit: string; label: string }> = {
+  cc: { key: "test_current_a", unit: "A", label: "Discharge current" },
+  cp: { key: "test_power_w", unit: "W", label: "Discharge power" },
+  cr: { key: "test_resistance_ohm", unit: "Ω", label: "Load resistance" },
+  cv: { key: "test_voltage_v", unit: "V", label: "Hold voltage" },
+};
+/**
+ * `measured_wh` is what the CBA actually reports; Ah is what the health thresholds use
+ * (the BD380 shows mAh — the form converts). The rest mirrors the BD380 end-of-discharge
+ * screen: mode + setpoint, cut-off voltage, time to discharge, internal resistance, temps.
+ */
+export interface CbaTestData {
+  measured_ah: number;
+  measured_wh?: number;
+  mode?: CbaMode;
+  test_current_a?: number;
+  test_power_w?: number;
+  test_resistance_ohm?: number;
+  test_voltage_v?: number;
+  cutoff_v?: number;
+  /** Time to discharge, in minutes (fractional — "10:55" on the screen is 10.92). */
+  duration_min?: number;
+  ir_mohm?: number;
+  temp_internal_c?: number;
+  temp_external_c?: number;
+  notes?: string;
+}
 export interface IncidentData { kind: IncidentKind; match_label?: string; notes: string }
 export interface NoteData { text: string }
 export interface StatusChangeData { from: BatteryStatus; to: BatteryStatus; reason?: string }
@@ -159,6 +189,10 @@ export interface Settings {
   /** CBA Wh tiers: A ≥ cba_a_wh, B ≥ cba_b_wh, C below. Used when a test recorded Wh. */
   cba_a_wh: number;
   cba_b_wh: number;
+  /** Peukert exponent for rate-correcting rated Ah (≈1.2 SLA, ≈1.05 lithium). */
+  peukert_k: number;
+  /** Battery (external probe) temperature during a CBA discharge at or above this → warn. */
+  cba_max_temp_c: number;
   max_cycles_warn: number;
   team_code_hash: string | null;
   updated_at: string;
@@ -177,6 +211,8 @@ export const DEFAULT_SETTINGS: Settings = {
   capacity_fail_pct: 70,
   cba_a_wh: 130,
   cba_b_wh: 120,
+  peukert_k: 1.2,
+  cba_max_temp_c: 50,
   max_cycles_warn: 200,
   team_code_hash: null,
   updated_at: new Date(0).toISOString(),

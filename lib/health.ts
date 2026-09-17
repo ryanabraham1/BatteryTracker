@@ -13,6 +13,7 @@ import {
   type Settings,
   type UsageData,
 } from "./types";
+import { cbaCapacityMetric, cbaDerived, type CbaDerived } from "./cba";
 
 export type HealthBadge = "good" | "watch" | "bad";
 
@@ -26,7 +27,16 @@ export interface HealthSummary {
   badge: HealthBadge | null;
   warnings: Warning[];
   latestBeak: (BeakTestData & { at: string }) | null;
-  latestCba: (CbaTestData & { at: string; pct: number; tier: CbaTier }) | null;
+  /**
+   * `pct` is measured / expected-at-this-rate when the test recorded enough to
+   * rate-correct (Peukert), otherwise measured / rated. `derived` carries the
+   * mean V / A / W and the expected Ah so the UI can say which one it used.
+   */
+  latestCba: (CbaTestData & { at: string; pct: number; rateCorrected: boolean; tier: CbaTier; derived: CbaDerived }) | null;
+  /** Capacity fade: latest CBA vs the battery's first, same metric (Wh preferred). Null with < 2 tests. */
+  cbaSoh: { pct: number; unit: "Wh" | "Ah"; firstAt: string } | null;
+  /** BD380 internal-resistance drift: latest vs the lowest ever recorded. Null with < 2 IR readings. */
+  cbaIrRise: { pct: number; latest: number; best: number } | null;
   latestLoad: (LoadTestData & { at: string; pass: boolean }) | null;
   /** IR band of the latest Beak reading (null when never tested). */
   irTier: IrTier | null;
@@ -52,9 +62,13 @@ export function irTierFor(ir: number, s: Settings): IrTier {
   return "comp";
 }
 
-/** CBA tier: Wh cutoffs when the test recorded Wh, otherwise % of rated Ah. */
-export function cbaTierFor(d: CbaTestData, pct: number, s: Settings): CbaTier {
-  if (typeof d.measured_wh === "number") {
+/**
+ * CBA tier. The Wh cutoffs assume the Andymark CBA's fixed low-current profile,
+ * so they only apply to tests that can't be rate-corrected; a test with enough
+ * data for Peukert (time or current) is judged on % of expected at its rate.
+ */
+export function cbaTierFor(d: CbaTestData, pct: number, s: Settings, rateCorrected = false): CbaTier {
+  if (typeof d.measured_wh === "number" && !rateCorrected) {
     return d.measured_wh >= s.cba_a_wh ? "a" : d.measured_wh >= s.cba_b_wh ? "b" : "c";
   }
   return pct >= s.capacity_warn_pct ? "a" : pct >= s.capacity_fail_pct ? "b" : "c";
@@ -114,10 +128,38 @@ export function computeHealth(
   const latestCba = cba
     ? (() => {
         const d = cba.data as unknown as CbaTestData;
-        const pct = battery.capacity_ah > 0 ? (d.measured_ah / battery.capacity_ah) * 100 : 0;
-        return { ...d, at: cba.occurred_at, pct, tier: cbaTierFor(d, pct, settings) };
+        const derived = cbaDerived(d, battery, settings);
+        const rateCorrected = derived.pct_of_expected !== undefined;
+        const pct = rateCorrected
+          ? (derived.pct_of_expected as number)
+          : battery.capacity_ah > 0
+            ? (d.measured_ah / battery.capacity_ah) * 100
+            : 0;
+        return { ...d, at: cba.occurred_at, pct, rateCorrected, tier: cbaTierFor(d, pct, settings, rateCorrected), derived };
       })()
     : null;
+
+  // Trend models need every CBA test, oldest first.
+  const cbas = sorted.filter((e) => e.type === "cba_test").reverse();
+  const cbaSoh = (() => {
+    if (cbas.length < 2) return null;
+    const first = cbas[0].data as unknown as CbaTestData;
+    const last = cbas[cbas.length - 1].data as unknown as CbaTestData;
+    const a = cbaCapacityMetric(first);
+    const b = cbaCapacityMetric(last);
+    // Fall back to Ah if only one of the two recorded Wh.
+    const unit = a.unit === b.unit ? a.unit : "Ah";
+    const from = unit === "Wh" ? a.value : first.measured_ah;
+    const to = unit === "Wh" ? b.value : last.measured_ah;
+    return from > 0 ? { pct: (to / from) * 100, unit, firstAt: cbas[0].occurred_at } : null;
+  })();
+  const cbaIrRise = (() => {
+    const irs = cbas.map((e) => (e.data as unknown as CbaTestData).ir_mohm).filter((x): x is number => typeof x === "number" && x > 0);
+    if (irs.length < 2) return null;
+    const latest = irs[irs.length - 1];
+    const best = Math.min(...irs);
+    return { pct: (latest / best - 1) * 100, latest, best };
+  })();
 
   const latestLoad = load
     ? (() => {
@@ -178,7 +220,7 @@ export function computeHealth(
       label: "CBA capacity",
       weight: 40,
       score: latestCba
-        ? typeof latestCba.measured_wh === "number"
+        ? typeof latestCba.measured_wh === "number" && !latestCba.rateCorrected
           // A-tier cutoff scores 100; one tier-width below the B cutoff scores 0
           ? lerp(latestCba.measured_wh, 2 * settings.cba_b_wh - settings.cba_a_wh, 0, settings.cba_a_wh, 100)
           : lerp(latestCba.pct, settings.capacity_fail_pct, 0, 100, 100)
@@ -249,7 +291,7 @@ export function computeHealth(
     const why = !latestLoad.held_10s ? "voltage dropped again within 10 s (bad cell?)" : `held at ${fmt(latestLoad.loaded_voltage)} V < ${settings.load_test_min_v} V floor`;
     warnings.push({ level: "fail", text: `Failed 100 A load test — ${why}` });
   }
-  if (latestCba && typeof latestCba.measured_wh === "number") {
+  if (latestCba && typeof latestCba.measured_wh === "number" && !latestCba.rateCorrected) {
     const wh = fmt(latestCba.measured_wh);
     if (latestCba.tier === "c")
       warnings.push({ level: "fail", text: `CBA ${wh} Wh — C-tier (< ${settings.cba_b_wh} Wh) — refresh cycle or retire` });
@@ -259,14 +301,27 @@ export function computeHealth(
     if (latestCba.pct < settings.capacity_fail_pct)
       warnings.push({
         level: "fail",
-        text: `Capacity ${Math.round(latestCba.pct)}% < fail (${settings.capacity_fail_pct}%) — consider retiring`,
+        text: `Capacity ${Math.round(latestCba.pct)}% of ${latestCba.rateCorrected ? "expected at test rate" : "rated"} < fail (${settings.capacity_fail_pct}%) — consider retiring`,
       });
     else if (latestCba.pct < settings.capacity_warn_pct)
       warnings.push({
         level: "warn",
-        text: `Capacity ${Math.round(latestCba.pct)}% < warn (${settings.capacity_warn_pct}%)`,
+        text: `Capacity ${Math.round(latestCba.pct)}% of ${latestCba.rateCorrected ? "expected at test rate" : "rated"} < warn (${settings.capacity_warn_pct}%)`,
       });
   }
+  if (latestCba && typeof latestCba.temp_external_c === "number" && latestCba.temp_external_c >= settings.cba_max_temp_c)
+    warnings.push({ level: "warn", text: `Battery hit ${fmt(latestCba.temp_external_c)} °C during CBA discharge (≥ ${settings.cba_max_temp_c} °C)` });
+  // IR doubling is the textbook end-of-life marker; +30 % is when a pack starts sagging noticeably.
+  if (cbaIrRise) {
+    const txt = `CBA IR ${fmt(cbaIrRise.latest)} mΩ, up ${Math.round(cbaIrRise.pct)}% from best ${fmt(cbaIrRise.best)} mΩ`;
+    if (cbaIrRise.pct >= 100) warnings.push({ level: "fail", text: `${txt} — doubled, end of life` });
+    else if (cbaIrRise.pct >= 30) warnings.push({ level: "warn", text: txt });
+  }
+  if (cbaSoh && cbaSoh.pct < settings.capacity_warn_pct)
+    warnings.push({
+      level: cbaSoh.pct < settings.capacity_fail_pct ? "fail" : "warn",
+      text: `Holds ${Math.round(cbaSoh.pct)}% of its first CBA test (${cbaSoh.unit}) — capacity fade`,
+    });
   const consecutiveLow = (() => {
     let n = 0;
     for (const r of usages.map((e) => (e.data as unknown as UsageData).driver_rating)) {
@@ -312,6 +367,8 @@ export function computeHealth(
     warnings,
     latestBeak,
     latestCba,
+    cbaSoh,
+    cbaIrRise,
     latestLoad,
     irTier,
     suggestedStatus,

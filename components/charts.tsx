@@ -1,6 +1,7 @@
 "use client";
 
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { cbaDerived } from "@/lib/cba";
 import type { BatteryEvent, BeakTestData, CbaTestData, ChargeData, LoadTestData, Settings, UsageData } from "@/lib/types";
 
 interface Pt {
@@ -178,6 +179,8 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
   const ir: Pt[] = [];
   const volt: Pt[] = [];
   const cap: Pt[] = [];
+  const cbaIr: Pt[] = [];
+  const loadV: Pt[] = [];
   const load: Pt[] = [];
   const drops: { label: string; drop: number; t: number }[] = [];
   let n = 0;
@@ -208,7 +211,11 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
       load.push({ t, v: (e.data as unknown as LoadTestData).loaded_voltage });
     } else if (e.type === "cba_test") {
       const d = e.data as unknown as CbaTestData;
-      cap.push({ t, v: d.measured_ah });
+      // Rate-corrected when the test recorded enough for Peukert, else % of rated.
+      const dv = cbaDerived(d, { capacity_ah: capacityAh }, settings);
+      cap.push({ t, v: dv.pct_of_expected ?? (capacityAh > 0 ? (d.measured_ah / capacityAh) * 100 : 0) });
+      if (typeof d.ir_mohm === "number") cbaIr.push({ t, v: d.ir_mohm });
+      if (typeof d.measured_wh === "number" && d.measured_ah > 0) loadV.push({ t, v: d.measured_wh / d.measured_ah });
     }
   }
   volt.sort((a, b) => a.t - b.t);
@@ -237,22 +244,16 @@ export function BatteryCharts({ events, settings, capacityAh }: { events: Batter
         refs={[{ y: settings.load_test_min_v, label: "floor", color: "var(--bad)" }]}
       />
       <Panel
-        title="CBA capacity"
-        unit="Ah"
+        title="CBA capacity · % of expected at test rate"
+        unit="%"
         data={cap}
         refs={[
-          {
-            y: (capacityAh * settings.capacity_warn_pct) / 100,
-            label: `${settings.capacity_warn_pct}%`,
-            color: "var(--warn)",
-          },
-          {
-            y: (capacityAh * settings.capacity_fail_pct) / 100,
-            label: `${settings.capacity_fail_pct}%`,
-            color: "var(--bad)",
-          },
+          { y: settings.capacity_warn_pct, label: "warn", color: "var(--warn)" },
+          { y: settings.capacity_fail_pct, label: "fail", color: "var(--bad)" },
         ]}
       />
+      <Panel title="CBA IR" unit="mΩ" data={cbaIr} />
+      <Panel title="CBA mean V under load" unit="V" data={loadV} />
     </div>
   );
 }

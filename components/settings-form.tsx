@@ -16,6 +16,8 @@ const FIELDS: { key: keyof Settings; label: string; unit: string; hint: string }
   { key: "capacity_fail_pct", label: "Capacity fail", unit: "%", hint: "Below this → recommend retire (used when a CBA has no Wh)" },
   { key: "cba_a_wh", label: "CBA A-tier from", unit: "Wh", hint: "At or above → A-tier (green)" },
   { key: "cba_b_wh", label: "CBA B-tier from", unit: "Wh", hint: "At or above → B-tier; below → C-tier (recommend refresh/retire)" },
+  { key: "peukert_k", label: "Peukert exponent", unit: "k", hint: "Rate-corrects rated Ah for high-current CBA tests: ≈1.2 lead-acid, ≈1.05 lithium, 1.0 = off" },
+  { key: "cba_max_temp_c", label: "CBA max battery temp", unit: "°C", hint: "External probe reading at or above this during a discharge → warn" },
   { key: "max_cycles_warn", label: "Max cycles", unit: "cycles", hint: "Age warning; cycle score hits 0 here" },
 ];
 
