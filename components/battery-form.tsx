@@ -42,16 +42,22 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
           <input name="capacity_ah" type="number" step="0.1" inputMode="decimal" className="input mono" defaultValue={battery?.capacity_ah ?? 18} />
         </label>
         <label className="block">
-          <span className="label">Purchased</span>
-          <input name="purchase_date" type="date" className="input mono" defaultValue={battery?.purchase_date ?? ""} />
+          <span className="label">Cycle count</span>
+          <input name="cycle_count" type="number" step="1" inputMode="numeric" className="input mono" defaultValue={battery?.cycle_count ?? 0} />
         </label>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="label">Cycle count</span>
-          <input name="cycle_count" type="number" step="1" inputMode="numeric" className="input mono" defaultValue={battery?.cycle_count ?? 0} />
+          <span className="label">Manufactured</span>
+          <input name="manufacture_date" type="date" className="input mono" defaultValue={battery?.manufacture_date ?? ""} />
         </label>
-        {!editing && (
+        <label className="block">
+          <span className="label">Purchased</span>
+          <input name="purchase_date" type="date" className="input mono" defaultValue={battery?.purchase_date ?? ""} />
+        </label>
+      </div>
+      {!editing && (
+        <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="label">Starting state</span>
             <select name="state" className="input" defaultValue="ready">
@@ -62,8 +68,8 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
               ))}
             </select>
           </label>
-        )}
-      </div>
+        </div>
+      )}
       {!editing && (
         <label className="block">
           <span className="label">Status</span>
