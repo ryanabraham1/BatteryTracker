@@ -38,6 +38,7 @@ One place for the team to know **which batteries exist, what state each one is i
 | `brand_model` | text | e.g. MK ES17-12, Interstate SLA1116 |
 | `capacity_ah` | number | default 18 |
 | `purchase_date` | date | |
+| `manufacture_date` | date | date printed on the battery |
 | `status` | enum | `active` · `practice_only` · `retired` |
 | `retired_reason` | text, nullable | |
 | `notes` | text | |

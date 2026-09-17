@@ -60,6 +60,7 @@ export interface Battery {
   brand_model: string;
   capacity_ah: number;
   purchase_date: string | null;
+  manufacture_date: string | null;
   status: BatteryStatus;
   retired_reason: string | null;
   notes: string;

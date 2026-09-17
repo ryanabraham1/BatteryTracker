@@ -10,6 +10,7 @@ export async function GET() {
     brand_model: b.brand_model,
     capacity_ah: b.capacity_ah,
     purchase_date: b.purchase_date,
+    manufacture_date: b.manufacture_date,
     status: b.status,
     retired_reason: b.retired_reason,
     state: b.state,

@@ -400,6 +400,7 @@ export async function createBattery(form: FormData): Promise<Result<{ name: stri
       brand_model: str(form.get("brand_model")) ?? "",
       capacity_ah: num(form.get("capacity_ah")) ?? 18,
       purchase_date: str(form.get("purchase_date")) ?? null,
+      manufacture_date: str(form.get("manufacture_date")) ?? null,
       notes: str(form.get("notes")) ?? "",
       status: (str(form.get("status")) as BatteryStatus) ?? "active",
       state: (str(form.get("state")) as BatteryState) ?? "ready",
@@ -426,6 +427,7 @@ export async function updateBattery(batteryId: string, form: FormData): Promise<
       brand_model: str(form.get("brand_model")) ?? "",
       capacity_ah: num(form.get("capacity_ah")) ?? 18,
       purchase_date: str(form.get("purchase_date")) ?? null,
+      manufacture_date: str(form.get("manufacture_date")) ?? null,
       notes: str(form.get("notes")) ?? "",
       cycle_count: num(form.get("cycle_count")) ?? 0,
     };
