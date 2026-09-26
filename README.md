@@ -1,6 +1,9 @@
 # Battery Tracker — FRC 3256
 
-Mobile-first PWA: which batteries exist, what state each is in, how healthy it is, and which one to grab next. See [SPEC.md](SPEC.md).
+Mobile-first PWA with two apps behind one team code, switched from the header:
+
+- **Batteries** (`/`) — which batteries exist, what state each is in, how healthy it is, and which one to grab next. See [SPEC.md](SPEC.md).
+- **Fab stock** (`/stock`) — the raw material the team cuts: tube, bar, angle, channel, rod, hex shaft, sheet/plate. See [Fab stock](#fab-stock) below.
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase (Postgres + Realtime) · Recharts · Vercel.
 
@@ -39,6 +42,21 @@ OCR runs on the phone with [Tesseract.js](https://github.com/naptha/tesseract.js
 Tips for good reads: get close so the screen fills most of the frame, keep the phone roughly square to it, tap to focus on the text, and avoid glare on the glass. The blue rows read more reliably than the yellow ones, so voltage and IR usually land even when Charge % doesn't.
 
 `scripts/ocr-assets.mjs` (run on `postinstall`/`prebuild`) copies the Tesseract worker, WASM core and English data from `node_modules` into `public/ocr/` (gitignored), which `sw.js` caches for offline use.
+
+## Fab stock
+
+Tracks raw material as **individual pieces** — each stick has a length, each sheet a W × L — because an offcut isn't interchangeable with a full stick.
+
+- **Rack** (`/stock`) — every material with its total on hand, piece count, and where the pieces are. Filter by shape, "Low", or "Pit only" (on by default in comp mode). Header search takes shop shorthand: `2x1`, `1/4 poly`, `hex`.
+- **Material page** (`/stock/[id]`) — **Receive** new sticks/sheets, **Cut** (the blade kerf is subtracted per cut; a leftover shorter than the scrap length defaults to "toss"), **Move** between locations, **Edit** a piece after measuring it, **Scrap** it. **Find a piece** suggests the shortest stick (smallest sheet) that fits, so offcuts get used before full stock.
+- **Sheets** — a cut records what's left: one or more smaller rectangles, "same outline, has cutouts", or nothing.
+- **Shopping** (`/stock/shopping`) — "Need more" lines grouped by vendor, *needed → ordered → arrived* (arriving adds the pieces). Materials under their low-stock line are listed alongside. Copy as text or CSV.
+- **Pit kit** (`/stock/kit`) — lists like "2 × 2×1 tube ≥ 24"". A line is packed when enough pieces that big sit in a *pit* location; short lines say which shop piece to grab.
+- **Log** (`/stock/log`) and **Setup** (`/stock/setup`: kerf, scrap length, locations).
+
+**Units:** everything is stored in millimetres. Each device picks inches or mm (the `fab_units` cookie, toggled on any stock page). Length fields take `27 1/2`, `27.5"`, `2' 3"`, `700mm`, `70cm` and show the conversion. Material sizes are shown the way they're sold (`2×1" × 1/16 wall`, `8 mm hex`), set per material.
+
+Code: `lib/units.ts` (parse/format), `lib/fab.ts` (types, fit + summary logic), `lib/fab-data.ts` (reads), `app/fab-actions.ts` (server actions), `components/fab-*.tsx`. Schema: `supabase/migrations/0007_fab_stock.sql`.
 
 ## Deploy
 

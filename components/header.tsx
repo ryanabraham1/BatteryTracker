@@ -5,7 +5,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCompMode } from "./comp-mode";
 
-const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
+type NavItem = { href: string; label: string; icon: React.ReactNode };
+
+const SETTINGS_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+  </svg>
+);
+
+const BATTERY_NAV: NavItem[] = [
   {
     href: "/",
     label: "Board",
@@ -47,20 +56,68 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   {
     href: "/settings",
     label: "Settings",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-      </svg>
-    ),
+    icon: SETTINGS_ICON,
   },
 ];
 
-const SEARCHABLE = ["/", "/batteries"];
+/** Fab stock app tabs. */
+const STOCK_NAV: NavItem[] = [
+  {
+    href: "/stock",
+    label: "Rack",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="4" rx="1" />
+        <rect x="3" y="10" width="13" height="4" rx="1" />
+        <rect x="3" y="16" width="8" height="4" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/stock/shopping",
+    label: "Shopping",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="9" cy="20" r="1.5" />
+        <circle cx="18" cy="20" r="1.5" />
+        <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.5L21 8H6" />
+      </svg>
+    ),
+  },
+  {
+    href: "/stock/log",
+    label: "Log",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 6h16M4 12h10M4 18h13" />
+      </svg>
+    ),
+  },
+  {
+    href: "/stock/kit",
+    label: "Pit kit",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="2" y="8" width="20" height="12" rx="2" />
+        <path d="M8 8V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3M2 13h20" />
+      </svg>
+    ),
+  },
+  { href: "/stock/setup", label: "Setup", icon: SETTINGS_ICON },
+];
+
+const SEARCHABLE = ["/", "/batteries", "/stock"];
+
+const STOCK_SUBPAGES = /^\/stock\/(log|shopping|kit|setup)(\/|$)/;
 
 function isActive(href: string, pathname: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  // The rack tab also covers material pages (/stock/<id>), but not the other stock tabs.
+  if (href === "/stock") return pathname === "/stock" || (pathname.startsWith("/stock/") && !STOCK_SUBPAGES.test(pathname));
+  return pathname.startsWith(href);
 }
+
+const isStockPath = (pathname: string) => pathname === "/stock" || pathname.startsWith("/stock/");
 
 export function Header() {
   const pathname = usePathname();
@@ -82,8 +139,11 @@ export function Header() {
     if (searchOpen) mobileInput.current?.focus();
   }, [searchOpen]);
 
-  const canSearch = SEARCHABLE.some((p) => (p === "/" ? pathname === "/" : pathname.startsWith(p)));
-  const searchTarget = pathname.startsWith("/batteries") ? "/batteries" : "/";
+  const stockApp = isStockPath(pathname);
+  const NAV = stockApp ? STOCK_NAV : BATTERY_NAV;
+  const canSearch = SEARCHABLE.some((p) => (p === "/" || p === "/stock" ? pathname === p : pathname.startsWith(p)));
+  const searchTarget = stockApp ? "/stock" : pathname.startsWith("/batteries") ? "/batteries" : "/";
+  const searchWhat = stockApp ? "stock" : "batteries";
 
   function search(e: FormEvent) {
     e.preventDefault();
@@ -122,15 +182,33 @@ export function Header() {
         style={{ background: "var(--surface)", borderColor: "var(--line)" }}
       >
         <div className="mx-auto max-w-[1400px] px-4 py-2 flex items-center gap-3 min-h-[56px]">
-          <Link href="/" className="flex items-center gap-2 shrink-0 min-h-[44px]">
+          <div className="flex items-center gap-2 shrink-0 min-h-[44px]">
             <span
-              className="eyebrow px-2 py-1 rounded-md"
+              className="eyebrow px-2 py-1 rounded-md hidden sm:inline"
               style={{ background: "var(--plum)", color: "var(--plum-text)" }}
             >
               3256
             </span>
-            <span className="font-medium tracking-tight">Batteries</span>
-          </Link>
+            {/* App switcher: batteries ↔ fab stock */}
+            <nav className="inline-flex rounded-lg p-0.5" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
+              {(
+                [
+                  ["/", "Batteries", !stockApp],
+                  ["/stock", "Fab stock", stockApp],
+                ] as const
+              ).map(([href, label, on]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="rounded-md px-2.5 flex items-center text-sm font-medium tracking-tight whitespace-nowrap"
+                  style={{ minHeight: 36, background: on ? "var(--plum)" : "transparent", color: on ? "#fff" : "var(--muted)" }}
+                  aria-current={on ? "page" : undefined}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
@@ -161,7 +239,7 @@ export function Header() {
                   placeholder="Search…"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  aria-label="Search batteries"
+                  aria-label={`Search ${searchWhat}`}
                   enterKeyHint="search"
                 />
               </form>
@@ -172,7 +250,7 @@ export function Header() {
                 className="md:hidden flex items-center justify-center w-11 h-11 -mr-1 rounded-full"
                 style={{ color: searchOpen || urlQ ? "var(--purple-dark)" : "var(--muted)", background: searchOpen || urlQ ? "var(--purple-soft)" : "transparent" }}
                 onClick={() => (searchOpen ? clearSearch() : setSearchOpen(true))}
-                aria-label={searchOpen ? "Close search" : "Search batteries"}
+                aria-label={searchOpen ? "Close search" : `Search ${searchWhat}`}
                 aria-expanded={searchOpen}
               >
                 {searchOpen ? (
@@ -196,10 +274,10 @@ export function Header() {
               <input
                 ref={mobileInput}
                 className="input pr-11"
-                placeholder="Search batteries…"
+                placeholder={stockApp ? "2x1, 1/4 poly, hex…" : "Search batteries…"}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                aria-label="Search batteries"
+                aria-label={`Search ${searchWhat}`}
                 enterKeyHint="search"
                 autoCapitalize="none"
               />
