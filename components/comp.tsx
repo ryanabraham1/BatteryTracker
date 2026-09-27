@@ -91,7 +91,7 @@ export function CompPanel({ items, settings, matches = 6 }: { items: BatteryWith
               {row.item ? (
                 <>
                   <div className="flex-1 min-w-0">
-                    <Link href={`/batteries/${encodeURIComponent(row.item.battery.name)}`} className="display text-2xl block truncate">
+                    <Link href={`/battery/batteries/${encodeURIComponent(row.item.battery.name)}`} className="display text-2xl block truncate">
                       {row.item.battery.name}
                     </Link>
                     <span className="block sm:hidden mt-1">

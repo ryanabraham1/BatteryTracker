@@ -140,7 +140,7 @@ export function BatteryActionSheet({
               </button>
             </div>
           </div>
-          <a href={`/batteries/${encodeURIComponent(battery.name)}`} className="btn btn-ghost py-3">
+          <a href={`/battery/batteries/${encodeURIComponent(battery.name)}`} className="btn btn-ghost py-3">
             Open details <span aria-hidden>→</span>
           </a>
         </div>

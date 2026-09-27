@@ -21,7 +21,7 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
         setError(r.error);
         return;
       }
-      router.push(`/batteries/${encodeURIComponent(r.data!.name)}`);
+      router.push(`/battery/batteries/${encodeURIComponent(r.data!.name)}`);
       router.refresh();
     });
   }
@@ -109,7 +109,7 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
                 setError(r.error);
                 return;
               }
-              router.push("/batteries");
+              router.push("/battery/batteries");
               router.refresh();
             });
           }}

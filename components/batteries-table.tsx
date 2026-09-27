@@ -143,7 +143,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
         <ul className="flex flex-col gap-2">
           {rows.map(({ battery: b, health: h }) => (
             <li key={b.id}>
-              <Link href={`/batteries/${encodeURIComponent(b.name)}`} className="card p-3.5 flex flex-col gap-2.5 block active:bg-[var(--purple-soft)]">
+              <Link href={`/battery/batteries/${encodeURIComponent(b.name)}`} className="card p-3.5 flex flex-col gap-2.5 block active:bg-[var(--purple-soft)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="display text-2xl truncate">{b.name}</p>
@@ -192,7 +192,7 @@ export function BatteriesTable({ items }: { items: BatteryWithHealth[] }) {
             {rows.map(({ battery: b, health: h }) => (
               <tr key={b.id} className="hover:bg-[var(--purple-soft)]" style={{ borderBottom: "1px solid var(--line)" }}>
                 <td className="px-3 py-2.5">
-                  <Link href={`/batteries/${encodeURIComponent(b.name)}`} className="display text-xl">
+                  <Link href={`/battery/batteries/${encodeURIComponent(b.name)}`} className="display text-xl">
                     {b.name}
                   </Link>
                   <div className="text-xs" style={{ color: "var(--muted)" }}>{b.brand_model || "—"} · {b.capacity_ah} Ah</div>

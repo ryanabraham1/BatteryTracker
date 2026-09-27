@@ -23,7 +23,7 @@ export default async function BatteriesPage() {
           <a href="/api/export/full" className="btn btn-ghost text-sm shrink-0">
             Export all data
           </a>
-          <Link href="/batteries/new" className="btn btn-primary text-sm flex-1 sm:flex-none">
+          <Link href="/battery/batteries/new" className="btn btn-primary text-sm flex-1 sm:flex-none">
             Add battery <span aria-hidden>→</span>
           </Link>
         </div>

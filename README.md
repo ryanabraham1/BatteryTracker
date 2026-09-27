@@ -2,8 +2,10 @@
 
 Mobile-first PWA with two apps behind one team code, switched from the header:
 
-- **Batteries** (`/`) — which batteries exist, what state each is in, how healthy it is, and which one to grab next. See [SPEC.md](SPEC.md).
+- **Batteries** (`/battery`) — which batteries exist, what state each is in, how healthy it is, and which one to grab next. See [SPEC.md](SPEC.md).
 - **Fab stock** (`/stock`) — the raw material the team cuts: tube, bar, angle, channel, rod, hex shaft, sheet/plate. See [Fab stock](#fab-stock) below.
+
+`/` opens whichever app the device used last (`last_app` cookie, set in `proxy.ts`). The battery app used to live at the root; `next.config.ts` redirects the old `/batteries`, `/log`, `/comp` and `/settings` URLs.
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase (Postgres + Realtime) · Recharts · Vercel.
 
@@ -26,7 +28,7 @@ Mobile-first PWA with two apps behind one team code, switched from the header:
 
 ## Layout
 
-- `app/(app)/` — board `/`, `/batteries`, `/batteries/[name]`, `/log`, `/comp`, `/settings`
+- `app/(app)/battery/` — board `/battery`, `/battery/batteries`, `/battery/batteries/[name]`, `/battery/log`, `/battery/comp`, `/battery/settings`; `app/(app)/stock/` — fab stock
 - `app/actions.ts` — all server actions (state moves, logging, CRUD, settings)
 - `lib/health.ts` — health score, warnings, Ready ordering
 - `lib/data.ts` — Supabase reads; `supabase/migrations/` — schema
@@ -53,6 +55,7 @@ Tracks raw material as **individual pieces** — each stick has a length, each s
 - **Shopping** (`/stock/shopping`) — "Need more" lines grouped by vendor, *needed → ordered → arrived* (arriving adds the pieces). Materials under their low-stock line are listed alongside. Copy as text or CSV.
 - **Pit kit** (`/stock/kit`) — lists like "2 × 2×1 tube ≥ 24"". A line is packed when enough pieces that big sit in a *pit* location; short lines say which shop piece to grab.
 - **Log** (`/stock/log`) and **Setup** (`/stock/setup`: kerf, scrap length, locations).
+- **Undo** — every log entry (cut, receive, move, edit, scrap, shopping-list change) has an Undo, on the log and on the material's history. Each entry stores before/after snapshots of the rows it touched (`fab_events.undo`); undo puts the *before* back only if those rows still match *after*, so undoing an old cut on a piece that has since been moved asks you to undo the move first.
 
 **Units:** everything is stored in millimetres. Each device picks inches or mm (the `fab_units` cookie, toggled on any stock page). Length fields take `27 1/2`, `27.5"`, `2' 3"`, `700mm`, `70cm` and show the conversion. Material sizes are shown the way they're sold (`2×1" × 1/16 wall`, `8 mm hex`), set per material.
 

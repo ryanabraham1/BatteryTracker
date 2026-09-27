@@ -4,7 +4,7 @@ import { BatteryForm } from "@/components/battery-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditBatteryPage(props: PageProps<"/batteries/[name]/edit">) {
+export default async function EditBatteryPage(props: PageProps<"/battery/batteries/[name]/edit">) {
   const { name } = await props.params;
   const battery = await getBatteryByName(decodeURIComponent(name));
   if (!battery) notFound();

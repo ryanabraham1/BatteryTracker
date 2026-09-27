@@ -81,7 +81,7 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
     return (
       <Empty>
         No batteries yet.{" "}
-        <Link href="/batteries/new" className="underline" style={{ color: "var(--purple)" }}>
+        <Link href="/battery/batteries/new" className="underline" style={{ color: "var(--purple)" }}>
           Add the first one →
         </Link>
       </Empty>

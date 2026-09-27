@@ -5,7 +5,7 @@ import { BatteryDetail } from "@/components/battery-detail";
 
 export const dynamic = "force-dynamic";
 
-export default async function BatteryPage(props: PageProps<"/batteries/[name]">) {
+export default async function BatteryPage(props: PageProps<"/battery/batteries/[name]">) {
   const { name } = await props.params;
   const battery = await getBatteryByName(decodeURIComponent(name));
   if (!battery) notFound();

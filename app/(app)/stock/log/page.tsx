@@ -4,6 +4,7 @@ import { describeEvent, FAB_EVENT_LABEL, FAB_EVENT_TONE, FAB_EVENT_TYPES, sizeLa
 import { fmtDateTime } from "@/lib/format";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { PageHead, UnitsToggle } from "@/components/fab-ui";
+import { UndoButton } from "@/components/fab-undo";
 
 export const dynamic = "force-dynamic";
 
@@ -85,8 +86,10 @@ export default async function StockLogPage(props: PageProps<"/stock/log">) {
             const m = byId.get(e.material_id);
             return (
               <li key={e.id} className="py-3 border-b last:border-b-0 flex gap-3 items-start" style={{ borderColor: "var(--line)" }}>
-                <span className={`pill pill-${FAB_EVENT_TONE[e.type]} mt-0.5 shrink-0`}>{FAB_EVENT_LABEL[e.type]}</span>
-                <div className="min-w-0 flex-1">
+                <span className={`pill ${e.undone_at ? "pill-muted" : `pill-${FAB_EVENT_TONE[e.type]}`} mt-0.5 shrink-0`}>
+                  {e.undone_at ? "Undone" : FAB_EVENT_LABEL[e.type]}
+                </span>
+                <div className="min-w-0 flex-1" style={e.undone_at ? { opacity: 0.55, textDecoration: "line-through" } : undefined}>
                   <p className="text-sm">
                     {m ? (
                       <Link href={`/stock/${m.id}`} className="font-medium hover:underline">
@@ -98,9 +101,12 @@ export default async function StockLogPage(props: PageProps<"/stock/log">) {
                   </p>
                   <p className="text-sm mt-0.5">{describeEvent(e, m, units)}</p>
                 </div>
-                <span className="mono text-xs shrink-0 mt-0.5" style={{ color: "var(--muted)" }}>
-                  {fmtDateTime(e.occurred_at)}
-                </span>
+                <div className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
+                  <span className="mono text-xs" style={{ color: "var(--muted)" }}>
+                    {fmtDateTime(e.occurred_at)}
+                  </span>
+                  {e.undoable && <UndoButton id={e.id} />}
+                </div>
               </li>
             );
           })}

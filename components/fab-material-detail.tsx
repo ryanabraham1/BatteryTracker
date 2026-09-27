@@ -26,6 +26,7 @@ import { fmtDate, fmtDateTime } from "@/lib/format";
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Sheet } from "./sheet";
 import { Empty } from "./ui";
+import { UndoButton } from "./fab-undo";
 import { ErrorText, Field, LengthInput, RectInput, SubmitButton, UnitsToggle, useFabAction } from "./fab-ui";
 
 type Open =
@@ -230,12 +231,21 @@ export function FabMaterialDetail({
                 {events.slice(0, 15).map((e) => (
                   <li key={e.id} className="text-sm">
                     <div className="flex items-center gap-2">
-                      <span className={`pill pill-${FAB_EVENT_TONE[e.type]}`}>{FAB_EVENT_LABEL[e.type]}</span>
+                      <span className={`pill ${e.undone_at ? "pill-muted" : `pill-${FAB_EVENT_TONE[e.type]}`}`}>
+                        {e.undone_at ? "Undone" : FAB_EVENT_LABEL[e.type]}
+                      </span>
                       <span className="mono text-xs" style={{ color: "var(--muted)" }}>
                         {fmtDateTime(e.occurred_at)}
                       </span>
+                      {e.undoable && (
+                        <span className="ml-auto">
+                          <UndoButton id={e.id} />
+                        </span>
+                      )}
                     </div>
-                    <p className="mt-0.5">{describeEvent(e, m, units)}</p>
+                    <p className="mt-0.5" style={e.undone_at ? { opacity: 0.55, textDecoration: "line-through" } : undefined}>
+                      {describeEvent(e, m, units)}
+                    </p>
                   </li>
                 ))}
               </ul>

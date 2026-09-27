@@ -73,9 +73,11 @@ async function locationName(id: string | null): Promise<string | null> {
   return (data?.name as string) ?? null;
 }
 
-async function logEvent(materialId: string, pieceId: string | null, type: string, data: Record<string, unknown>) {
+async function logEvent(materialId: string, pieceId: string | null, type: string, data: Record<string, unknown>, undo?: Undo) {
   const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== ""));
-  const { error } = await db().from("fab_events").insert({ material_id: materialId, piece_id: pieceId, type, data: clean });
+  const { error } = await db()
+    .from("fab_events")
+    .insert({ material_id: materialId, piece_id: pieceId, type, data: clean, undo: undo ?? null });
   if (error) throw error;
 }
 
@@ -147,7 +149,57 @@ export async function setMaterialArchived(fd: FormData): Promise<FabResult> {
   });
 }
 
+// ── Undo snapshots ───────────────────────────────────────────────────────────
+
+const PIECE_FIELDS = ["id", "material_id", "length_mm", "width_mm", "has_cutouts", "location_id", "status", "notes"] as const;
+const ORDER_FIELDS = ["id", "material_id", "quantity", "length_mm", "width_mm", "status", "expected_date", "notes", "received_at"] as const;
+type Snap = Record<string, unknown>;
+/** One row's change: `before` null = this entry created it, `after` null = this entry deleted it. */
+interface Change {
+  before: Snap | null;
+  after: Snap | null;
+}
+interface Undo {
+  pieces?: Change[];
+  orders?: Change[];
+}
+
+function snap(row: object, fields: readonly string[]): Snap {
+  const out: Snap = {};
+  for (const f of fields) {
+    const v = (row as Record<string, unknown>)[f];
+    out[f] = f.endsWith("_mm") && v !== null && v !== undefined ? Number(v) : (v ?? null);
+  }
+  return out;
+}
+const pieceSnap = (r: object) => snap(r, PIECE_FIELDS);
+const orderSnap = (r: object) => snap(r, ORDER_FIELDS);
+
+/** Does the row still look the way this entry left it? (mm compared to 0.01) */
+function sameAs(current: Snap, expected: Snap): boolean {
+  return Object.keys(expected).every((k) => {
+    const a = current[k];
+    const b = expected[k];
+    if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 0.01;
+    if (k === "received_at" && a && b) return new Date(String(a)).getTime() === new Date(String(b)).getTime();
+    return (a ?? null) === (b ?? null);
+  });
+}
+
 // ── Pieces ───────────────────────────────────────────────────────────────────
+
+async function updatePiece(id: string, patch: Record<string, unknown>): Promise<Snap> {
+  const { data, error } = await db().from("fab_pieces").update(patch).eq("id", id).select("*").single();
+  if (error) throw error;
+  return pieceSnap(data);
+}
+
+async function insertPieces(rows: Record<string, unknown>[]): Promise<Snap[]> {
+  if (!rows.length) return [];
+  const { data, error } = await db().from("fab_pieces").insert(rows).select("*");
+  if (error) throw error;
+  return (data ?? []).map(pieceSnap);
+}
 
 export async function receivePieces(fd: FormData): Promise<FabResult> {
   return run(async () => {
@@ -162,30 +214,35 @@ export async function receivePieces(fd: FormData): Promise<FabResult> {
       length = r.l;
     }
     const location_id = str(fd, "location_id") || null;
-    const rows = Array.from({ length: count }, () => ({
-      material_id: m.id,
-      length_mm: length,
-      width_mm: width,
-      location_id,
-      notes: str(fd, "notes"),
-    }));
-    const { error } = await db().from("fab_pieces").insert(rows);
-    if (error) throw error;
-    await logEvent(m.id, null, "receive", {
-      count,
-      length_mm: length,
-      width_mm: width,
-      location: await locationName(location_id),
-      note: str(fd, "notes"),
-    });
+    const created = await insertPieces(
+      Array.from({ length: count }, () => ({
+        material_id: m.id,
+        length_mm: length,
+        width_mm: width,
+        location_id,
+        notes: str(fd, "notes"),
+      })),
+    );
+    const undo: Undo = { pieces: created.map((after) => ({ before: null, after })) };
     const orderId = str(fd, "order_id");
     if (orderId) {
-      const { error: oe } = await db()
+      const { data: before } = await db().from("fab_orders").select("*").eq("id", orderId).maybeSingle();
+      const { data: after, error: oe } = await db()
         .from("fab_orders")
         .update({ status: "received", received_at: new Date().toISOString() })
-        .eq("id", orderId);
+        .eq("id", orderId)
+        .select("*")
+        .single();
       if (oe) throw oe;
+      if (before) undo.orders = [{ before: orderSnap(before), after: orderSnap(after) }];
     }
+    await logEvent(
+      m.id,
+      null,
+      "receive",
+      { count, length_mm: length, width_mm: width, location: await locationName(location_id), note: str(fd, "notes") },
+      undo,
+    );
   });
 }
 
@@ -208,20 +265,22 @@ export async function cutLinear(fd: FormData): Promise<FabResult<{ leftover_mm: 
     const scrap = str(fd, "scrap") === "1";
     const tiny = leftover < 1; // under a millimetre is nothing
     const status = tiny ? "used" : scrap ? "scrapped" : "stock";
-    const { error } = await db()
-      .from("fab_pieces")
-      .update(status === "stock" ? { length_mm: leftover } : { status })
-      .eq("id", piece.id);
-    if (error) throw error;
-    await logEvent(material.id, piece.id, "cut", {
-      before_mm: piece.length_mm,
-      used_mm: used,
-      count,
-      leftover_mm: tiny ? 0 : leftover,
-      scrapped: !tiny && scrap ? true : null,
-      project: str(fd, "project"),
-      note: str(fd, "note"),
-    });
+    const after = await updatePiece(piece.id, status === "stock" ? { length_mm: leftover } : { status });
+    await logEvent(
+      material.id,
+      piece.id,
+      "cut",
+      {
+        before_mm: piece.length_mm,
+        used_mm: used,
+        count,
+        leftover_mm: tiny ? 0 : leftover,
+        scrapped: !tiny && scrap ? true : null,
+        project: str(fd, "project"),
+        note: str(fd, "note"),
+      },
+      { pieces: [{ before: pieceSnap(piece), after }] },
+    );
     return { leftover_mm: status === "stock" ? leftover : 0 };
   });
 }
@@ -236,15 +295,14 @@ export async function cutSheet(fd: FormData): Promise<FabResult> {
     if (!isSheet(material)) throw new Error("Use the stick cut form");
     const mode = str(fd, "mode");
     const before = { w: piece.width_mm ?? 0, l: piece.length_mm };
+    const changes: Change[] = [];
     let remaining: { w: number; l: number }[] = [];
     if (mode === "whole") {
-      const { error } = await db().from("fab_pieces").update({ status: "used" }).eq("id", piece.id);
-      if (error) throw error;
+      changes.push({ before: pieceSnap(piece), after: await updatePiece(piece.id, { status: "used" }) });
     } else if (mode === "cutouts") {
       const note = str(fd, "cutout_note");
       const notes = [piece.notes, note].filter(Boolean).join(" · ");
-      const { error } = await db().from("fab_pieces").update({ has_cutouts: true, notes }).eq("id", piece.id);
-      if (error) throw error;
+      changes.push({ before: pieceSnap(piece), after: await updatePiece(piece.id, { has_cutouts: true, notes }) });
     } else if (mode === "remaining") {
       try {
         remaining = (JSON.parse(str(fd, "remaining") || "[]") as { w: number; l: number }[])
@@ -260,32 +318,30 @@ export async function cutSheet(fd: FormData): Promise<FabResult> {
         }
       }
       const [first, ...rest] = remaining;
-      const { error } = await db()
-        .from("fab_pieces")
-        .update({ width_mm: first.w, length_mm: first.l, has_cutouts: false })
-        .eq("id", piece.id);
-      if (error) throw error;
-      if (rest.length) {
-        const { error: ie } = await db().from("fab_pieces").insert(
-          rest.map((r) => ({
-            material_id: material.id,
-            width_mm: r.w,
-            length_mm: r.l,
-            location_id: piece.location_id,
-          })),
-        );
-        if (ie) throw ie;
-      }
+      changes.push({
+        before: pieceSnap(piece),
+        after: await updatePiece(piece.id, { width_mm: first.w, length_mm: first.l, has_cutouts: false }),
+      });
+      const created = await insertPieces(
+        rest.map((r) => ({ material_id: material.id, width_mm: r.w, length_mm: r.l, location_id: piece.location_id })),
+      );
+      changes.push(...created.map((after) => ({ before: null, after })));
     } else {
       throw new Error("Pick what's left of the sheet");
     }
-    await logEvent(material.id, piece.id, "cut", {
-      mode,
-      before,
-      remaining: remaining.length ? remaining : null,
-      project: str(fd, "project"),
-      note: str(fd, "note") || (mode === "cutouts" ? str(fd, "cutout_note") : ""),
-    });
+    await logEvent(
+      material.id,
+      piece.id,
+      "cut",
+      {
+        mode,
+        before,
+        remaining: remaining.length ? remaining : null,
+        project: str(fd, "project"),
+        note: str(fd, "note") || (mode === "cutouts" ? str(fd, "cutout_note") : ""),
+      },
+      { pieces: changes },
+    );
   });
 }
 
@@ -294,15 +350,20 @@ export async function movePiece(fd: FormData): Promise<FabResult> {
     const { piece, material } = await loadPiece(str(fd, "piece_id"));
     const to = str(fd, "location_id") || null;
     if (to === piece.location_id) return;
-    const { error } = await db().from("fab_pieces").update({ location_id: to }).eq("id", piece.id);
-    if (error) throw error;
-    await logEvent(material.id, piece.id, "move", {
-      piece: pieceLabel(material, piece),
-      length_mm: piece.length_mm,
-      width_mm: piece.width_mm,
-      from: (await locationName(piece.location_id)) ?? "No location",
-      to: (await locationName(to)) ?? "No location",
-    });
+    const after = await updatePiece(piece.id, { location_id: to });
+    await logEvent(
+      material.id,
+      piece.id,
+      "move",
+      {
+        piece: pieceLabel(material, piece),
+        length_mm: piece.length_mm,
+        width_mm: piece.width_mm,
+        from: (await locationName(piece.location_id)) ?? "No location",
+        to: (await locationName(to)) ?? "No location",
+      },
+      { pieces: [{ before: pieceSnap(piece), after }] },
+    );
   });
 }
 
@@ -323,33 +384,55 @@ export async function editPiece(fd: FormData): Promise<FabResult> {
       has_cutouts: isSheet(material) && str(fd, "has_cutouts") === "1",
       notes: str(fd, "notes"),
     };
-    const { error } = await db().from("fab_pieces").update(next).eq("id", piece.id);
-    if (error) throw error;
+    const after = await updatePiece(piece.id, next);
     const before = pieceLabel(material, piece);
-    const after = pieceLabel(material, next);
-    await logEvent(material.id, piece.id, "edit", {
-      summary: before === after ? `${after} (notes / cutouts)` : `${before} → ${after}`,
-      before: { length_mm: piece.length_mm, width_mm: piece.width_mm },
-      after: { length_mm: length, width_mm: width },
-    });
+    const afterLabel = pieceLabel(material, next);
+    await logEvent(
+      material.id,
+      piece.id,
+      "edit",
+      {
+        summary: before === afterLabel ? `${afterLabel} (notes / cutouts)` : `${before} → ${afterLabel}`,
+        before: { length_mm: piece.length_mm, width_mm: piece.width_mm },
+        after: { length_mm: length, width_mm: width },
+      },
+      { pieces: [{ before: pieceSnap(piece), after }] },
+    );
   });
 }
 
 export async function scrapPiece(fd: FormData): Promise<FabResult> {
   return run(async () => {
     const { piece, material } = await loadPiece(str(fd, "piece_id"));
-    const { error } = await db().from("fab_pieces").update({ status: "scrapped" }).eq("id", piece.id);
-    if (error) throw error;
-    await logEvent(material.id, piece.id, "scrap", {
-      piece: pieceLabel(material, piece),
-      length_mm: piece.length_mm,
-      width_mm: piece.width_mm,
-      reason: str(fd, "reason"),
-    });
+    const after = await updatePiece(piece.id, { status: "scrapped" });
+    await logEvent(
+      material.id,
+      piece.id,
+      "scrap",
+      {
+        piece: pieceLabel(material, piece),
+        length_mm: piece.length_mm,
+        width_mm: piece.width_mm,
+        reason: str(fd, "reason"),
+      },
+      { pieces: [{ before: pieceSnap(piece), after }] },
+    );
   });
 }
 
 // ── Orders ───────────────────────────────────────────────────────────────────
+
+function orderData(m: FabMaterial, o: Record<string, unknown>, status: string) {
+  const length = o.length_mm === null ? null : Number(o.length_mm);
+  const width = o.width_mm === null ? null : Number(o.width_mm);
+  return {
+    status,
+    quantity: o.quantity,
+    size: length ? pieceLabel(m, { length_mm: length, width_mm: width }) : "",
+    length_mm: length,
+    width_mm: width,
+  };
+}
 
 export async function addOrder(fd: FormData): Promise<FabResult> {
   return run(async () => {
@@ -362,21 +445,13 @@ export async function addOrder(fd: FormData): Promise<FabResult> {
       width = r.w;
       length = r.l;
     }
-    const { error } = await db().from("fab_orders").insert({
-      material_id: m.id,
-      quantity,
-      length_mm: length,
-      width_mm: width,
-      notes: str(fd, "notes"),
-    });
+    const { data, error } = await db()
+      .from("fab_orders")
+      .insert({ material_id: m.id, quantity, length_mm: length, width_mm: width, notes: str(fd, "notes") })
+      .select("*")
+      .single();
     if (error) throw error;
-    await logEvent(m.id, null, "order", {
-      status: "needed",
-      quantity,
-      size: length ? pieceLabel(m, { length_mm: length, width_mm: width }) : "",
-      length_mm: length,
-      width_mm: width,
-    });
+    await logEvent(m.id, null, "order", orderData(m, data, "needed"), { orders: [{ before: null, after: orderSnap(data) }] });
   });
 }
 
@@ -384,28 +459,82 @@ export async function setOrderStatus(fd: FormData): Promise<FabResult> {
   return run(async () => {
     const status = str(fd, "status") as OrderStatus;
     if (!["needed", "ordered"].includes(status)) throw new Error("Bad status");
+    const { data: before, error: be } = await db().from("fab_orders").select("*").eq("id", str(fd, "id")).single();
+    if (be || !before) throw new Error("Order not found");
     const { data, error } = await db()
       .from("fab_orders")
       .update({ status, expected_date: str(fd, "expected_date") || null })
-      .eq("id", str(fd, "id"))
+      .eq("id", before.id)
       .select("*")
       .single();
     if (error) throw error;
     const m = await loadMaterial(data.material_id);
-    await logEvent(m.id, null, "order", {
-      status,
-      quantity: data.quantity,
-      length_mm: data.length_mm === null ? null : Number(data.length_mm),
-      width_mm: data.width_mm === null ? null : Number(data.width_mm),
-      size: data.length_mm ? pieceLabel(m, { length_mm: Number(data.length_mm), width_mm: data.width_mm === null ? null : Number(data.width_mm) }) : "",
-    });
+    await logEvent(m.id, null, "order", orderData(m, data, status), { orders: [{ before: orderSnap(before), after: orderSnap(data) }] });
   });
 }
 
 export async function deleteOrder(fd: FormData): Promise<FabResult> {
   return run(async () => {
-    const { error } = await db().from("fab_orders").delete().eq("id", str(fd, "id"));
+    const { data: before, error: be } = await db().from("fab_orders").select("*").eq("id", str(fd, "id")).single();
+    if (be || !before) throw new Error("Order not found");
+    const { error } = await db().from("fab_orders").delete().eq("id", before.id);
     if (error) throw error;
+    const m = await loadMaterial(before.material_id);
+    await logEvent(m.id, null, "order", orderData(m, before, "removed"), { orders: [{ before: orderSnap(before), after: null }] });
+  });
+}
+
+// ── Undo ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Put back what a log entry changed. Refuses (without touching anything) if a
+ * row it touched has changed since, so a later change is never silently lost.
+ */
+export async function undoEvent(fd: FormData): Promise<FabResult> {
+  return run(async () => {
+    const { data: ev, error } = await db().from("fab_events").select("*").eq("id", str(fd, "id")).single();
+    if (error || !ev) throw new Error("Log entry not found");
+    if (ev.undone_at) throw new Error("Already undone");
+    const undo = ev.undo as Undo | null;
+    if (!undo) throw new Error("This entry can't be undone");
+
+    const tables = [
+      ["fab_pieces", undo.pieces ?? [], pieceSnap, "piece"],
+      ["fab_orders", undo.orders ?? [], orderSnap, "shopping list line"],
+    ] as const;
+
+    // 1. Check everything first.
+    for (const [table, changes, toSnap, noun] of tables) {
+      for (const c of changes) {
+        const id = String((c.after ?? c.before)!.id);
+        const { data: cur } = await db().from(table).select("*").eq("id", id).maybeSingle();
+        if (c.after === null) {
+          if (cur) throw new Error(`That ${noun} is back already`);
+        } else if (!cur || !sameAs(toSnap(cur), c.after)) {
+          throw new Error(`That ${noun} has changed since — undo the newer entries first`);
+        }
+      }
+    }
+
+    // 2. Restore.
+    for (const [table, changes] of tables) {
+      for (const c of changes) {
+        if (c.before === null) {
+          const { error: e } = await db().from(table).delete().eq("id", String(c.after!.id));
+          if (e) throw e;
+        } else if (c.after === null) {
+          const { error: e } = await db().from(table).insert(c.before);
+          if (e) throw e;
+        } else {
+          const { id, ...rest } = c.before;
+          const { error: e } = await db().from(table).update(rest).eq("id", String(id));
+          if (e) throw e;
+        }
+      }
+    }
+
+    const { error: ue } = await db().from("fab_events").update({ undone_at: new Date().toISOString() }).eq("id", ev.id);
+    if (ue) throw ue;
   });
 }
 

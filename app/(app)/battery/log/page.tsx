@@ -5,7 +5,7 @@ import { MobileCollapse } from "@/components/mobile-collapse";
 
 export const dynamic = "force-dynamic";
 
-export default async function LogPage(props: PageProps<"/log">) {
+export default async function LogPage(props: PageProps<"/battery/log">) {
   const sp = await props.searchParams;
   const type = typeof sp.type === "string" ? sp.type : "";
   const batteryId = typeof sp.battery === "string" ? sp.battery : "";
@@ -65,7 +65,7 @@ export default async function LogPage(props: PageProps<"/log">) {
         </label>
         <div className="flex gap-2 col-span-2 md:col-span-1">
           <button type="submit" className="btn btn-primary text-sm flex-1">Filter</button>
-          <a href="/log" className="btn btn-ghost text-sm">Clear</a>
+          <a href="/battery/log" className="btn btn-ghost text-sm">Clear</a>
         </div>
       </form>
       </MobileCollapse>

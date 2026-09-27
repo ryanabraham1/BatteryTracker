@@ -123,7 +123,7 @@ export function BatteryDetail({
     <>
       {/* Header */}
       <Link
-        href="/batteries"
+        href="/battery/batteries"
         className="md:hidden inline-flex items-center gap-1 text-sm mb-3 min-h-[36px]"
         style={{ color: "var(--muted)" }}
       >
@@ -173,7 +173,7 @@ export function BatteryDetail({
           <a href={`/api/export/full?battery=${battery.id}`} className="btn btn-ghost text-sm">
             Export CSV
           </a>
-          <Link href={`/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">
+          <Link href={`/battery/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">
             Edit
           </Link>
           <button type="button" className={`btn text-sm ${retired ? "btn-primary" : "btn-ghost"}`} onClick={() => act("retire")}>
@@ -262,7 +262,7 @@ export function BatteryDetail({
         </button>
       </div>
       <div className="sm:hidden grid grid-cols-2 gap-2 mb-6">
-        <Link href={`/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">
+        <Link href={`/battery/batteries/${encodeURIComponent(battery.name)}/edit`} className="btn btn-ghost text-sm">
           Edit
         </Link>
         <button type="button" className={`btn text-sm ${retired ? "btn-primary" : "btn-ghost"}`} onClick={() => act("retire")}>

@@ -109,7 +109,8 @@ export async function getFabEvents(f: FabEventsFilter = {}): Promise<FabEvent[]>
   }
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as FabEvent[];
+  // The undo snapshot stays on the server; pages only need to know if it's there.
+  return (data ?? []).map(({ undo, ...r }) => ({ ...(r as Omit<FabEvent, "undoable">), undoable: !!undo && !r.undone_at }));
 }
 
 export async function getKits(): Promise<{ kits: FabKit[]; items: FabKitItem[] }> {

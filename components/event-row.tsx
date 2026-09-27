@@ -138,7 +138,7 @@ export function EventRow({ event, batteryName }: { event: BatteryEvent; batteryN
       <div className="min-w-0 flex-1 mt-1.5 sm:mt-0">
         <p className="text-sm break-words">
           {batteryName && (
-            <Link href={`/batteries/${encodeURIComponent(batteryName)}`} className="font-semibold mr-1.5 hover:underline">
+            <Link href={`/battery/batteries/${encodeURIComponent(batteryName)}`} className="font-semibold mr-1.5 hover:underline">
               {batteryName}
             </Link>
           )}

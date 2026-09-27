@@ -16,7 +16,7 @@ const SETTINGS_ICON = (
 
 const BATTERY_NAV: NavItem[] = [
   {
-    href: "/",
+    href: "/battery",
     label: "Board",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -26,7 +26,7 @@ const BATTERY_NAV: NavItem[] = [
     ),
   },
   {
-    href: "/log",
+    href: "/battery/log",
     label: "Log",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -35,7 +35,7 @@ const BATTERY_NAV: NavItem[] = [
     ),
   },
   {
-    href: "/batteries",
+    href: "/battery/batteries",
     label: "Batteries",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -45,7 +45,7 @@ const BATTERY_NAV: NavItem[] = [
     ),
   },
   {
-    href: "/comp",
+    href: "/battery/comp",
     label: "Comp",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -54,7 +54,7 @@ const BATTERY_NAV: NavItem[] = [
     ),
   },
   {
-    href: "/settings",
+    href: "/battery/settings",
     label: "Settings",
     icon: SETTINGS_ICON,
   },
@@ -106,15 +106,19 @@ const STOCK_NAV: NavItem[] = [
   { href: "/stock/setup", label: "Setup", icon: SETTINGS_ICON },
 ];
 
-const SEARCHABLE = ["/", "/batteries", "/stock"];
+const SEARCHABLE = ["/battery", "/battery/batteries", "/stock"];
 
-const STOCK_SUBPAGES = /^\/stock\/(log|shopping|kit|setup)(\/|$)/;
+/** The first tab of each app (board / rack) is exact, so it doesn't light up for the other tabs. */
+const SUBPAGES: Record<string, RegExp> = {
+  "/battery": /^\/battery\/./,
+  "/stock": /^\/stock\/(log|shopping|kit|setup)(\/|$)/,
+};
 
 function isActive(href: string, pathname: string) {
-  if (href === "/") return pathname === "/";
+  const sub = SUBPAGES[href];
   // The rack tab also covers material pages (/stock/<id>), but not the other stock tabs.
-  if (href === "/stock") return pathname === "/stock" || (pathname.startsWith("/stock/") && !STOCK_SUBPAGES.test(pathname));
-  return pathname.startsWith(href);
+  if (sub) return pathname === href || (href === "/stock" && pathname.startsWith("/stock/") && !sub.test(pathname));
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const isStockPath = (pathname: string) => pathname === "/stock" || pathname.startsWith("/stock/");
@@ -141,8 +145,8 @@ export function Header() {
 
   const stockApp = isStockPath(pathname);
   const NAV = stockApp ? STOCK_NAV : BATTERY_NAV;
-  const canSearch = SEARCHABLE.some((p) => (p === "/" || p === "/stock" ? pathname === p : pathname.startsWith(p)));
-  const searchTarget = stockApp ? "/stock" : pathname.startsWith("/batteries") ? "/batteries" : "/";
+  const canSearch = SEARCHABLE.includes(pathname) || pathname.startsWith("/battery/batteries/");
+  const searchTarget = stockApp ? "/stock" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
   const searchWhat = stockApp ? "stock" : "batteries";
 
   function search(e: FormEvent) {
@@ -193,7 +197,7 @@ export function Header() {
             <nav className="inline-flex rounded-lg p-0.5" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
               {(
                 [
-                  ["/", "Batteries", !stockApp],
+                  ["/battery", "Batteries", !stockApp],
                   ["/stock", "Fab stock", stockApp],
                 ] as const
               ).map(([href, label, on]) => (

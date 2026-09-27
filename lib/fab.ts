@@ -126,6 +126,9 @@ export interface FabEvent {
   type: FabEventType;
   data: Record<string, unknown>;
   occurred_at: string;
+  /** Has an undo snapshot and hasn't been undone. */
+  undoable: boolean;
+  undone_at: string | null;
 }
 
 export type OrderStatus = "needed" | "ordered" | "received";
@@ -321,6 +324,6 @@ export function describeEvent(e: FabEvent, m: FabMaterial | undefined, units: Un
     case "scrap":
       return `Scrapped ${size(d, d.piece)}${d.reason ? ` — ${d.reason}` : ""}`;
     case "order":
-      return `${d.status === "ordered" ? "Marked ordered" : "Added to shopping list"}: ${d.quantity ?? 1} × ${size(d, d.size)}`;
+      return `${d.status === "ordered" ? "Marked ordered" : d.status === "removed" ? "Removed from shopping list" : "Added to shopping list"}: ${d.quantity ?? 1} × ${size(d, d.size)}`;
   }
 }

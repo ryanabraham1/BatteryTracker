@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { appForPath, LAST_APP_COOKIE } from "./lib/apps";
 
 const COOKIE = "bt_session";
 
@@ -33,7 +34,17 @@ export async function proxy(request: NextRequest) {
     if (pathname !== "/") url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
-  return NextResponse.next();
+  // `/` opens whichever app this device used last.
+  if (pathname === "/") {
+    const last = request.cookies.get(LAST_APP_COOKIE)?.value === "stock" ? "/stock" : "/battery";
+    return NextResponse.redirect(new URL(last, request.url));
+  }
+  const res = NextResponse.next();
+  const app = appForPath(pathname);
+  if (app && request.cookies.get(LAST_APP_COOKIE)?.value !== app) {
+    res.cookies.set(LAST_APP_COOKIE, app, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  }
+  return res;
 }
 
 export const config = {
