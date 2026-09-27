@@ -1,22 +1,22 @@
 /*
- * Battery Tracker service worker — offline app shell.
+ * 3256 Tools service worker — offline app shell.
  *
  *  - Page navigations: network first (6 s cap), fall back to the last cached
- *    copy of that page, then to the cached battery board ("/battery").
+ *    copy of that page, then to the cached home dashboard ("/").
  *  - /_next/static and icons: cache first.
  *  - Everything else (server actions, RSC fetches, /api, Supabase): network only.
  *
  * Server actions made while offline are queued by the app itself
  * (components/offline.tsx), not here.
  */
-const VERSION = "bt-v4";
+const VERSION = "bt-v5";
 const PAGES = `${VERSION}-pages`;
 const ASSETS = `${VERSION}-assets`;
 const NAV_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(PAGES).then((c) => c.addAll(["/battery", "/battery/batteries", "/battery/log", "/battery/comp", "/stock"]).catch(() => {})),
+    caches.open(PAGES).then((c) => c.addAll(["/", "/battery", "/battery/batteries", "/battery/log", "/battery/comp", "/stock"]).catch(() => {})),
   );
   self.skipWaiting();
 });
@@ -69,7 +69,7 @@ self.addEventListener("fetch", (event) => {
           return res;
         } catch {
           const hit = await c.match(req, { ignoreSearch: true });
-          return hit ?? (await c.match("/battery")) ?? Response.error();
+          return hit ?? (await c.match("/")) ?? Response.error();
         }
       }),
     );

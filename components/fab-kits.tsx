@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { addKit, addKitItem, deleteKit, deleteKitItem } from "@/app/fab-actions";
 import {
-  bestFits,
   fmtPiece,
+  kitStatus,
   isSheet,
   sizeLabel,
   type FabKit,
@@ -13,40 +13,11 @@ import {
   type FabLocation,
   type FabMaterial,
   type FabPiece,
+  type ItemStatus,
 } from "@/lib/fab";
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Empty } from "./ui";
 import { ErrorText, Field, LengthInput, RectInput, SubmitButton, useFabAction } from "./fab-ui";
-
-interface ItemStatus {
-  item: FabKitItem;
-  packed: FabPiece[];
-  /** Best pieces still in the shop that would cover the shortfall. */
-  suggest: FabPiece[];
-}
-
-/**
- * A kit item is packed when enough pieces that meet its minimum size sit in a
- * pit location. Pieces are handed out smallest-that-fits so two items for the
- * same material don't both claim one stick.
- */
-function kitStatus(items: FabKitItem[], mat: Map<string, FabMaterial>, pieces: FabPiece[], pitIds: Set<string>): Map<string, ItemStatus> {
-  const out = new Map<string, ItemStatus>();
-  const taken = new Set<string>();
-  const need = (i: FabKitItem) => (i.min_length_mm ?? 0) * Math.max(1, i.min_width_mm ?? 1);
-  for (const item of [...items].sort((a, b) => need(b) - need(a))) {
-    const m = mat.get(item.material_id);
-    if (!m) continue;
-    const mine = pieces.filter((p) => p.material_id === m.id && !taken.has(p.id));
-    const fits = bestFits(m, mine, item.min_length_mm ?? 0, isSheet(m) ? (item.min_width_mm ?? 0) : undefined);
-    const packed = fits.filter((p) => p.location_id && pitIds.has(p.location_id)).slice(0, item.count);
-    packed.forEach((p) => taken.add(p.id));
-    const short = item.count - packed.length;
-    const suggest = short > 0 ? fits.filter((p) => !(p.location_id && pitIds.has(p.location_id)) && !taken.has(p.id)).slice(0, short) : [];
-    out.set(item.id, { item, packed, suggest });
-  }
-  return out;
-}
 
 export function FabKits({
   kits,

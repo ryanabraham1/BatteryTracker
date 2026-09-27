@@ -15,13 +15,13 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Battery Tracker — 3256",
-  description: "Which battery to grab next. FRC 3256.",
+  title: "3256 Tools",
+  description: "Batteries and fab stock for FRC 3256.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Batteries",
+    title: "3256 Tools",
   },
   icons: {
     icon: "/icon-192.png",

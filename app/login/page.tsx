@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { isAuthed } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
-export const metadata = { title: "Sign in — Battery Tracker" };
+export const metadata = { title: "Sign in — 3256 Tools" };
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const sp = await props.searchParams;
@@ -20,12 +20,12 @@ export default async function LoginPage(props: PageProps<"/login">) {
       </div>
       <div className="max-w-xl w-full">
         <h1 className="display mb-8 sm:mb-10" style={{ fontSize: "clamp(52px, 17vw, 96px)" }}>
-          Grab a<br />battery.
+          Team<br />tools.
         </h1>
         <LoginForm next={next} />
       </div>
       <p className="eyebrow" style={{ color: "var(--plum-text)", opacity: 0.7 }}>
-        Battery tracker
+        Batteries · Fab stock
       </p>
     </main>
   );

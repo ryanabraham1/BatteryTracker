@@ -143,8 +143,10 @@ export function Header() {
     if (searchOpen) mobileInput.current?.focus();
   }, [searchOpen]);
 
+  const home = pathname === "/";
   const stockApp = isStockPath(pathname);
-  const NAV = stockApp ? STOCK_NAV : BATTERY_NAV;
+  const batteryApp = !home && !stockApp;
+  const NAV = home ? [] : stockApp ? STOCK_NAV : BATTERY_NAV;
   const canSearch = SEARCHABLE.includes(pathname) || pathname.startsWith("/battery/batteries/");
   const searchTarget = stockApp ? "/stock" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
   const searchWhat = stockApp ? "stock" : "batteries";
@@ -187,20 +189,21 @@ export function Header() {
       >
         <div className="mx-auto max-w-[1400px] px-4 py-2 flex items-center gap-3 min-h-[56px]">
           <div className="flex items-center gap-2 shrink-0 min-h-[44px]">
-            <span
-              className="eyebrow px-2 py-1 rounded-md hidden sm:inline"
-              style={{ background: "var(--plum)", color: "var(--plum-text)" }}
-            >
-              3256
-            </span>
+            {/* Home: the 3256 Tools dashboard */}
+            <Link href="/" className="flex items-center gap-2 min-h-[44px]" aria-label="3256 Tools home" aria-current={home ? "page" : undefined}>
+              <span className="eyebrow px-2 py-1 rounded-md" style={{ background: "var(--plum)", color: "var(--plum-text)" }}>
+                3256
+              </span>
+              <span className={`font-medium tracking-tight ${home ? "" : "hidden lg:inline"}`}>Tools</span>
+            </Link>
             {/* App switcher: batteries ↔ fab stock */}
             <nav className="inline-flex rounded-lg p-0.5" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
               {(
                 [
-                  ["/battery", "Batteries", !stockApp],
-                  ["/stock", "Fab stock", stockApp],
+                  ["/battery", "Batteries", "Batteries", batteryApp],
+                  ["/stock", "Fab stock", "Stock", stockApp],
                 ] as const
-              ).map(([href, label, on]) => (
+              ).map(([href, label, short, on]) => (
                 <Link
                   key={href}
                   href={href}
@@ -208,7 +211,8 @@ export function Header() {
                   style={{ minHeight: 36, background: on ? "var(--plum)" : "transparent", color: on ? "#fff" : "var(--muted)" }}
                   aria-current={on ? "page" : undefined}
                 >
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden">{short}</span>
                 </Link>
               ))}
             </nav>
@@ -300,7 +304,8 @@ export function Header() {
         )}
       </header>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar (the home dashboard has none) */}
+      {NAV.length > 0 && (
       <nav
         className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t pb-safe"
         style={{ background: "var(--surface)", borderColor: "var(--line)" }}
@@ -318,6 +323,7 @@ export function Header() {
           })}
         </div>
       </nav>
+      )}
     </>
   );
 }

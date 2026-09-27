@@ -277,6 +277,36 @@ export function summarize(
   });
 }
 
+export interface ItemStatus {
+  item: FabKitItem;
+  packed: FabPiece[];
+  /** Best pieces still in the shop that would cover the shortfall. */
+  suggest: FabPiece[];
+}
+
+/**
+ * A kit item is packed when enough pieces that meet its minimum size sit in a
+ * pit location. Pieces are handed out smallest-that-fits so two items for the
+ * same material don't both claim one stick.
+ */
+export function kitStatus(items: FabKitItem[], mat: Map<string, FabMaterial>, pieces: FabPiece[], pitIds: Set<string>): Map<string, ItemStatus> {
+  const out = new Map<string, ItemStatus>();
+  const taken = new Set<string>();
+  const need = (i: FabKitItem) => (i.min_length_mm ?? 0) * Math.max(1, i.min_width_mm ?? 1);
+  for (const item of [...items].sort((a, b) => need(b) - need(a))) {
+    const m = mat.get(item.material_id);
+    if (!m) continue;
+    const mine = pieces.filter((p) => p.material_id === m.id && !taken.has(p.id));
+    const fits = bestFits(m, mine, item.min_length_mm ?? 0, isSheet(m) ? (item.min_width_mm ?? 0) : undefined);
+    const packed = fits.filter((p) => p.location_id && pitIds.has(p.location_id)).slice(0, item.count);
+    packed.forEach((p) => taken.add(p.id));
+    const short = item.count - packed.length;
+    const suggest = short > 0 ? fits.filter((p) => !(p.location_id && pitIds.has(p.location_id)) && !taken.has(p.id)).slice(0, short) : [];
+    out.set(item.id, { item, packed, suggest });
+  }
+  return out;
+}
+
 /** One-line description of a log entry. */
 export function describeEvent(e: FabEvent, m: FabMaterial | undefined, units: Units): string {
   const d = e.data as Record<string, unknown>;

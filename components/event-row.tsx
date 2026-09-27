@@ -20,7 +20,7 @@ import {
   type UsageData,
 } from "@/lib/types";
 
-const TONE: Record<BatteryEvent["type"], string> = {
+export const EVENT_TONE: Record<BatteryEvent["type"], string> = {
   state_change: "pill-purple",
   charge: "pill-warn",
   usage: "pill-info",
@@ -126,7 +126,7 @@ export function EventRow({ event, batteryName }: { event: BatteryEvent; batteryN
     <li className="py-3 sm:py-2.5 sm:flex sm:gap-3" style={{ borderBottom: "1px solid var(--line)" }}>
       {/* Mobile: type + time on one row, description below. Desktop: three columns. */}
       <div className="flex items-center justify-between gap-3 sm:contents">
-        <span className={`pill ${TONE[event.type]} shrink-0 sm:self-start sm:mt-0.5`}>{EVENT_LABEL[event.type]}</span>
+        <span className={`pill ${EVENT_TONE[event.type]} shrink-0 sm:self-start sm:mt-0.5`}>{EVENT_LABEL[event.type]}</span>
         <time
           className="mono text-[11px] shrink-0 sm:order-last sm:self-start sm:mt-1"
           style={{ color: "var(--muted)" }}
