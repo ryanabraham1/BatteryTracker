@@ -9,7 +9,7 @@ export default async function MachinesPage() {
   const [machines, settings, units] = await Promise.all([getMachines(), getPartsSettings(), getUnits()]);
   return (
     <>
-      <PageHead eyebrow="Parts" title="Machines">
+      <PageHead eyebrow="Fab tracker" title="Machines">
         <UnitsToggle units={units} />
       </PageHead>
       <PartsMachines machines={machines} settings={settings} units={units} />

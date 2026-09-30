@@ -1,7 +1,7 @@
 import { getFabSettings, getLocations, getMaterials, getStockPieces, getUnits } from "@/lib/fab-data";
 import { getDesigns, getMachines, getParts, getPartsSettings } from "@/lib/parts-data";
 import { checkPart } from "@/lib/dfm";
-import { CUT_FLOW, toCut } from "@/lib/parts";
+import { BEFORE_CUT, isStockKind, toCut } from "@/lib/parts";
 import { PartsPlan, type PlanPart } from "@/components/parts-plan";
 import { PageHead, UnitsToggle } from "@/components/fab-ui";
 
@@ -28,8 +28,8 @@ export default async function PlanPage() {
 
   const plan: PlanPart[] = [];
   for (const p of parts) {
-    const flow = CUT_FLOW[p.kind];
-    if (!flow || !flow.before.includes(p.stage)) continue;
+    // stock parts not cut yet (SendCutSend / not needed / in progress are out)
+    if (!isStockKind(p.kind) || !BEFORE_CUT.includes(p.status)) continue;
     // parts of archived designs are out; parts added by hand without a design are in
     if (p.design_id && !designById.has(p.design_id)) continue;
     const copies = p.design_id ? (designById.get(p.design_id)?.copies ?? 1) : 1;
@@ -40,6 +40,7 @@ export default async function PlanPage() {
     plan.push({
       id: p.id,
       name: p.name,
+      bot: p.bot,
       kind: p.kind,
       design_id: p.design_id,
       toCut: left,
@@ -59,7 +60,7 @@ export default async function PlanPage() {
 
   return (
     <>
-      <PageHead eyebrow="Parts" title="Cut plan">
+      <PageHead eyebrow="Fab tracker" title="Cut plan">
         <UnitsToggle units={units} />
       </PageHead>
       <PartsPlan

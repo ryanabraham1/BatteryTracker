@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { assignPart, deleteFile, deletePart, fetchOnshapeFile, fileUploadUrl, movePart, recordFile, updatePart } from "@/app/parts-actions";
-import { KIND_LABEL, PART_KINDS, STAGES, stageOf, type FabDesign, type FabPart, type FabPartEvent, type FabPartFile, type PartKind } from "@/lib/parts";
+import { assignPart, deleteFile, deletePart, fetchOnshapeFile, fileUploadUrl, recordFile, setPartStatus, updatePart } from "@/app/parts-actions";
+import { KIND_LABEL, needed, PART_KINDS, trackerOf, type FabDesign, type FabPart, type FabPartEvent, type FabPartFile, type PartKind } from "@/lib/parts";
+import { isJobStatus, priorityLabel, PRIORITIES, STATUS_LABEL, STATUSES, type JobStatus } from "@/lib/tracker";
 import type { DfmResult } from "@/lib/dfm";
 import { materialName, type FabMaterial } from "@/lib/fab";
 import { fmtArea, fmtLength, type Units } from "@/lib/units";
@@ -41,13 +42,14 @@ export function PartDetail({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const move = useFabAction(movePart);
+  const [stockNote, setStockNote] = useState<string | null>(null);
+  const move = useFabAction(setPartStatus, (n) => setStockNote(n || null));
   const assign = useFabAction(assignPart);
-  const del = useFabAction(deletePart, () => router.push("/parts"));
+  const del = useFabAction(deletePart, () => router.push("/tracker/board"));
   const setMat = useFabAction(updatePart);
-  const stages = STAGES[p.kind];
+  const stages = STATUSES[trackerOf(p.kind)];
   const copies = design?.copies ?? 1;
-  const need = p.quantity * copies;
+  const need = needed(p, copies);
   const mineNow = !!person && p.assignees.some((a) => a.toLowerCase() === person.toLowerCase());
   const g = p.geometry;
   const L = (mm: number | null) => fmtLength(mm, units);
@@ -58,7 +60,7 @@ export function PartDetail({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow" style={{ color: "var(--muted)" }}>
-            <Link href={`/parts?kind=${p.kind}`} className="underline">
+            <Link href={`/tracker/board?kind=${p.kind}`} className="underline">
               {KIND_LABEL[p.kind]}
             </Link>
             {design && ` · ${design.name}`}
@@ -66,8 +68,12 @@ export function PartDetail({
           </p>
           <h1 className="display text-4xl sm:text-5xl break-words">{p.name}</h1>
           <p className="mono text-sm mt-1" style={{ color: "var(--muted)" }}>
+            {p.priority !== null && `${priorityLabel(p.priority)} · `}
             ×{need}
             {copies > 1 && ` (${p.quantity} × ${copies} robots)`}
+            {p.spare_qty > 0 && ` incl. ${p.spare_qty} spare`}
+            {p.bot && ` · ${p.bot}`}
+            {p.subsystem && ` · ${p.subsystem}`}
             {p.cut_qty > 0 && ` · cut ${p.cut_qty}/${need}`}
             {process && ` · ${processProp}: ${process}`}
           </p>
@@ -91,17 +97,22 @@ export function PartDetail({
           <section className="card p-4 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <p className="eyebrow" style={{ color: "var(--muted)" }}>
-                On the board · {timeAgo(p.stage_changed_at)}
+                {STATUS_LABEL[p.status]} · {timeAgo(p.status_changed_at)}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {stages.map((s) => (
-                <button key={s.key} type="button" className="tile tile-chip text-sm" data-selected={s.key === p.stage} disabled={move.pending} onClick={() => move.call({ id: p.id, stage: s.key, by: person })}>
-                  {s.label}
+              {stages.map((st) => (
+                <button key={st} type="button" className="tile tile-chip text-sm" data-selected={st === p.status} disabled={move.pending} onClick={() => move.call({ id: p.id, status: st, by: person })}>
+                  {STATUS_LABEL[st]}
                 </button>
               ))}
             </div>
             <ErrorText error={move.error} />
+            {stockNote && (
+              <p className="text-sm" role="status" style={{ color: /^Took/.test(stockNote) ? "var(--good)" : "var(--warn)" }}>
+                {stockNote}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2 items-center">
               {p.assignees.map((a) => (
                 <span key={a} className="tile tile-chip text-sm flex items-center gap-2">
@@ -150,7 +161,7 @@ export function PartDetail({
               </div>
             )}
             <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Checked against <Link href="/parts/machines" className="underline">Machines</Link>. Blank machine specs show as “not checked”.
+              Checked against <Link href="/tracker/machines" className="underline">Machines</Link>. Blank machine specs show as “not checked”.
             </p>
           </section>
 
@@ -298,19 +309,23 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Status name, including events logged before the board used the sheet's statuses. */
+const label = (v: unknown) => (isJobStatus(v) ? STATUS_LABEL[v] : String(v ?? "?"));
+
 function describePartEvent(e: FabPartEvent, kind: PartKind): string {
+  void kind;
   const d = e.data as Record<string, string | number | boolean | undefined>;
   switch (e.type) {
     case "import":
       return d.by_hand ? "Added by hand" : `Loaded from ${d.design ?? "Onshape"}`;
     case "stage":
-      return `${stageOf(kind, String(d.from)).label} → ${stageOf(kind, String(d.to)).label}${d.by ? ` · ${d.by}` : ""}`;
+      return `${label(d.from)} → ${label(d.to)}${d.by ? ` · ${d.by}` : ""}`;
     case "assign":
       return d.mode === "remove" ? `${d.name} dropped it` : `${d.name} took it`;
     case "file":
       return d.removed ? `Removed ${d.name}` : `Added ${d.name}${d.from ? ` from ${d.from}` : ""}`;
     case "cut":
-      return `Cut ${d.count} from a ${d.from} (${d.total}/${d.of})${d.moved_to ? ` → ${stageOf(kind, String(d.moved_to)).label}` : ""}`;
+      return `Cut ${d.count} from a ${d.from} on the rack (${d.total}/${d.of})${d.moved_to ? ` → ${label(d.moved_to)}` : ""}`;
     case "edit":
       return `Edited ${d.fields ?? ""}`;
   }
@@ -445,17 +460,47 @@ function Files({ part, files }: { part: FabPart; files: FabPartFile[] }) {
   );
 }
 
+function T({ name, label, value, placeholder }: { name: string; label: string; value: string; placeholder?: string }) {
+  return (
+    <Field label={label}>
+      <input name={name} className="input" defaultValue={value} placeholder={placeholder} autoComplete="off" />
+    </Field>
+  );
+}
+
 function EditSheet({ open, onClose, part: p, units, need }: { open: boolean; onClose: () => void; part: FabPart; units: Units; need: number }) {
-  const save = useFabAction(updatePart, () => onClose());
+  const [note, setNote] = useState<string | null>(null);
+  const save = useFabAction(updatePart, (n) => (n ? setNote(n) : onClose()));
+  const print = p.kind === "print";
   return (
     <Sheet open={open} onClose={onClose} eyebrow="Part" title="Edit">
       <form className="flex flex-col gap-3" onSubmit={save.submit}>
         <input type="hidden" name="id" value={p.id} />
-        <Field label="Name">
-          <input name="name" className="input" defaultValue={p.name} required />
-        </Field>
+        <T name="name" label="Part # / name" value={p.name} />
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Kind" hint="Which board it's on">
+          <Field label="Status">
+            <select name="status" className="input" defaultValue={p.status}>
+              {(STATUSES[trackerOf(p.kind)].includes(p.status) ? STATUSES[trackerOf(p.kind)] : [p.status, ...STATUSES[trackerOf(p.kind)]]).map((st: JobStatus) => (
+                <option key={st} value={st}>
+                  {STATUS_LABEL[st]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Priority">
+            <select name="priority" className="input" defaultValue={p.priority ?? ""}>
+              <option value="">—</option>
+              {PRIORITIES.map((n) => (
+                <option key={n} value={n}>
+                  #{n}
+                  {n === 0 ? " (urgent)" : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <T name="bot" label="Bot" value={p.bot} />
+          <T name="subsystem" label="Subsystem" value={p.subsystem} />
+          <Field label="Kind" hint="Its board, DFM checks and stock">
             <select name="kind" className="input" defaultValue={p.kind}>
               {PART_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -464,11 +509,32 @@ function EditSheet({ open, onClose, part: p, units, need }: { open: boolean; onC
               ))}
             </select>
           </Field>
-          <Field label="Quantity per robot">
-            <input name="quantity" type="number" min={1} className="input mono" defaultValue={p.quantity} />
+          <T name="dri" label="DRI" value={p.assignees.join(", ")} placeholder="Names, comma-separated" />
+          <Field label="Qty per robot">
+            <input name="quantity" type="number" min={0} className="input mono" defaultValue={p.quantity} />
+          </Field>
+          <Field label="Spare qty">
+            <input name="spare_qty" type="number" min={0} className="input mono" defaultValue={p.spare_qty} />
           </Field>
         </div>
-        <Field label="Already cut" hint={`Of ${need}. The cut planner counts these as done.`}>
+        {print ? (
+          <div className="grid grid-cols-2 gap-2">
+            <T name="material" label="Filament" value={p.material_text} />
+            <T name="infill" label="Infill" value={p.infill} />
+            <T name="designer" label="Designer" value={p.designer} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <T name="material" label="Stock material / type" value={p.material_text} />
+            <T name="stock_dims" label="Stock dimensions" value={p.stock_dims} placeholder='1/8" thick' />
+            <T name="length" label="Length (as on the sheet)" value={p.length_text} />
+            <T name="tapped" label="Tapped?" value={p.tapped} />
+            <T name="machine" label="Machine" value={p.machine} />
+          </div>
+        )}
+        <T name="file" label={print ? "STL file" : "Drawing / CAM file"} value={p.file} placeholder="File name or a Drive / Onshape link" />
+        <T name="linear_url" label="Linear issue" value={p.linear_url} />
+        <Field label="Already cut" hint={`Of ${need}. Counted automatically when stock comes off the rack.`}>
           <input name="cut_qty" type="number" min={0} className="input mono" defaultValue={p.cut_qty} />
         </Field>
         <div className="grid grid-cols-3 gap-2">
@@ -480,7 +546,18 @@ function EditSheet({ open, onClose, part: p, units, need }: { open: boolean; onC
           <textarea name="notes" className="input" rows={3} defaultValue={p.notes} />
         </Field>
         <ErrorText error={save.error} />
-        <SubmitButton pending={save.pending} label="Save" />
+        {note ? (
+          <>
+            <p className="text-sm" role="status" style={{ color: /^Took/.test(note) ? "var(--good)" : "var(--warn)" }}>
+              Saved. {note}
+            </p>
+            <button type="button" className="btn btn-primary py-3" onClick={onClose}>
+              Done <span aria-hidden>→</span>
+            </button>
+          </>
+        ) : (
+          <SubmitButton pending={save.pending} label="Save" />
+        )}
       </form>
     </Sheet>
   );

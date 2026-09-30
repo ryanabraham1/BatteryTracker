@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { deleteJob, importJobs, saveJob, setJobStatus } from "@/app/tracker-actions";
+import { addPart, deletePart, importSheet, setPartStatus, updatePart } from "@/app/parts-actions";
+import { isStockKind, KIND_LABEL, needed, PART_KINDS, type FabPart, type PartKind } from "@/lib/parts";
 import {
   isDone,
   isUrl,
@@ -14,7 +16,6 @@ import {
   STATUSES,
   SUGGEST,
   TRACKER_LABEL,
-  type FabJob,
   type JobStatus,
   type Tracker,
 } from "@/lib/tracker";
@@ -24,6 +25,21 @@ import { Empty } from "./ui";
 import { ErrorText, Field, SubmitButton, useFabAction } from "./fab-ui";
 
 type Stock = Record<string, { name: string; onHand: string; low: boolean }>;
+type FabJob = FabPart;
+
+/** A part's sheet column by the sheet's name. */
+function col(j: FabPart, k: string): string {
+  switch (k) {
+    case "material":
+      return j.material_text;
+    case "length":
+      return j.length_text;
+    case "dri":
+      return j.assignees.join(", ");
+    default:
+      return String((j as unknown as Record<string, unknown>)[k] ?? "");
+  }
+}
 type StatusFilter = "open" | "all" | JobStatus;
 
 const byOrder = (list: string[]) => (a: string, b: string) => {
@@ -33,13 +49,25 @@ const byOrder = (list: string[]) => (a: string, b: string) => {
 };
 
 /** Distinct non-empty values, with the sheet's list first. */
-function options(base: string[], jobs: FabJob[], key: keyof FabJob): string[] {
+function options(base: string[], jobs: FabJob[], key: string): string[] {
   const seen = new Map<string, string>();
-  for (const v of [...base, ...jobs.map((j) => String(j[key] ?? "").trim())]) if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
+  for (const v of [...base, ...jobs.map((j) => col(j, key).trim())]) if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
   return [...seen.values()];
 }
 
-export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs: FabJob[]; stock: Stock }) {
+export function TrackerTable({
+  tracker,
+  parts: jobs,
+  stock,
+  copies,
+  person,
+}: {
+  tracker: Tracker;
+  parts: FabPart[];
+  stock: Stock;
+  copies: Record<string, number>;
+  person: string;
+}) {
   const print = tracker === "print";
   const [status, setStatus] = useState<StatusFilter>("open");
   const [bot, setBot] = useState("");
@@ -61,10 +89,11 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
       (j) =>
         (!bot || j.bot.toLowerCase() === bot.toLowerCase()) &&
         (!subsystem || j.subsystem.toLowerCase() === subsystem.toLowerCase()) &&
-        (!machine || j[machineKey].toLowerCase() === machine.toLowerCase()) &&
-        (!needle || [j.name, j.notes, j.material, j.file, j.dri, j.designer, linearKey(j.linear_url) ?? ""].some((v) => v.toLowerCase().includes(needle))),
+        (!machine || col(j, machineKey).toLowerCase() === machine.toLowerCase()) &&
+        (!needle || [j.name, j.notes, j.material_text, j.file, j.assignees.join(" "), j.designer, j.part_number, linearKey(j.linear_url) ?? ""].some((v) => v.toLowerCase().includes(needle))),
     );
   }, [jobs, bot, subsystem, machine, machineKey, q]);
+  const need = (j: FabPart) => needed(j, j.design_id ? (copies[j.design_id] ?? 1) : 1);
 
   const counts = useMemo(() => {
     const c = new Map<StatusFilter, number>([
@@ -150,7 +179,11 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
 
       {total === 0 ? (
         <Empty>
-          Nothing on the {TRACKER_LABEL[tracker].toLowerCase()} tracker yet. Copy the rows (with the header) out of the team sheet and use Import from sheet, or add parts one at a time.
+          Nothing on the {TRACKER_LABEL[tracker].toLowerCase()} tracker yet. Copy the rows (with the header) out of the team sheet and use Import from sheet, add parts one at a time, or{" "}
+          <Link href="/tracker/designs" className="underline" style={{ color: "var(--purple)" }}>
+            load them from Onshape
+          </Link>
+          .
         </Empty>
       ) : groups.length === 0 ? (
         <Empty>
@@ -182,7 +215,7 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
               <ul className="md:hidden flex flex-col gap-2">
                 {rows.map((j) => (
                   <li key={j.id} className="card p-3">
-                    <JobCard job={j} print={print} stock={stock} onOpen={() => setEdit(j)} />
+                    <JobCard job={j} print={print} stock={stock} need={need(j)} person={person} onOpen={() => setEdit(j)} />
                   </li>
                 ))}
               </ul>
@@ -204,6 +237,7 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
                         </>
                       ) : (
                         <>
+                          <th className="px-3 py-2 font-medium">Kind</th>
                           <th className="px-3 py-2 font-medium">Stock</th>
                           <th className="px-3 py-2 font-medium">Length</th>
                           <th className="px-3 py-2 font-medium">Tapped</th>
@@ -222,14 +256,21 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
                         onClick={() => setEdit(j)}
                       >
                         <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                          <StatusSelect key={`${j.id}-${j.status}`} job={j} />
+                          <StatusSelect key={`${j.id}-${j.status}`} job={j} person={person} />
                         </td>
                         <td className="px-2 py-2 mono font-semibold" style={{ color: j.priority === 0 ? "var(--bad)" : undefined }}>
                           {priorityLabel(j.priority)}
                         </td>
                         <td className="px-3 py-2 min-w-[200px]">
-                          <span className="font-medium">{j.name}</span>
+                          <Link href={`/tracker/${j.id}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+                            {j.name}
+                          </Link>
                           {j.linear_url && <LinearLink url={j.linear_url} />}
+                          {j.assignees.length > 0 && (
+                            <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                              DRI {j.assignees.join(", ")}
+                            </span>
+                          )}
                           {j.notes && (
                             <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--muted)" }}>
                               {j.notes}
@@ -237,20 +278,26 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
                           )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">{j.bot}</td>
-                        <td className="px-2 py-2 mono text-right whitespace-nowrap">
-                          {j.qty}
+                        <td className="px-2 py-2 mono text-right whitespace-nowrap" title={need(j) !== j.quantity + j.spare_qty ? `${need(j)} across all robots` : undefined}>
+                          {j.quantity}
                           {j.spare_qty > 0 && <span style={{ color: "var(--muted)" }}> +{j.spare_qty}</span>}
+                          {j.cut_qty > 0 && isStockKind(j.kind) && j.cut_qty < need(j) && (
+                            <span className="block text-[11px]" style={{ color: "var(--muted)" }}>
+                              cut {j.cut_qty}/{need(j)}
+                            </span>
+                          )}
                         </td>
                         {print ? (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{j.material}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{j.material_text}</td>
                             <td className="px-3 py-2">{j.infill}</td>
-                            <td className="px-3 py-2">{[j.designer, j.dri].filter(Boolean).join(" · ")}</td>
+                            <td className="px-3 py-2">{[j.designer, j.assignees.join(", ")].filter(Boolean).join(" · ")}</td>
                           </>
                         ) : (
                           <>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs">{KIND_LABEL[j.kind]}</td>
                             <td className="px-3 py-2 min-w-[160px]">
-                              {j.material}
+                              {j.material_text}
                               {j.stock_dims && (
                                 <span className="block text-xs mono" style={{ color: "var(--muted)" }}>
                                   {j.stock_dims}
@@ -258,7 +305,7 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
                               )}
                               <StockNote job={j} stock={stock} />
                             </td>
-                            <td className="px-3 py-2 mono whitespace-nowrap">{j.length}</td>
+                            <td className="px-3 py-2 mono whitespace-nowrap">{j.length_text}</td>
                             <td className="px-3 py-2">{j.tapped}</td>
                             <td className="px-3 py-2 whitespace-nowrap">{j.machine}</td>
                           </>
@@ -284,6 +331,7 @@ export function TrackerTable({ tracker, jobs, stock }: { tracker: Tracker; jobs:
             job={edit === "new" ? null : edit}
             jobs={jobs}
             stock={stock}
+            person={person}
             defaults={{ bot, subsystem }}
             onDone={() => setEdit(null)}
           />
@@ -309,14 +357,19 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
   );
 }
 
-/** Status as a pill you can change in place. */
-function StatusSelect({ job }: { job: FabJob }) {
-  const a = useFabAction(setJobStatus);
+/**
+ * Status as a pill you can change in place. Moving a stock part to In
+ * Progress / Finished takes its stock off the rack; the note says what.
+ */
+function StatusSelect({ job, person }: { job: FabJob; person: string }) {
+  const [note, setNote] = useState<string | null>(null);
+  const a = useFabAction(setPartStatus, (n) => setNote(n || null));
   const [picked, setShown] = useState(job.status);
   // a failed save falls back to what the server has
   const shown = a.error ? job.status : picked;
   const tone = STATUS_TONE[shown];
-  const list = STATUSES[job.tracker].includes(job.status) ? STATUSES[job.tracker] : [job.status, ...STATUSES[job.tracker]];
+  const list = STATUSES[job.kind === "print" ? "print" : "machining"];
+  const opts = list.includes(job.status) ? list : [job.status, ...list];
   return (
     <span className="inline-flex flex-col gap-0.5">
       <select
@@ -327,12 +380,13 @@ function StatusSelect({ job }: { job: FabJob }) {
         onChange={(e) => {
           const s = e.target.value as JobStatus;
           setShown(s);
-          a.call({ id: job.id, status: s });
+          setNote(null);
+          a.call({ id: job.id, status: s, by: person });
         }}
         aria-label={`Status of ${job.name}`}
         title={`Since ${timeAgo(job.status_changed_at)}`}
       >
-        {list.map((s) => (
+        {opts.map((s) => (
           <option key={s} value={s}>
             {STATUS_LABEL[s]}
           </option>
@@ -343,14 +397,20 @@ function StatusSelect({ job }: { job: FabJob }) {
           {a.error}
         </span>
       )}
+      {note && (
+        <span className="text-xs max-w-[200px]" style={{ color: /^Took/.test(note) ? "var(--good)" : "var(--warn)" }} role="status">
+          {note}
+        </span>
+      )}
     </span>
   );
 }
 
-function JobCard({ job: j, print, stock, onOpen }: { job: FabJob; print: boolean; stock: Stock; onOpen: () => void }) {
+function JobCard({ job: j, print, stock, need, person, onOpen }: { job: FabJob; print: boolean; stock: Stock; need: number; person: string; onOpen: () => void }) {
+  const dri = j.assignees.join(", ");
   const details = print
-    ? [j.material, j.infill && `${j.infill} infill`, j.designer, j.dri && `DRI ${j.dri}`]
-    : [j.material, j.stock_dims, j.length && `L ${j.length}`, j.tapped && `tap: ${j.tapped}`, j.machine];
+    ? [j.material_text, j.infill && `${j.infill} infill`, j.designer, dri && `DRI ${dri}`]
+    : [KIND_LABEL[j.kind], j.material_text, j.stock_dims, j.length_text && `L ${j.length_text}`, j.tapped && `tap: ${j.tapped}`, j.machine, dri && `DRI ${dri}`];
   return (
     <div className="flex flex-col gap-2" style={{ opacity: isDone(j.status) ? 0.65 : 1 }}>
       <div className="flex items-start gap-2">
@@ -364,11 +424,12 @@ function JobCard({ job: j, print, stock, onOpen }: { job: FabJob; print: boolean
             {j.name}
           </span>
           <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-            {j.bot || "No bot"} · {j.qty}
+            {j.bot || "No bot"} · {j.quantity}
             {j.spare_qty > 0 && ` + ${j.spare_qty} spare`}
+            {j.cut_qty > 0 && isStockKind(j.kind) && j.cut_qty < need && ` · cut ${j.cut_qty}/${need}`}
           </span>
         </button>
-        <StatusSelect key={`${j.id}-${j.status}`} job={j} />
+        <StatusSelect key={`${j.id}-${j.status}`} job={j} person={person} />
       </div>
       <button type="button" className="flex flex-wrap gap-1.5 text-left" onClick={onOpen}>
         {details.filter(Boolean).map((d, i) => (
@@ -378,12 +439,13 @@ function JobCard({ job: j, print, stock, onOpen }: { job: FabJob; print: boolean
         ))}
       </button>
       {!print && <StockNote job={j} stock={stock} />}
-      {(j.file || j.linear_url) && (
-        <div className="flex items-center gap-2 text-xs min-w-0">
-          <FileCell file={j.file} />
-          {j.linear_url && <LinearLink url={j.linear_url} />}
-        </div>
-      )}
+      <div className="flex items-center gap-2 text-xs min-w-0">
+        <FileCell file={j.file} />
+        {j.linear_url && <LinearLink url={j.linear_url} />}
+        <Link href={`/tracker/${j.id}`} className="ml-auto underline shrink-0" style={{ color: "var(--purple)" }}>
+          Files &amp; checks →
+        </Link>
+      </div>
       {j.notes && (
         <p className="text-xs" style={{ color: "var(--muted)" }}>
           {j.notes}
@@ -448,6 +510,7 @@ function JobForm({
   job,
   jobs,
   stock,
+  person,
   defaults,
   onDone,
 }: {
@@ -455,15 +518,22 @@ function JobForm({
   job: FabJob | null;
   jobs: FabJob[];
   stock: Stock;
+  person: string;
   defaults: { bot: string; subsystem: string };
   onDone: () => void;
 }) {
-  const a = useFabAction(saveJob, onDone);
-  const del = useFabAction(deleteJob, onDone);
+  const [note, setNote] = useState<string | null>(null);
+  const a = useFabAction(job ? updatePart : addPart, (n) => {
+    // a status change that took stock says so before closing
+    if (job && typeof n === "string" && n) setNote(n);
+    else onDone();
+  });
+  const del = useFabAction(deletePart, onDone);
+  const [kind, setKind] = useState<PartKind | "">(job?.kind ?? "");
   const [confirm, setConfirm] = useState(false);
   const print = tracker === "print";
   const j = job;
-  const v = (k: keyof FabJob) => String(j?.[k] ?? "");
+  const v = (k: string) => (j ? col(j, k) : "");
   const lists = {
     bot: options(SUGGEST.bot, jobs, "bot"),
     subsystem: options(SUGGEST.subsystem, jobs, "subsystem"),
@@ -486,6 +556,7 @@ function JobForm({
         ))}
         {j && <input type="hidden" name="id" value={j.id} />}
         <input type="hidden" name="tracker" value={tracker} />
+        <input type="hidden" name="by" value={person} />
         <TextField name="name" label="Part # / name" value={v("name")} placeholder="0201_Mounting_Plate" />
         <div className="grid grid-cols-2 gap-2">
           <Field label="Status">
@@ -511,7 +582,7 @@ function JobForm({
           <TextField name="bot" label="Bot" value={j ? v("bot") : defaults.bot} list="tr-bot" />
           <TextField name="subsystem" label="Subsystem" value={j ? v("subsystem") : defaults.subsystem} list="tr-subsystem" />
           <Field label="Qty">
-            <input name="qty" type="number" min="0" inputMode="numeric" className="input mono" defaultValue={j?.qty ?? 1} />
+            <input name="quantity" type="number" min="0" inputMode="numeric" className="input mono" defaultValue={j?.quantity ?? 1} />
           </Field>
           <Field label="Spare qty">
             <input name="spare_qty" type="number" min="0" inputMode="numeric" className="input mono" defaultValue={j?.spare_qty ?? 0} />
@@ -526,6 +597,16 @@ function JobForm({
           </div>
         ) : (
           <>
+            <Field label="Kind" hint="How it's made — picks its board, DFM checks and stock. Blank = from the material.">
+              <select name="kind" className="input" value={kind} onChange={(e) => setKind(e.target.value as PartKind | "")}>
+                {!j && <option value="">From the material</option>}
+                {PART_KINDS.filter((k) => k !== "print").map((k) => (
+                  <option key={k} value={k}>
+                    {KIND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <div className="grid grid-cols-2 gap-2">
               <TextField name="material" label="Stock material / type" value={v("material")} list="tr-material" />
               <TextField name="stock_dims" label="Stock dimensions" value={v("stock_dims")} list="tr-stock_dims" />
@@ -534,9 +615,10 @@ function JobForm({
               <TextField name="machine" label="Machine" value={v("machine")} list="tr-machine" />
               <TextField name="dri" label="DRI" value={v("dri")} />
             </div>
-            <Field label="Stock on the rack (optional)" hint="Link it to show whether the stock is on hand.">
-              <select name="material_id" className="input" defaultValue={j?.material_id ?? ""}>
-                <option value="">Not linked</option>
+            <Field label="Cut from (on the rack)" hint="Matched from the material and dims automatically; pick one to lock it. Stock is taken off the rack when the part goes In Progress / Finished.">
+              <select name="material_id" className="input" defaultValue={j?.material_locked ? (j.material_id ?? "") : "auto"}>
+                <option value="auto">Auto{j?.material_id && !j.material_locked && stock[j.material_id] ? ` (${stock[j.material_id].name})` : ""}</option>
+                <option value="">None</option>
                 {stockList.map(([id, s]) => (
                   <option key={id} value={id}>
                     {s.name} — {s.onHand}
@@ -551,8 +633,25 @@ function JobForm({
         <Field label="Notes">
           <textarea name="notes" className="input" rows={2} defaultValue={v("notes")} />
         </Field>
+        {print && <input type="hidden" name="kind" value="print" />}
         <ErrorText error={a.error} />
-        <SubmitButton pending={a.pending} label={j ? "Save" : "Add to tracker"} />
+        {note ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm" style={{ color: /^Took/.test(note) ? "var(--good)" : "var(--warn)" }} role="status">
+              Saved. {note}
+            </p>
+            <button type="button" className="btn btn-primary py-3" onClick={onDone}>
+              Done <span aria-hidden>→</span>
+            </button>
+          </div>
+        ) : (
+          <SubmitButton pending={a.pending} label={j ? "Save" : "Add to tracker"} />
+        )}
+        {j && (
+          <Link href={`/tracker/${j.id}`} className="btn btn-ghost">
+            Files, DFM checks &amp; history <span aria-hidden>→</span>
+          </Link>
+        )}
       </form>
       {j && (
         <div className="pt-4 border-t flex flex-col gap-2" style={{ borderColor: "var(--line)" }}>
@@ -583,7 +682,9 @@ function JobForm({
 function ImportForm({ tracker, onDone }: { tracker: Tracker; onDone: () => void }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<{ added: number; updated: number } | null>(null);
-  const a = useFabAction(importJobs, (r) => r && setResult(r));
+  const a = useFabAction(importSheet, (r) => {
+    if (r) setResult(r);
+  });
   const read = useMemo(() => (text.trim() ? readSheet(text) : null), [text]);
 
   if (result) {
@@ -604,7 +705,7 @@ function ImportForm({ tracker, onDone }: { tracker: Tracker; onDone: () => void 
       <input type="hidden" name="tracker" value={tracker} />
       <p className="text-sm" style={{ color: "var(--muted)" }}>
         In the {tracker === "print" ? "3D Printing" : "Machining"} Tracker tab, select from the header row (Status, Bot, …) down to the last part, copy, and paste here. A CSV
-        export works too. Parts already here (same bot and name) are updated, not doubled.
+        export works too. Parts already here (same bot and name, including ones synced from Onshape) are updated, not doubled.
       </p>
       <textarea
         name="text"

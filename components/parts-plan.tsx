@@ -7,7 +7,7 @@ import { addOrder } from "@/app/fab-actions";
 import { isSheet, materialName, type FabLocation, type FabMaterial, type FabPiece } from "@/lib/fab";
 import { KIND_LABEL, type FabMachine, type PartKind } from "@/lib/parts";
 import { layerName, svgPath, transformLoop, writeDxf, type Loop } from "@/lib/geom";
-import { nestSheets, nestSticks, type SheetPlan, type StickPlan } from "@/lib/nest";
+import { nestSheets, nestSticks, zoneToNest, type SheetPlan, type StickPlan } from "@/lib/nest";
 import type { Level } from "@/lib/dfm";
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Empty } from "./ui";
@@ -16,6 +16,7 @@ import { ErrorText, useFabAction } from "./fab-ui";
 export interface PlanPart {
   id: string;
   name: string;
+  bot: string;
   kind: PartKind;
   design_id: string | null;
   toCut: number;
@@ -77,22 +78,25 @@ export function PartsPlan({
 
   // (the React Compiler memoises this chain; the nesting only reruns when the scope changes)
   const groups: Group[] = (() => {
+    // one group per stock material — and for sheet parts, per machine, so router
+    // and xTool parts each get sheets laid out for that machine's bed and bit
     const by = new Map<string, PlanPart[]>();
     for (const p of planned) {
-      const list = by.get(p.material_id!) ?? [];
+      const mat = matById.get(p.material_id!);
+      const key = `${p.material_id}|${mat && isSheet(mat) ? (p.dfm.machineId ?? "") : ""}`;
+      const list = by.get(key) ?? [];
       list.push(p);
-      by.set(p.material_id!, list);
+      by.set(key, list);
     }
     const out: Group[] = [];
-    for (const [mid, ps] of by) {
+    // a piece one group plans to cut isn't offered to the next group
+    const taken = new Set<string>();
+    for (const [key, ps] of by) {
+      const [mid, machineId] = key.split("|");
       const material = matById.get(mid);
       if (!material) continue;
-      const stock = pieces.filter((x) => x.material_id === mid);
+      const stock = pieces.filter((x) => x.material_id === mid && !taken.has(x.id));
       if (isSheet(material)) {
-        // the machine most of these parts are going to sets the bed and the bit
-        const votes = new Map<string, number>();
-        for (const p of ps) if (p.dfm.machineId) votes.set(p.dfm.machineId, (votes.get(p.dfm.machineId) ?? 0) + p.toCut);
-        const machineId = [...votes].sort((a, b) => b[1] - a[1])[0]?.[0];
         const machine = machineId ? (machineById.get(machineId) ?? null) : null;
         const g = gap + (machine?.tool_diameter_mm ?? 0);
         const items = ps.flatMap((p) => {
@@ -101,10 +105,11 @@ export function PartsPlan({
           if (!w || !h) return [];
           return Array.from({ length: p.toCut }, () => ({ id: p.id, name: p.name, w, h }));
         });
-        const clean = stock.filter((s) => !s.has_cutouts && s.width_mm);
+        // part-cut sheets are fine as long as the rack knows where the cuts are
+        const clean = stock.filter((s) => s.width_mm && (!s.has_cutouts || s.dead_zones.length > 0));
         const res = nestSheets(
           items,
-          clean.map((s) => ({ pieceId: s.id, w: s.width_mm!, l: s.length_mm })),
+          clean.map((s) => ({ pieceId: s.id, w: s.width_mm!, l: s.length_mm, zones: s.dead_zones.map(zoneToNest) })),
           {
             gap: g,
             margin,
@@ -112,6 +117,7 @@ export function PartsPlan({
             full: material.full_width_mm && material.full_length_mm ? { w: material.full_width_mm, l: material.full_length_mm } : null,
           },
         );
+        for (const sh of res.sheets) if (sh.pieceId) taken.add(sh.pieceId);
         out.push({
           material,
           parts: ps,
@@ -126,6 +132,7 @@ export function PartsPlan({
           kerf,
           material.full_length_mm,
         );
+        for (const st of res.sticks) if (st.pieceId) taken.add(st.pieceId);
         out.push({ material, parts: ps, stick: { plans: res.sticks, tooBig: res.tooBig }, buy: res.sticks.filter((s) => s.pieceId === null).length });
       }
     }
@@ -144,7 +151,7 @@ export function PartsPlan({
     return (
       <Empty>
         Nothing is waiting on stock. Parts show up here while they&apos;re in the first column(s) of the Plate, Tube &amp; bar or Shaft boards.{" "}
-        <Link href="/parts" className="underline" style={{ color: "var(--purple)" }}>
+        <Link href="/tracker/board" className="underline" style={{ color: "var(--purple)" }}>
           Open the board →
         </Link>
       </Empty>
@@ -191,7 +198,7 @@ export function PartsPlan({
             {cantMake.map((p) => (
               <li key={p.id} className="flex gap-2">
                 <span className="pill pill-bad shrink-0">Can&apos;t make</span>
-                <Link href={`/parts/${p.id}`} className="underline font-medium">
+                <Link href={`/tracker/${p.id}`} className="underline font-medium">
                   {p.name}
                 </Link>
                 <span style={{ color: "var(--muted)" }}>{p.dfm.why}</span>
@@ -200,7 +207,7 @@ export function PartsPlan({
             {noMaterial.map((p) => (
               <li key={p.id} className="flex gap-2">
                 <span className="pill pill-warn shrink-0">No stock</span>
-                <Link href={`/parts/${p.id}`} className="underline font-medium">
+                <Link href={`/tracker/${p.id}`} className="underline font-medium">
                   {p.name}
                 </Link>
                 <span style={{ color: "var(--muted)" }}>
@@ -218,7 +225,7 @@ export function PartsPlan({
 
       {groups.map((g) => (
         <MaterialGroup
-          key={g.material.id}
+          key={`${g.material.id}-${g.sheet?.machine?.id ?? ""}`}
           g={g}
           units={units}
           where={where}
@@ -335,7 +342,7 @@ function MaterialGroup({
       )}
       {!!g.sheet?.skippedCutouts && (
         <p className="text-xs" style={{ color: "var(--muted)" }}>
-          {g.sheet.skippedCutouts} sheet{g.sheet.skippedCutouts > 1 ? "s" : ""} marked “has cutouts” left out — the rack doesn&apos;t know where the holes are.
+          {g.sheet.skippedCutouts} sheet{g.sheet.skippedCutouts > 1 ? "s" : ""} marked “has cutouts” with no marked areas left out — mark where the cuts are on the stock page to use them.
         </p>
       )}
       {!m.full_length_mm && g.buy === 0 && tooBig.length > 0 && (
@@ -346,7 +353,7 @@ function MaterialGroup({
 
       <div className={g.sheet ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-2"}>
         {g.sheet?.plans.map((s, i) => (
-          <SheetCard key={i} m={m} s={s} n={i + 1} geomById={geomById} units={units} where={where} project={project} margin={margin} />
+          <SheetCard key={i} m={m} s={s} n={i + 1} geomById={geomById} units={units} where={where} project={project} margin={margin} gap={g.sheet!.gap} />
         ))}
         {g.stick?.plans.map((s, i) => (
           <StickCard key={i} m={m} s={s} units={units} where={where} project={project} />
@@ -361,7 +368,7 @@ function MaterialGroup({
           {g.parts.map((p) => (
             <li key={p.id} className="flex items-center gap-2">
               <span className="mono w-8 text-right">×{p.toCut}</span>
-              <Link href={`/parts/${p.id}`} className="underline min-w-0 truncate">
+              <Link href={`/tracker/${p.id}`} className="underline min-w-0 truncate">
                 {p.name}
               </Link>
               {p.dfm.warns > 0 && <span className="pill pill-warn">check</span>}
@@ -390,6 +397,7 @@ function SheetCard({
   where,
   project,
   margin,
+  gap,
 }: {
   m: FabMaterial;
   s: SheetPlan;
@@ -399,6 +407,7 @@ function SheetCard({
   where: Map<string, string>;
   project: string;
   margin: number;
+  gap: number;
 }) {
   const commit = useFabAction(commitSheet);
   const ids = [...new Set(s.placements.map((p) => p.id))];
@@ -445,6 +454,11 @@ function SheetCard({
         <g transform="scale(1,-1)">
           <rect x={0} y={0} width={s.w} height={s.l} fill="var(--surface)" stroke="var(--muted)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           <rect x={margin} y={margin} width={Math.max(0, s.w - 2 * margin)} height={Math.max(0, s.l - 2 * margin)} fill="none" stroke="var(--line)" strokeDasharray="4 4" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          {(s.zones ?? []).map((z, i) => (
+            <rect key={`z${i}`} x={z.x} y={z.y} width={z.w} height={z.h} fill="var(--line)" stroke="var(--muted)" strokeWidth={0.8} vectorEffect="non-scaling-stroke">
+              <title>Already cut / unusable</title>
+            </rect>
+          ))}
           {s.remaining.map((r, i) => (
             <rect
               key={i}
@@ -502,8 +516,8 @@ function SheetCard({
             className="btn btn-primary text-sm"
             disabled={commit.pending}
             onClick={() => {
-              if (!confirm(`Mark this sheet cut? The sheet on the rack becomes ${s.remaining.length ? s.remaining.map((r) => fmtRect(r.w, r.l, units)).join(" + ") : "used up"}, and ${s.placements.length} parts count as cut.`)) return;
-              commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, w: s.w, l: s.l, remaining: s.remaining.map((r) => ({ w: r.w, l: r.l })), counts, project }) });
+              if (!confirm(`Mark this sheet cut? ${s.yield > 0.85 ? "The sheet is used up" : "The cut areas get marked unusable on the sheet"}, and ${s.placements.length} parts count as cut.`)) return;
+              commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, w: s.w, l: s.l, placements: s.placements, yield: s.yield, gap, project }) });
             }}
           >
             {commit.pending ? "Saving…" : "Mark cut"}

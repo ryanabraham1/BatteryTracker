@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition, type DragEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { addPart, assignPart, movePart } from "@/app/parts-actions";
-import { KIND_HINT, KIND_LABEL, PART_KINDS, STAGES, stageOf, type PartKind } from "@/lib/parts";
+import { addPart, assignPart, setPartStatus } from "@/app/parts-actions";
+import { KIND_HINT, KIND_LABEL, PART_KINDS, trackerOf, type PartKind } from "@/lib/parts";
+import { isDone, priorityLabel, STATUS_LABEL, STATUS_TONE, STATUSES, type JobStatus } from "@/lib/tracker";
 import type { Level } from "@/lib/dfm";
 import type { Loop } from "@/lib/geom";
 import { materialName, type FabMaterial } from "@/lib/fab";
@@ -20,8 +21,12 @@ export interface BoardPart {
   name: string;
   part_number: string;
   kind: PartKind;
-  stage: string;
-  stage_changed_at: string;
+  status: JobStatus;
+  status_changed_at: string;
+  bot: string;
+  subsystem: string;
+  priority: number | null;
+  spare_qty: number;
   quantity: number;
   copies: number;
   cut_qty: number;
@@ -51,84 +56,99 @@ export function PartsBoard({
   const sp = useSearchParams();
   const q = (sp.get("q") ?? "").trim().toLowerCase();
   const router = useRouter();
+  // "all" = every machining kind; or one kind; "print" is the 3D printing board
   const kindParam = sp.get("kind");
-  const kind: PartKind = PART_KINDS.includes(kindParam as PartKind) ? (kindParam as PartKind) : "plate";
-  const setKind = (k: PartKind) => {
+  const view: PartKind | "all" = PART_KINDS.includes(kindParam as PartKind) ? (kindParam as PartKind) : "all";
+  const tracker = view === "print" ? "print" : "machining";
+  const setView = (k: PartKind | "all") => {
     const next = new URLSearchParams(sp.toString());
-    next.set("kind", k);
-    router.replace(`/parts?${next.toString()}`, { scroll: false });
+    if (k === "all") next.delete("kind");
+    else next.set("kind", k);
+    router.replace(`/tracker/board${next.size ? `?${next.toString()}` : ""}`, { scroll: false });
   };
-  const [design, setDesign] = useState("");
+  const [bot, setBot] = useState("");
   const [mine, setMine] = useState(false);
   const [open, setOpen] = useState<BoardPart | null>(null);
   const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   // moves show at once; the server catches up on refresh
-  const [moved, setMoved] = useState<Record<string, string>>({});
+  const [moved, setMoved] = useState<Record<string, JobStatus>>({});
   const [, start] = useTransition();
-  const stages = STAGES[kind];
-  const [tab, setTab] = useState<string>(stages[0].key);
-  const tabKey = stages.some((s) => s.key === tab) ? tab : stages[0].key;
+  const bots = useMemo(() => [...new Set(parts.map((p) => p.bot).filter(Boolean))].sort(), [parts]);
 
   const filtered = useMemo(() => {
     const norm = (s: string) => s.toLowerCase();
     return parts
-      .map((p) => (moved[p.id] ? { ...p, stage: moved[p.id] } : p))
-      .filter((p) => (!design || p.design_id === design) && (!mine || p.assignees.some((a) => norm(a) === norm(person))))
-      .filter((p) => !q || norm(`${p.name} ${p.part_number} ${p.material} ${p.assignees.join(" ")}`).includes(q));
-  }, [parts, moved, design, mine, person, q]);
+      .map((p) => (moved[p.id] ? { ...p, status: moved[p.id] } : p))
+      .filter((p) => (!bot || p.bot === bot) && (!mine || p.assignees.some((a) => norm(a) === norm(person))))
+      .filter((p) => !q || norm(`${p.name} ${p.part_number} ${p.material} ${p.subsystem} ${p.assignees.join(" ")}`).includes(q));
+  }, [parts, moved, bot, mine, person, q]);
 
   const counts = useMemo(() => {
-    const c = Object.fromEntries(PART_KINDS.map((k) => [k, 0])) as Record<PartKind, number>;
-    for (const p of filtered) if (p.stage !== "done") c[p.kind]++;
+    const c = Object.fromEntries([...PART_KINDS, "all"].map((k) => [k, 0])) as Record<PartKind | "all", number>;
+    for (const p of filtered) {
+      if (isDone(p.status)) continue;
+      c[p.kind]++;
+      if (p.kind !== "print") c.all++;
+    }
     return c;
   }, [filtered]);
 
-  const columns = useMemo(() => {
-    const by: Record<string, BoardPart[]> = Object.fromEntries(stages.map((s) => [s.key, []]));
-    for (const p of filtered) if (p.kind === kind) (by[p.stage] ?? by[stages[0].key]).push(p);
-    for (const k of Object.keys(by)) by[k].sort((a, b) => a.stage_changed_at.localeCompare(b.stage_changed_at));
-    return by;
-  }, [filtered, kind, stages]);
+  const onBoard = (p: BoardPart) => (view === "all" ? trackerOf(p.kind) === "machining" : p.kind === view);
+  // the sheet's statuses; the rarer ones only get a column when something's in them
+  const RARE: JobStatus[] = ["outsourced", "spares_needed", "spares_finished", "not_needed"];
+  const stages = STATUSES[tracker].filter((st) => !RARE.includes(st) || filtered.some((p) => onBoard(p) && p.status === st));
+  const [tab, setTab] = useState<JobStatus>("not_started");
+  const tabKey = stages.includes(tab) ? tab : stages[0];
 
-  function move(p: BoardPart, stage: string) {
-    if (p.stage === stage) return;
-    setMoved((m) => ({ ...m, [p.id]: stage }));
+  const columns = useMemo(() => {
+    const by = Object.fromEntries(STATUSES[tracker].map((st) => [st, [] as BoardPart[]])) as Record<JobStatus, BoardPart[]>;
+    for (const p of filtered) if (onBoard(p)) (by[p.status] ?? by.not_started).push(p);
+    for (const k of Object.keys(by) as JobStatus[]) by[k].sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9) || a.status_changed_at.localeCompare(b.status_changed_at));
+    return by;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, view, tracker]);
+
+  function move(p: BoardPart, status: JobStatus) {
+    if (p.status === status) return;
+    setMoved((m) => ({ ...m, [p.id]: status }));
+    setNotice(null);
     start(async () => {
       const fd = new FormData();
       fd.set("id", p.id);
-      fd.set("stage", stage);
+      fd.set("status", status);
       fd.set("by", person);
-      const r = await movePart(fd);
+      const r = await setPartStatus(fd);
       if (!r.ok) {
         setMoved((m) => {
           const { [p.id]: _, ...rest } = m;
           void _;
           return rest;
         });
-        alert(r.error);
-      }
+        setNotice(r.error);
+      } else if (r.data) setNotice(`${p.name}: ${r.data}`);
     });
   }
 
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const onDrop = (e: DragEvent, stage: string) => {
+  const onDrop = (e: DragEvent, status: JobStatus) => {
     e.preventDefault();
     setDragOver(null);
     const id = e.dataTransfer.getData("text/part");
     const p = filtered.find((x) => x.id === id);
-    if (p) move(p, stage);
+    if (p) move(p, status);
   };
 
   const totalParts = parts.length;
 
   return (
     <>
-      {/* Kind boards */}
-      <div className="hscroll no-scrollbar mb-3 pb-1" role="tablist" aria-label="Part kind">
-        {PART_KINDS.map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={kind === k} className="tile tile-chip text-sm flex items-center gap-2" data-selected={kind === k} onClick={() => setKind(k)}>
-            <span className="font-medium">{KIND_LABEL[k]}</span>
-            <span className="mono text-xs font-semibold" style={{ color: kind === k ? "var(--purple-dark)" : "var(--muted)" }}>
+      {/* Boards: all machining, one kind, or 3D printing */}
+      <div className="hscroll no-scrollbar mb-3 pb-1" role="tablist" aria-label="Board">
+        {(["all", ...PART_KINDS.filter((k) => k !== "print"), "print"] as (PartKind | "all")[]).map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className="tile tile-chip text-sm flex items-center gap-2" data-selected={view === k} onClick={() => setView(k)}>
+            <span className="font-medium">{k === "all" ? "All machining" : KIND_LABEL[k]}</span>
+            <span className="mono text-xs font-semibold" style={{ color: view === k ? "var(--purple-dark)" : "var(--muted)" }}>
               {counts[k]}
             </span>
           </button>
@@ -136,11 +156,11 @@ export function PartsBoard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select className="input w-auto py-1.5 text-sm" style={{ minHeight: 38 }} value={design} onChange={(e) => setDesign(e.target.value)} aria-label="Design">
-          <option value="">All designs</option>
-          {designs.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
+        <select className="input w-auto py-1.5 text-sm" style={{ minHeight: 38 }} value={bot} onChange={(e) => setBot(e.target.value)} aria-label="Bot">
+          <option value="">All bots</option>
+          {bots.map((b) => (
+            <option key={b} value={b}>
+              {b}
             </option>
           ))}
         </select>
@@ -148,10 +168,10 @@ export function PartsBoard({
           {mine ? "Mine ✓" : "Mine"}
         </button>
         <span className="text-sm hidden sm:inline" style={{ color: "var(--muted)" }}>
-          {KIND_HINT[kind]}
+          {view === "all" ? "Plate, tube, shaft and machined parts" : KIND_HINT[view]}
         </span>
         <div className="ml-auto flex gap-2">
-          <Link href="/parts/plan" className="btn btn-ghost text-sm">
+          <Link href="/tracker/plan" className="btn btn-ghost text-sm">
             Cut plan
           </Link>
           <button type="button" className="btn btn-primary text-sm" onClick={() => setAdding(true)}>
@@ -162,14 +182,23 @@ export function PartsBoard({
 
       {q && (
         <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
-          Matching “{q}” · <Link href="/parts" className="underline">clear</Link>
+          Matching “{q}” · <Link href="/tracker/board" className="underline">clear</Link>
         </p>
+      )}
+
+      {notice && (
+        <div className="card p-3 mb-3 text-sm flex items-start justify-between gap-3" role="status" style={{ background: /Took/.test(notice) ? "var(--good-soft)" : "var(--warn-soft)" }}>
+          <span>{notice}</span>
+          <button type="button" aria-label="Dismiss" onClick={() => setNotice(null)}>
+            ✕
+          </button>
+        </div>
       )}
 
       {totalParts === 0 ? (
         <Empty>
           No parts yet.{" "}
-          <Link href="/parts/designs" className="underline" style={{ color: "var(--purple)" }}>
+          <Link href="/tracker/designs" className="underline" style={{ color: "var(--purple)" }}>
             Link an Onshape design
           </Link>{" "}
           to load its parts, or add one by hand.
@@ -178,43 +207,43 @@ export function PartsBoard({
         <>
           {/* Phones: one column at a time */}
           <div className="md:hidden hscroll no-scrollbar mb-3 pb-1" role="tablist" aria-label="Column">
-            {stages.map((s) => (
-              <button key={s.key} type="button" role="tab" aria-selected={tabKey === s.key} className="tile tile-chip text-sm flex items-center gap-2" data-selected={tabKey === s.key} onClick={() => setTab(s.key)}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `var(--${s.tone === "muted" ? "muted" : s.tone})` }} />
-                {s.label}
+            {stages.map((st) => (
+              <button key={st} type="button" role="tab" aria-selected={tabKey === st} className="tile tile-chip text-sm flex items-center gap-2" data-selected={tabKey === st} onClick={() => setTab(st)}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `var(--${STATUS_TONE[st]})` }} />
+                {STATUS_LABEL[st]}
                 <span className="mono text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                  {columns[s.key].length}
+                  {columns[st].length}
                 </span>
               </button>
             ))}
           </div>
           <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: `repeat(${stages.length}, minmax(0, 1fr))` }} data-cols>
-            {stages.map((s) => (
+            {stages.map((st) => (
               <section
-                key={s.key}
-                className={`min-w-0 rounded-xl md:p-2 transition-colors ${tabKey === s.key ? "col-span-full md:col-span-1" : "hidden md:block"}`}
-                style={{ background: dragOver === s.key ? "var(--purple-soft)" : "transparent", outline: dragOver === s.key ? "2px dashed var(--purple)" : "none" }}
+                key={st}
+                className={`min-w-0 rounded-xl md:p-2 transition-colors ${tabKey === st ? "col-span-full md:col-span-1" : "hidden md:block"}`}
+                style={{ background: dragOver === st ? "var(--purple-soft)" : "transparent", outline: dragOver === st ? "2px dashed var(--purple)" : "none" }}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setDragOver(s.key);
+                  setDragOver(st);
                 }}
-                onDragLeave={() => setDragOver((d) => (d === s.key ? null : d))}
-                onDrop={(e) => onDrop(e, s.key)}
+                onDragLeave={() => setDragOver((d) => (d === st ? null : d))}
+                onDrop={(e) => onDrop(e, st)}
               >
                 <header className="hidden md:flex items-center justify-between mb-2 px-0.5">
-                  <h2 className="eyebrow flex items-center gap-2" style={{ color: `var(--${s.tone === "muted" ? "muted" : s.tone})` }}>
-                    <span className="w-2 h-2 rounded-full" style={{ background: `var(--${s.tone === "muted" ? "muted" : s.tone})` }} />
-                    {s.label}
+                  <h2 className="eyebrow flex items-center gap-2" style={{ color: `var(--${STATUS_TONE[st]})` }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: `var(--${STATUS_TONE[st]})` }} />
+                    {STATUS_LABEL[st]}
                   </h2>
                   <span className="mono text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                    {columns[s.key].length}
+                    {columns[st].length}
                   </span>
                 </header>
                 <div className="flex flex-col gap-2 min-h-16">
-                  {columns[s.key].map((p) => (
+                  {columns[st].map((p) => (
                     <PartCard key={p.id} p={p} units={units} onOpen={() => setOpen(p)} />
                   ))}
-                  {columns[s.key].length === 0 && (
+                  {columns[st].length === 0 && (
                     <p className="text-xs text-center py-6 rounded-lg" style={{ color: "var(--muted)", border: "1px dashed var(--line)" }}>
                       Nothing here
                     </p>
@@ -226,8 +255,8 @@ export function PartsBoard({
         </>
       )}
 
-      <PartSheet part={open ? { ...open, stage: moved[open.id] ?? open.stage } : null} person={person} onClose={() => setOpen(null)} onMove={move} units={units} />
-      <AddPartSheet open={adding} onClose={() => setAdding(false)} kind={kind} designs={designs} materials={materials} units={units} />
+      <PartSheet part={open ? { ...open, status: moved[open.id] ?? open.status } : null} person={person} onClose={() => setOpen(null)} onMove={move} units={units} />
+      <AddPartSheet open={adding} onClose={() => setAdding(false)} kind={view === "all" ? "plate" : view} designs={designs} materials={materials} units={units} />
     </>
   );
 }
@@ -241,7 +270,7 @@ function sizeText(p: BoardPart, units: Units): string {
 }
 
 function PartCard({ p, units, onOpen }: { p: BoardPart; units: Units; onOpen: () => void }) {
-  const need = p.quantity * p.copies;
+  const need = p.quantity * p.copies + p.spare_qty;
   return (
     <button
       type="button"
@@ -260,9 +289,21 @@ function PartCard({ p, units, onOpen }: { p: BoardPart; units: Units; onOpen: ()
       )}
       <span className="min-w-0 flex-1 flex flex-col gap-1">
         <span className="flex items-start justify-between gap-2">
-          <span className="font-medium leading-tight break-words">{p.name}</span>
+          <span className="font-medium leading-tight break-words">
+            {p.priority !== null && (
+              <span className="mono mr-1" style={{ color: p.priority === 0 ? "var(--bad)" : "var(--muted)" }}>
+                {priorityLabel(p.priority)}
+              </span>
+            )}
+            {p.name}
+          </span>
           <span className="mono text-sm font-semibold shrink-0">×{need}</span>
         </span>
+        {(p.bot || p.subsystem) && (
+          <span className="text-xs truncate" style={{ color: "var(--muted)" }}>
+            {[p.bot, p.subsystem].filter(Boolean).join(" · ")}
+          </span>
+        )}
         {(p.part_number || p.material) && (
           <span className="mono text-xs truncate" style={{ color: "var(--muted)" }}>
             {[p.part_number, p.material].filter(Boolean).join(" · ")}
@@ -296,22 +337,24 @@ function PartSheet({
   part: BoardPart | null;
   person: string;
   onClose: () => void;
-  onMove: (p: BoardPart, stage: string) => void;
+  onMove: (p: BoardPart, status: JobStatus) => void;
   units: Units;
 }) {
   const assign = useFabAction(assignPart);
   const [other, setOther] = useState("");
   if (!part) return <Sheet open={false} onClose={onClose}>{null}</Sheet>;
-  const stages = STAGES[part.kind];
-  const i = stages.findIndex((s) => s.key === part.stage);
-  const next = stages[i + 1];
+  const stages = STATUSES[trackerOf(part.kind)];
+  // the usual next step: not started → (CAM →) in progress → finished
+  const next: JobStatus | undefined = { not_started: "in_progress", have_cam: "in_progress", in_progress: "finished", spares_needed: "spares_finished" }[part.status as string] as JobStatus | undefined;
   const mineNow = !!person && part.assignees.some((a) => a.toLowerCase() === person.toLowerCase());
   return (
-    <Sheet open onClose={onClose} eyebrow={`${KIND_LABEL[part.kind]} · ${stageOf(part.kind, part.stage).label} · ${timeAgo(part.stage_changed_at)}`} title={part.name}>
+    <Sheet open onClose={onClose} eyebrow={`${KIND_LABEL[part.kind]} · ${STATUS_LABEL[part.status]} · ${timeAgo(part.status_changed_at)}`} title={part.name}>
       <div className="flex flex-col gap-4">
         <p className="mono text-sm" style={{ color: "var(--muted)" }}>
-          ×{part.quantity * part.copies}
+          ×{part.quantity * part.copies + part.spare_qty}
           {part.copies > 1 && ` (${part.quantity} × ${part.copies} robots)`}
+          {part.spare_qty > 0 && ` incl. ${part.spare_qty} spare`}
+          {part.bot && ` · ${part.bot}`}
           {part.material && ` · ${part.material}`}
           {sizeText(part, units) && ` · ${sizeText(part, units)}`}
         </p>
@@ -321,36 +364,36 @@ function PartSheet({
             type="button"
             className="btn btn-primary py-3"
             onClick={() => {
-              onMove(part, next.key);
+              onMove(part, next);
               onClose();
             }}
           >
-            Move to {next.label} <span aria-hidden>→</span>
+            Move to {STATUS_LABEL[next]} <span aria-hidden>→</span>
           </button>
         )}
 
         <div>
           <p className="label">Move to</p>
           <div className="flex flex-wrap gap-2">
-            {stages.map((s) => (
+            {stages.map((st) => (
               <button
-                key={s.key}
+                key={st}
                 type="button"
                 className="tile tile-chip text-sm"
-                data-selected={s.key === part.stage}
+                data-selected={st === part.status}
                 onClick={() => {
-                  onMove(part, s.key);
+                  onMove(part, st);
                   onClose();
                 }}
               >
-                {s.label}
+                {STATUS_LABEL[st]}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="label">On it</p>
+          <p className="label">DRI / on it</p>
           <div className="flex flex-wrap gap-2 items-center">
             {part.assignees.map((a) => (
               <span key={a} className="tile tile-chip text-sm flex items-center gap-2">
@@ -395,7 +438,7 @@ function PartSheet({
           <ErrorText error={assign.error} />
         </div>
 
-        <Link href={`/parts/${part.id}`} className="btn btn-ghost py-3">
+        <Link href={`/tracker/${part.id}`} className="btn btn-ghost py-3">
           Files, checks &amp; details <span aria-hidden>→</span>
         </Link>
       </div>

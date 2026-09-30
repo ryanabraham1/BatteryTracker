@@ -30,6 +30,8 @@ export interface SheetStock {
   pieceId: string | null;
   w: number;
   l: number;
+  /** areas already cut away / unusable, in nest coordinates (x across the width, y along the length) */
+  zones?: { x: number; y: number; w: number; h: number }[];
 }
 export interface SheetPlan extends SheetStock {
   placements: Placement[];
@@ -151,6 +153,8 @@ export function nestSheets(items: SheetItem[], stock: SheetStock[], o: SheetNest
     const u = usable(s);
     if (u.w <= 0 || u.h <= 0) return null;
     const bin = new Bin(u.w, u.h);
+    // parts keep a full gap clear of areas already cut away
+    for (const z of s.zones ?? []) bin.place({ x: z.x - margin, y: z.y - margin, w: z.w + gap, h: z.h + gap });
     const placements: Placement[] = [];
     const rest: SheetItem[] = [];
     for (const it of left) {
@@ -172,7 +176,8 @@ export function nestSheets(items: SheetItem[], stock: SheetStock[], o: SheetNest
     }
     if (!placements.length) return null;
     left = rest;
-    return { ...s, placements, remaining: leftovers(s, placements, gap, minKeep), yield: yieldOf(placements, u) };
+    // leftover strips only make sense on a sheet with nothing cut out of it yet
+    return { ...s, placements, remaining: s.zones?.length ? [] : leftovers(s, placements, gap, minKeep), yield: yieldOf(placements, u) };
   };
 
   for (const s of [...stock].sort((a, b) => a.w * a.l - b.w * b.l)) {
@@ -283,4 +288,18 @@ export function nestSticks(items: StickItem[], stock: StickStock[], kerf: number
   // stock first (in rack order), then the ones to buy
   open.sort((a, b) => Number(a.pieceId === null) - Number(b.pieceId === null) || a.len - b.len);
   return { sticks: open, tooBig };
+}
+
+// ── Back to the rack's coordinates ───────────────────────────────────────────
+
+/**
+ * The rack stores a sheet's unusable zones with x along the length and y
+ * across the width; the nester works the other way round. These convert.
+ */
+export const zoneToNest = (z: { x: number; y: number; w: number; h: number }) => ({ x: z.y, y: z.x, w: z.h, h: z.w });
+
+/** Placed parts (plus half the gap around each, where the bit went) as rack zones. */
+export function placementZones(ps: Placement[], gap: number): { x: number; y: number; w: number; h: number }[] {
+  const r = (n: number) => Math.round(n * 100) / 100;
+  return ps.map((p) => ({ x: r(p.y - gap / 2), y: r(p.x - gap / 2), w: r(p.h + gap), h: r(p.w + gap) }));
 }

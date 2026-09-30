@@ -106,46 +106,8 @@ const STOCK_NAV: NavItem[] = [
   { href: "/stock/setup", label: "Setup", icon: SETTINGS_ICON },
 ];
 
-/** Parts app tabs: the build boards, the cut planner, Onshape designs, machines. */
-const PARTS_NAV: NavItem[] = [
-  {
-    href: "/parts",
-    label: "Board",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="4" width="5" height="16" rx="1" />
-        <rect x="10" y="4" width="5" height="11" rx="1" />
-        <rect x="17" y="4" width="4" height="7" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: "/parts/plan",
-    label: "Cut plan",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="18" height="18" rx="1.5" />
-        <rect x="6" y="6" width="6" height="5" rx="0.5" />
-        <circle cx="16" cy="9" r="2" />
-        <rect x="6" y="14" width="11" height="4" rx="0.5" />
-      </svg>
-    ),
-  },
-  {
-    href: "/parts/designs",
-    label: "Designs",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 2l9 5v10l-9 5-9-5V7z" />
-        <path d="M12 12l9-5M12 12v10M12 12L3 7" />
-      </svg>
-    ),
-  },
-  { href: "/parts/machines", label: "Machines", icon: SETTINGS_ICON },
-];
-
-/** Fab tracker tabs: the team's Machining and 3D Printing tracker sheets. */
-const TRACKER_NAV: NavItem[] = [
+/** Fab tracker tabs: the team's two tracker sheets, the board, the cut plan, Onshape and machines. */
+const TRACKER_NAV: (NavItem & { desktopOnly?: boolean })[] = [
   {
     href: "/tracker",
     label: "Machining",
@@ -158,7 +120,7 @@ const TRACKER_NAV: NavItem[] = [
   },
   {
     href: "/tracker/print",
-    label: "3D printing",
+    label: "3D print",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="3" y="3" width="18" height="6" rx="1" />
@@ -166,27 +128,62 @@ const TRACKER_NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: "/tracker/board",
+    label: "Board",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="5" height="16" rx="1" />
+        <rect x="10" y="4" width="5" height="11" rx="1" />
+        <rect x="17" y="4" width="4" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/tracker/plan",
+    label: "Cut plan",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="1.5" />
+        <rect x="6" y="6" width="6" height="5" rx="0.5" />
+        <circle cx="16" cy="9" r="2" />
+        <rect x="6" y="14" width="11" height="4" rx="0.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/tracker/designs",
+    label: "Onshape",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2l9 5v10l-9 5-9-5V7z" />
+        <path d="M12 12l9-5M12 12v10M12 12L3 7" />
+      </svg>
+    ),
+  },
+  // phones reach Machines from the Onshape, cut plan and part pages
+  { href: "/tracker/machines", label: "Machines", icon: SETTINGS_ICON, desktopOnly: true },
 ];
 
-const SEARCHABLE = ["/battery", "/battery/batteries", "/stock", "/parts"];
+const SEARCHABLE = ["/battery", "/battery/batteries", "/stock", "/tracker/board"];
 
 /** The first tab of each app (board / rack) is exact, so it doesn't light up for the other tabs. */
 const SUBPAGES: Record<string, RegExp> = {
   "/battery": /^\/battery\/./,
   "/stock": /^\/stock\/(log|shopping|kit|setup)(\/|$)/,
-  "/parts": /^\/parts\/(plan|designs|machines)(\/|$)/,
   "/tracker": /^\/tracker\/./,
 };
 
 function isActive(href: string, pathname: string) {
   const sub = SUBPAGES[href];
-  // The rack / board tab also covers material and part pages (/stock/<id>, /parts/<id>), but not the other tabs.
-  if (sub) return pathname === href || ((href === "/stock" || href === "/parts") && pathname.startsWith(`${href}/`) && !sub.test(pathname));
+  // The rack tab also covers material pages (/stock/<id>), but not the other stock tabs.
+  if (sub) return pathname === href || (href === "/stock" && pathname.startsWith(`${href}/`) && !sub.test(pathname));
+  // A part's page (/tracker/<id>) sits under the board.
+  if (href === "/tracker/board" && /^\/tracker\/[0-9a-f-]{36}$/i.test(pathname)) return true;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const isStockPath = (pathname: string) => pathname === "/stock" || pathname.startsWith("/stock/");
-const isPartsPath = (pathname: string) => pathname === "/parts" || pathname.startsWith("/parts/");
 const isTrackerPath = (pathname: string) => pathname === "/tracker" || pathname.startsWith("/tracker/");
 
 export function Header() {
@@ -211,13 +208,13 @@ export function Header() {
 
   const home = pathname === "/";
   const stockApp = isStockPath(pathname);
-  const partsApp = isPartsPath(pathname);
   const trackerApp = isTrackerPath(pathname);
-  const batteryApp = !home && !stockApp && !partsApp && !trackerApp;
-  const NAV = home ? [] : stockApp ? STOCK_NAV : partsApp ? PARTS_NAV : trackerApp ? TRACKER_NAV : BATTERY_NAV;
+  const workApp = pathname === "/work" || pathname.startsWith("/work/");
+  const batteryApp = !home && !stockApp && !trackerApp && !workApp;
+  const NAV = home || workApp ? [] : stockApp ? STOCK_NAV : trackerApp ? TRACKER_NAV : BATTERY_NAV;
   const canSearch = SEARCHABLE.includes(pathname) || pathname.startsWith("/battery/batteries/");
-  const searchTarget = stockApp ? "/stock" : partsApp ? "/parts" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
-  const searchWhat = stockApp ? "stock" : partsApp ? "parts" : "batteries";
+  const searchTarget = stockApp ? "/stock" : trackerApp ? "/tracker/board" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
+  const searchWhat = stockApp ? "stock" : trackerApp ? "parts" : "batteries";
 
   function search(e: FormEvent) {
     e.preventDefault();
@@ -258,25 +255,25 @@ export function Header() {
         <div className="mx-auto max-w-[1400px] px-4 py-2 flex items-center gap-3 min-h-[56px]">
           <div className="flex items-center gap-2 shrink-0 min-h-[44px]">
             {/* Home: the 3256 Tools dashboard */}
-            <Link href="/" className="flex items-center gap-2 min-h-[44px]" aria-label="3256 Tools home" aria-current={home ? "page" : undefined}>
+            <Link href="/" prefetch={false} className="flex items-center gap-2 min-h-[44px]" aria-label="3256 Tools home" aria-current={home ? "page" : undefined}>
               <span className="eyebrow px-2 py-1 rounded-md" style={{ background: "var(--plum)", color: "var(--plum-text)" }}>
                 3256
               </span>
               <span className={`font-medium tracking-tight ${home ? "" : "hidden lg:inline"}`}>Tools</span>
             </Link>
             {/* App switcher: batteries ↔ fab stock */}
-            <nav className="inline-flex rounded-lg p-0.5" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
+            <nav className="inline-flex rounded-lg p-0.5 overflow-x-auto max-w-[calc(100vw-92px)]" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
               {(
                 [
                   ["/battery", "Batteries", "Batteries", batteryApp],
                   ["/stock", "Fab stock", "Stock", stockApp],
                   ["/tracker", "Tracker", "Track", trackerApp],
-                  ["/parts", "Parts", "Parts", partsApp],
                 ] as const
               ).map(([href, label, short, on]) => (
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   className="rounded-md px-2.5 flex items-center text-sm font-medium tracking-tight whitespace-nowrap"
                   style={{ minHeight: 36, background: on ? "var(--plum)" : "transparent", color: on ? "#fff" : "var(--muted)" }}
                   aria-current={on ? "page" : undefined}
@@ -343,7 +340,7 @@ export function Header() {
                 )}
               </button>
             )}
-            {compPill}
+            {batteryApp && compPill}
           </div>
         </div>
         {canSearch && searchOpen && (
@@ -352,7 +349,7 @@ export function Header() {
               <input
                 ref={mobileInput}
                 className="input pr-11"
-                placeholder={stockApp ? "2x1, 1/4 poly, hex…" : partsApp ? "Search parts…" : "Search batteries…"}
+                placeholder={stockApp ? "2x1, 1/4 poly, hex…" : trackerApp ? "Search parts…" : "Search batteries…"}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 aria-label={`Search ${searchWhat}`}
@@ -382,7 +379,7 @@ export function Header() {
         aria-label="Primary"
       >
         <div className="flex items-stretch px-1">
-          {NAV.map((n) => {
+          {NAV.filter((n) => !("desktopOnly" in n && n.desktopOnly)).map((n) => {
             const active = isActive(n.href, pathname);
             return (
               <Link key={n.href} href={n.href} className="tabbar-item" data-active={active} aria-current={active ? "page" : undefined}>

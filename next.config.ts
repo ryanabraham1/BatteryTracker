@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       { source: "/log", destination: "/battery/log", permanent: false },
       { source: "/comp", destination: "/battery/comp", permanent: false },
       { source: "/settings", destination: "/battery/settings", permanent: false },
+      // Parts merged into the fab tracker
+      { source: "/parts", destination: "/tracker/board", permanent: false },
+      { source: "/parts/:path*", destination: "/tracker/:path*", permanent: false },
     ];
   },
 };

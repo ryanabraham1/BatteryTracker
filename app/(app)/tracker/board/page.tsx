@@ -36,8 +36,12 @@ export default async function PartsPage() {
         name: p.name,
         part_number: p.part_number,
         kind: p.kind,
-        stage: p.stage,
-        stage_changed_at: p.stage_changed_at,
+        status: p.status,
+        status_changed_at: p.status_changed_at,
+        bot: p.bot,
+        subsystem: p.subsystem,
+        priority: p.priority,
+        spare_qty: p.spare_qty,
         quantity: p.quantity,
         copies: p.design_id ? (designById.get(p.design_id)?.copies ?? 1) : 1,
         cut_qty: p.cut_qty,
@@ -55,7 +59,7 @@ export default async function PartsPage() {
 
   return (
     <>
-      <PageHead eyebrow="Parts" title="Build board">
+      <PageHead eyebrow="Fab tracker" title="Board">
         <PersonPicker person={person} people={knownPeople(parts)} />
         <UnitsToggle units={units} />
       </PageHead>

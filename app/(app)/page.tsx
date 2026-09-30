@@ -16,15 +16,14 @@ import {
 import { fmtNum, timeAgo } from "@/lib/format";
 import { describeEvent as describeBatteryEvent, EVENT_TONE } from "@/components/event-row";
 import { getParts } from "@/lib/parts-data";
-import { KIND_LABEL, PART_KINDS, STAGES } from "@/lib/parts";
-import { getJobs } from "@/lib/tracker-data";
+import { trackerOf } from "@/lib/parts";
 import { isDone, priorityLabel, TRACKER_LABEL } from "@/lib/tracker";
 
 export const dynamic = "force-dynamic";
 
 /** 3256 Tools home: one glance at every tool, then a tap into the one you need. */
 export default async function Home() {
-  const [board, batteryEvents, materials, pieces, orders, locations, { kits, items: kitItems }, fabEvents, units, parts, jobs] = await Promise.all([
+  const [board, batteryEvents, materials, pieces, orders, locations, { kits, items: kitItems }, fabEvents, units, parts] = await Promise.all([
     getBoardData(),
     getAllEvents({ limit: 8 }),
     getMaterials(),
@@ -34,10 +33,8 @@ export default async function Home() {
     getKits(),
     getFabEvents({ limit: 8 }),
     getUnits(),
-    // null until the parts tables exist (migration 0009), so the dashboard still loads
+    // null until the tracker tables are set up, so the dashboard still loads
     getParts().catch(() => null),
-    // null until the tracker table exists (migration 0010)
-    getJobs().catch(() => null),
   ]);
 
   // ── Batteries ──
@@ -58,20 +55,12 @@ export default async function Home() {
   const kitNeed = kitItems.reduce((n, i) => n + i.count, 0);
   const kitPacked = [...kitStatus(kitItems, matById, pieces, pitIds).values()].reduce((n, s) => n + s.packed.length, 0);
 
-  // ── Parts ──
-  const partList = parts ?? [];
-  const partsDone = partList.filter((p) => p.stage === "done").length;
-  const partsStarted = partList.filter((p) => p.stage !== "done" && p.stage !== STAGES[p.kind][0].key).length;
-  const partsWaiting = partList.length - partsDone - partsStarted;
-  const byKind = PART_KINDS.map((k) => ({ k, open: partList.filter((p) => p.kind === k && p.stage !== "done").length })).filter((x) => x.open > 0);
-  const unclaimed = partList.filter((p) => p.stage !== "done" && p.stage !== STAGES[p.kind][0].key && p.assignees.length === 0).length;
-
   // ── Fab tracker ──
-  const jobList = jobs ?? [];
+  const jobList = parts ?? [];
   const jobsDone = jobList.filter((j) => isDone(j.status)).length;
   const openJobs = jobList.filter((j) => !isDone(j.status));
   const jobsActive = openJobs.filter((j) => j.status === "in_progress").length;
-  const sparesNeeded = openJobs.filter((j) => j.status === "spares_needed").length;
+  const unclaimed = openJobs.filter((j) => j.status === "in_progress" && j.assignees.length === 0).length;
   const urgent = openJobs.filter((j) => j.priority !== null && j.priority <= 1).sort((a, b) => a.priority! - b.priority!);
 
   // ── Recent activity across both tools ──
@@ -117,6 +106,7 @@ export default async function Home() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+
         {/* Batteries */}
         <ToolCard
           href="/battery"
@@ -242,8 +232,9 @@ export default async function Home() {
             </svg>
           }
           links={[
-            ["/tracker", "Machining"],
+            ["/tracker/board", "Board"],
             ["/tracker/print", "3D printing"],
+            ["/tracker/plan", "Cut plan"],
           ]}
           open="Open tracker"
         >
@@ -256,7 +247,7 @@ export default async function Home() {
                 {jobsDone}/{jobList.length}
               </span>
               <span className="text-sm" style={{ color: "var(--muted)" }}>
-                {jobs === null ? "tracker not set up yet" : "parts made"}
+                {parts === null ? "tracker not set up yet" : "parts made"}
               </span>
             </div>
           </div>
@@ -264,72 +255,20 @@ export default async function Home() {
           <div className="grid grid-cols-3 gap-2">
             <Stat label="Still to make" value={openJobs.length} />
             <Stat label="In progress" value={jobsActive} tone={jobsActive ? "info" : undefined} />
-            <Stat label="Spares needed" value={sparesNeeded} tone={sparesNeeded ? "warn" : undefined} />
-          </div>
-
-          <AlertList
-            empty={jobList.length ? "Nothing urgent." : "Nothing tracked yet — import the tracker sheet."}
-            rows={urgent.slice(0, 3).map((j) => ({
-              key: j.id,
-              strong: `${priorityLabel(j.priority)} ${j.name}`,
-              text: `${TRACKER_LABEL[j.tracker]}${j.bot ? ` · ${j.bot}` : ""}`,
-              bad: j.priority === 0,
-              href: j.tracker === "print" ? "/tracker/print" : "/tracker",
-            }))}
-            more={urgent.length - 3}
-            moreHref="/tracker"
-          />
-        </ToolCard>
-
-        {/* Parts */}
-        <ToolCard
-          href="/parts"
-          name="Parts"
-          tagline="What we're making, from Onshape to done"
-          icon={
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="4" width="5" height="16" rx="1" />
-              <rect x="10" y="4" width="5" height="11" rx="1" />
-              <rect x="17" y="4" width="4" height="7" rx="1" />
-            </svg>
-          }
-          links={[
-            ["/parts/plan", "Cut plan"],
-            ["/parts/designs", "Designs"],
-          ]}
-          open="Open board"
-        >
-          <div className="rounded-lg p-4" style={{ background: "var(--info-soft)" }}>
-            <p className="eyebrow" style={{ color: "var(--info)" }}>
-              Built
-            </p>
-            <div className="flex items-baseline gap-3 flex-wrap mt-1">
-              <span className="display text-4xl">
-                {partsDone}/{partList.length}
-              </span>
-              <span className="text-sm" style={{ color: "var(--muted)" }}>
-                {parts === null ? "parts tables not set up yet" : "parts done"}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Stat label="Waiting" value={partsWaiting} />
-            <Stat label="In progress" value={partsStarted} tone={partsStarted ? "info" : undefined} />
             <Stat label="No one on it" value={unclaimed} tone={unclaimed ? "warn" : undefined} />
           </div>
 
           <AlertList
-            empty={partList.length ? "Everything's done." : "No parts yet — link an Onshape design."}
-            rows={byKind.slice(0, 3).map((x) => ({
-              key: x.k,
-              strong: KIND_LABEL[x.k],
-              text: `${x.open} still to finish`,
-              bad: false,
-              href: `/parts?kind=${x.k}`,
+            empty={jobList.length ? "Nothing urgent." : "Nothing tracked yet — import the tracker sheet or sync Onshape."}
+            rows={urgent.slice(0, 3).map((j) => ({
+              key: j.id,
+              strong: `${priorityLabel(j.priority)} ${j.name}`,
+              text: `${TRACKER_LABEL[trackerOf(j.kind)]}${j.bot ? ` · ${j.bot}` : ""}`,
+              bad: j.priority === 0,
+              href: `/tracker/${j.id}`,
             }))}
-            more={byKind.length - 3}
-            moreHref="/parts"
+            more={urgent.length - 3}
+            moreHref="/tracker"
           />
         </ToolCard>
       </div>

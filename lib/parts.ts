@@ -1,9 +1,12 @@
 import type { FabMaterial, FabShape } from "./fab";
 import type { Geometry } from "./geom";
+import type { JobStatus, Tracker } from "./tracker";
+import { parseLength } from "./units";
 
 /**
- * Parts the team is making. Each kind has its own kanban board whose columns
- * follow how that kind of part actually gets made in the shop.
+ * Parts the team is making — the fab tracker. One row per part, with the
+ * columns of the team's Machining / 3D Printing sheets; the kind says how
+ * it's made (and which DFM checks and stock apply).
  */
 export type PartKind = "plate" | "tube" | "shaft" | "print" | "machined";
 export const PART_KINDS: PartKind[] = ["plate", "tube", "shaft", "print", "machined"];
@@ -22,63 +25,23 @@ export const KIND_HINT: Record<PartKind, string> = {
   machined: "Mill work from a block",
 };
 
-export interface Stage {
-  key: string;
-  label: string;
-  tone: "muted" | "info" | "purple" | "warn" | "good";
-}
+/** Which of the team's two tracker sheets a kind of part belongs to. */
+export const trackerOf = (k: PartKind): Tracker => (k === "print" ? "print" : "machining");
 
-/** Board columns per kind, in order. The last column is always "done". */
-export const STAGES: Record<PartKind, Stage[]> = {
-  plate: [
-    { key: "cam", label: "To CAM", tone: "muted" },
-    { key: "ready", label: "Ready to cut", tone: "info" },
-    { key: "cut", label: "Cut", tone: "purple" },
-    { key: "finish", label: "Deburr / tap", tone: "warn" },
-    { key: "done", label: "Done", tone: "good" },
-  ],
-  tube: [
-    { key: "todo", label: "To cut", tone: "muted" },
-    { key: "cut", label: "Cut to length", tone: "info" },
-    { key: "machine", label: "Drill / mill", tone: "purple" },
-    { key: "finish", label: "Deburr", tone: "warn" },
-    { key: "done", label: "Done", tone: "good" },
-  ],
-  shaft: [
-    { key: "todo", label: "To cut", tone: "muted" },
-    { key: "cut", label: "Cut to length", tone: "info" },
-    { key: "turn", label: "Lathe", tone: "purple" },
-    { key: "finish", label: "Finish", tone: "warn" },
-    { key: "done", label: "Done", tone: "good" },
-  ],
-  print: [
-    { key: "queued", label: "Queued", tone: "muted" },
-    { key: "printing", label: "Printing", tone: "info" },
-    { key: "cleanup", label: "Cleanup", tone: "warn" },
-    { key: "done", label: "Done", tone: "good" },
-  ],
-  machined: [
-    { key: "todo", label: "To do", tone: "muted" },
-    { key: "stock", label: "Stock cut", tone: "info" },
-    { key: "machining", label: "Machining", tone: "purple" },
-    { key: "finish", label: "Finish", tone: "warn" },
-    { key: "done", label: "Done", tone: "good" },
-  ],
-};
+/** Parts cut from sheet / stick stock on the rack (the cut plan and stock sync cover these). */
+export const STOCK_KINDS: PartKind[] = ["plate", "tube", "shaft"];
+export const isStockKind = (k: PartKind) => STOCK_KINDS.includes(k);
 
 /**
- * The cut planner covers parts cut from tracked stock (sheet / stick). A part
- * is waiting on stock while it sits in one of its `before` stages, and moves
- * to `after` once every copy has been cut.
+ * Statuses where the stock hasn't been cut yet. Moving a stock part out of
+ * these (to In Progress / Finished) is when it comes off the rack; the cut
+ * plan's "Mark cut" moves it to In Progress.
  */
-export const CUT_FLOW: Partial<Record<PartKind, { before: string[]; after: string }>> = {
-  plate: { before: ["cam", "ready"], after: "cut" },
-  tube: { before: ["todo"], after: "cut" },
-  shaft: { before: ["todo"], after: "cut" },
-};
+export const BEFORE_CUT: JobStatus[] = ["not_started", "have_cam", "spares_needed"];
+export const AFTER_CUT: JobStatus = "in_progress";
+/** Moving from a before-cut status to one of these means the stock got used. */
+export const USES_STOCK: JobStatus[] = ["in_progress", "finished", "spares_finished"];
 
-export const firstStage = (k: PartKind) => STAGES[k][0].key;
-export const stageOf = (k: PartKind, key: string): Stage => STAGES[k].find((s) => s.key === key) ?? STAGES[k][0];
 export const isPartKind = (v: unknown): v is PartKind => PART_KINDS.includes(v as PartKind);
 
 export interface PartSource {
@@ -132,6 +95,8 @@ export interface FabDesign {
   last_synced_at: string | null;
   sync_note: string;
   archived: boolean;
+  /** the bot this design is ("Aimbot"); synced parts get it */
+  bot: string;
   created_at: string;
 }
 
@@ -144,8 +109,23 @@ export interface FabPart {
   part_number: string;
   description: string;
   kind: PartKind;
-  stage: string;
-  stage_changed_at: string;
+  status: JobStatus;
+  status_changed_at: string;
+  // the tracker sheet's columns
+  bot: string;
+  subsystem: string;
+  /** #0 = most urgent */
+  priority: number | null;
+  spare_qty: number;
+  stock_dims: string;
+  length_text: string;
+  tapped: string;
+  machine: string;
+  infill: string;
+  designer: string;
+  /** a file name or a Drive / Onshape link, as on the sheet */
+  file: string;
+  linear_url: string;
   quantity: number;
   cut_qty: number;
   material_id: string | null;
@@ -421,9 +401,50 @@ export function matchMaterial(
 
 // ── Display helpers ──────────────────────────────────────────────────────────
 
-/** How many copies are still to be cut, across every robot the design is for. */
-export function toCut(p: Pick<FabPart, "quantity" | "cut_qty">, copies = 1): number {
-  return Math.max(0, p.quantity * copies - p.cut_qty);
+/** Everything to make: per-robot quantity × robots, plus spares. */
+export function needed(p: Pick<FabPart, "quantity" | "spare_qty">, copies = 1): number {
+  return p.quantity * copies + (p.spare_qty ?? 0);
+}
+
+/** How many copies are still to be cut. */
+export function toCut(p: Pick<FabPart, "quantity" | "spare_qty" | "cut_qty">, copies = 1): number {
+  return Math.max(0, needed(p, copies) - p.cut_qty);
+}
+
+// ── Reading the sheet's text columns ─────────────────────────────────────────
+
+/** Kind from the sheet's "Stock Material/Type" (and which tracker it was on). */
+export function kindFromMaterial(material: string, tracker: Tracker = "machining"): PartKind {
+  if (tracker === "print") return "print";
+  const m = material.toLowerCase();
+  if (/sheet|plate|birch|plywood|srpp|\bcf\b|carbon/.test(m)) return "plate";
+  if (/rod|hex|shaft|spline/.test(m)) return "shaft";
+  if (/tube|maxtube|bracket|angle|channel|nutstrip|\bbar\b/.test(m)) return "tube";
+  return "machined";
+}
+
+/**
+ * Sizes a sheet row implies, in mm: thickness from '1/8" thick', a diameter
+ * from '1/2 diam shaft', a profile from "Box Tube 2x1", length from the
+ * Length column. Blank where the text doesn't say.
+ */
+export function sizesFromText(material: string, stockDims: string, lengthText: string): { l: number | null; w: number | null; t: number | null } {
+  const inch = (s: string) => parseLength(s.replace(/["”]/g, "").trim(), "in");
+  let w: number | null = null;
+  let t: number | null = null;
+  const thick = /([\d./\s-]+)\s*(?:"|in|mm)?\s*(?:thick|thk)/i.exec(stockDims);
+  if (thick) t = inch(thick[1]);
+  const dia = /([\d./\s-]+)\s*(?:"|in)?\s*(?:diam|dia|od)\b/i.exec(stockDims);
+  if (dia) w = t = inch(dia[1]);
+  const prof = /(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i.exec(material) ?? /(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/i.exec(stockDims);
+  if (prof && !thick) {
+    const a = Number(prof[1]) * 25.4;
+    const b = Number(prof[2]) * 25.4;
+    w = Math.max(a, b);
+    t = Math.min(a, b);
+  }
+  const l = lengthText.trim() ? parseLength(lengthText.replace(/[”]/g, '"').trim(), "in") : null;
+  return { l, w, t };
 }
 
 /** Initials for an assignee chip. */

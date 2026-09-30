@@ -3,19 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isAuthed } from "@/lib/auth";
-import { getMaterials } from "@/lib/fab-data";
-import { FILES_BUCKET, getPartsSettings, toPart } from "@/lib/parts-data";
+import { getFabSettings, getMaterial, getMaterials, getStockPieces } from "@/lib/fab-data";
+import { FILES_BUCKET, getMachines, getPartsSettings, toPart } from "@/lib/parts-data";
 import { cutLinear, cutSheet, type FabResult } from "@/app/fab-actions";
 import {
-  CUT_FLOW,
-  firstStage,
+  AFTER_CUT,
+  BEFORE_CUT,
   fileKind,
   guessKind,
   isPartKind,
   kindFromProcess,
   MACHINE_PROCESSES,
+  isStockKind,
+  kindFromMaterial,
   matchMaterial,
-  STAGES,
+  needed,
+  sizesFromText,
+  toCut,
+  trackerOf,
+  USES_STOCK,
   type FabPart,
   type MachineProcess,
   type PartGeometry,
@@ -23,6 +29,10 @@ import {
   type PartSource,
 } from "@/lib/parts";
 import { toPartGeometry } from "@/lib/dfm";
+import { isJobStatus, jobKey, readSheet, SHEET_TO_PART, splitPeople, TEXT_FIELDS, type ImportRow, type JobStatus } from "@/lib/tracker";
+import { checkPart } from "@/lib/dfm";
+import { isSheet } from "@/lib/fab";
+import { nestSheets, nestSticks, placementZones, zoneToNest, type Placement } from "@/lib/nest";
 import { readDxf, scaleGeom, writeDxf } from "@/lib/geom";
 import { MM_PER_IN } from "@/lib/units";
 import {
@@ -87,7 +97,7 @@ export async function addDesign(fd: FormData): Promise<FabResult<{ id: string; n
     if (!url) {
       // a design without Onshape: parts get added by hand
       if (!name) throw new Error("Paste an Onshape link, or name the design to add parts by hand");
-      const { data, error } = await db().from("fab_designs").insert({ name, copies }).select("id").single();
+      const { data, error } = await db().from("fab_designs").insert({ name, copies, bot: str(fd, "bot") }).select("id").single();
       if (error) throw error;
       return { id: data.id as string, note: "" };
     }
@@ -101,6 +111,7 @@ export async function addDesign(fd: FormData): Promise<FabResult<{ id: string; n
         name,
         url,
         copies,
+        bot: str(fd, "bot"),
         document_id: ref.did,
         wvm: ref.wvm,
         wvm_id: ref.wvmid,
@@ -128,6 +139,11 @@ export async function updateDesign(fd: FormData): Promise<FabResult> {
       patch.name = name;
     }
     if (fd.has("copies")) patch.copies = Math.max(1, Math.round(num(fd, "copies") ?? 1));
+    if (fd.has("bot")) {
+      patch.bot = str(fd, "bot");
+      // parts that never had a bot pick up the design's
+      await db().from("fab_parts").update({ bot: patch.bot }).eq("design_id", str(fd, "id")).eq("bot", "");
+    }
     if (fd.has("archived")) patch.archived = str(fd, "archived") === "1";
     const { error } = await db().from("fab_designs").update(patch).eq("id", str(fd, "id"));
     if (error) throw error;
@@ -296,17 +312,17 @@ async function sync(designId: string): Promise<string> {
     if (!old?.material_locked) {
       row.material_id = matchMaterial({ kind, material_text: material, size_l_mm: f?.l ?? null, size_w_mm: f?.w ?? null, size_t_mm: f?.t ?? null }, materials)?.id ?? null;
     }
+    // tracker columns Onshape can carry as properties (Subsystem, Priority, Machine, Tapped)
+    Object.assign(row, sheetFromProps(props));
     let partId: string;
     if (old) {
-      if (old.kind !== kind && !STAGES[kind].some((s) => s.key === old.stage)) {
-        row.stage = firstStage(kind);
-        row.stage_changed_at = new Date().toISOString();
-      }
+      if (!old.bot && design.bot) row.bot = design.bot;
       const { error: e } = await db().from("fab_parts").update(row).eq("id", old.id);
       if (e) throw e;
       partId = old.id;
     } else {
-      row.stage = firstStage(kind);
+      row.status = "not_started";
+      row.bot = design.bot ?? "";
       const { data: ins, error: e } = await db().from("fab_parts").insert(row).select("id").single();
       if (e) throw e;
       partId = ins.id as string;
@@ -345,6 +361,20 @@ async function sync(designId: string): Promise<string> {
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
+/** The tracker columns a part's Onshape properties fill in, when it has them. */
+function sheetFromProps(props: Record<string, string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const sub = findProp(props, "Subsystem");
+  if (sub) out.subsystem = sub.replace(/^\d+\.\s*/, "");
+  const pri = Number(findProp(props, "Priority").replace(/^#/, ""));
+  if (findProp(props, "Priority") && Number.isInteger(pri) && pri >= 0 && pri <= 4) out.priority = pri;
+  const machine = findProp(props, "Machine");
+  if (machine) out.machine = machine;
+  const tapped = findProp(props, "Tapped");
+  if (tapped) out.tapped = tapped;
+  return out;
+}
+
 /** Write a part's outline as its DXF file (replacing the last one Onshape made). */
 async function storeDxf(partId: string, name: string, g: PartGeometry) {
   const text = writeDxf([
@@ -364,88 +394,312 @@ const safeName = (s: string) => s.replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, "_
 
 // ── Parts ────────────────────────────────────────────────────────────────────
 
-/** Add a part by hand (a design without Onshape, or something Onshape doesn't have). */
+/** A text field from the tracker form, only if the form had it. */
+function sheetFields(fd: FormData): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of TEXT_FIELDS) {
+    if (f === "dri" || !fd.has(f)) continue;
+    out[SHEET_TO_PART[f]] = str(fd, f);
+  }
+  if (fd.has("priority")) {
+    const v = str(fd, "priority").replace(/^#/, "");
+    const n = v ? Number(v) : null;
+    if (n !== null && !(Number.isInteger(n) && n >= 0 && n <= 4)) throw new Error("Priority goes from #0 (most urgent) to #4");
+    out.priority = n;
+  }
+  if (fd.has("quantity")) out.quantity = Math.max(0, Math.round(num(fd, "quantity") ?? 1));
+  if (fd.has("spare_qty")) out.spare_qty = Math.max(0, Math.round(num(fd, "spare_qty") ?? 0));
+  if (fd.has("dri")) out.assignees = splitPeople(str(fd, "dri"));
+  return out;
+}
+
+/**
+ * Sizes and stock for a part without an Onshape model: read them from the
+ * sheet's Stock / dims / Length text, then match the rack (unless someone
+ * picked the stock by hand).
+ */
+async function fillFromText(row: Record<string, unknown>, part: Partial<FabPart>) {
+  const merged = { ...part, ...row } as FabPart;
+  if (merged.source) return;
+  const t = sizesFromText(merged.material_text ?? "", merged.stock_dims ?? "", merged.length_text ?? "");
+  // hand-entered sizes win over what the text implies
+  if (!("size_l_mm" in row) && t.l !== null) row.size_l_mm = t.l;
+  if (!("size_w_mm" in row) && t.w !== null) row.size_w_mm = t.w;
+  if (!("size_t_mm" in row) && t.t !== null) row.size_t_mm = t.t;
+  if (!merged.material_locked && !("material_id" in row)) {
+    const m = matchMaterial({ ...merged, ...(row as Partial<FabPart>) } as FabPart, await getMaterials());
+    row.material_id = m?.id ?? null;
+  }
+}
+
+/** Add a part by hand, from the board or the tracker table. */
 export async function addPart(fd: FormData): Promise<FabResult<string>> {
   return run(async () => {
     const name = str(fd, "name");
-    if (!name) throw new Error("Name the part");
-    const kind = str(fd, "kind");
-    if (!isPartKind(kind)) throw new Error("Pick what kind of part it is");
-    const materialId = str(fd, "material_id") || null;
-    const { data, error } = await db()
-      .from("fab_parts")
-      .insert({
-        name,
-        kind,
-        stage: firstStage(kind),
-        design_id: str(fd, "design_id") || null,
-        quantity: Math.max(1, Math.round(num(fd, "quantity") ?? 1)),
-        material_id: materialId,
-        material_locked: !!materialId,
-        size_l_mm: num(fd, "size_l_mm"),
-        size_w_mm: num(fd, "size_w_mm"),
-        size_t_mm: num(fd, "size_t_mm"),
-        notes: str(fd, "notes"),
-      })
-      .select("id")
-      .single();
+    if (!name) throw new Error("Enter the part name");
+    const tracker = str(fd, "tracker") === "print" ? "print" : "machining";
+    const kindIn = str(fd, "kind");
+    const kind: PartKind = isPartKind(kindIn) ? kindIn : kindFromMaterial(str(fd, "material"), tracker);
+    const status = str(fd, "status") || "not_started";
+    if (!isJobStatus(status)) throw new Error("Pick a status");
+    const pick = str(fd, "material_id");
+    const materialId = pick && pick !== "auto" ? pick : null;
+    const row: Record<string, unknown> = {
+      name,
+      kind,
+      status,
+      design_id: str(fd, "design_id") || null,
+      ...sheetFields(fd),
+      material_locked: !!materialId,
+      notes: str(fd, "notes"),
+    };
+    if (materialId) row.material_id = materialId;
+    for (const k of ["size_l_mm", "size_w_mm", "size_t_mm"]) if (num(fd, k) !== null) row[k] = num(fd, k);
+    await fillFromText(row, {});
+    const { data, error } = await db().from("fab_parts").insert(row).select("id").single();
     if (error) throw error;
     await logPart(data.id as string, "import", { by_hand: true, kind });
     return data.id as string;
   });
 }
 
-export async function updatePart(fd: FormData): Promise<FabResult> {
+/** Edit a part: only the fields the form sent change. */
+export async function updatePart(fd: FormData): Promise<FabResult<string>> {
   return run(async () => {
     const part = await loadPart(str(fd, "id"));
-    const patch: Record<string, unknown> = {};
-    if (fd.has("name")) {
-      const name = str(fd, "name");
-      if (!name) throw new Error("Name the part");
-      patch.name = name;
-    }
+    const patch: Record<string, unknown> = sheetFields(fd);
+    if ("name" in patch && !patch.name) throw new Error("Enter the part name");
     if (fd.has("kind")) {
       const kind = str(fd, "kind");
       if (!isPartKind(kind)) throw new Error("Pick a kind");
-      if (kind !== part.kind) {
-        patch.kind = kind;
-        if (!STAGES[kind].some((s) => s.key === part.stage)) {
-          patch.stage = firstStage(kind);
-          patch.stage_changed_at = new Date().toISOString();
-        }
+      if (kind !== part.kind) patch.kind = kind;
+    }
+    if (fd.has("status")) {
+      const status = str(fd, "status");
+      if (!isJobStatus(status)) throw new Error("Pick a status");
+      if (status !== part.status) {
+        patch.status = status;
+        patch.status_changed_at = new Date().toISOString();
       }
     }
-    if (fd.has("quantity")) patch.quantity = Math.max(1, Math.round(num(fd, "quantity") ?? 1));
     if (fd.has("cut_qty")) patch.cut_qty = Math.max(0, Math.round(num(fd, "cut_qty") ?? 0));
     if (fd.has("material_id")) {
       const m = str(fd, "material_id");
       if (m === "auto") {
-        const materials = await getMaterials();
-        patch.material_id = matchMaterial({ ...part, kind: (patch.kind as PartKind) ?? part.kind }, materials)?.id ?? null;
+        patch.material_id = matchMaterial({ ...part, ...(patch as Partial<FabPart>) }, await getMaterials())?.id ?? null;
         patch.material_locked = false;
-      } else {
+      } else if (m !== (part.material_id ?? "") || !part.material_locked) {
         patch.material_id = m || null;
-        patch.material_locked = true;
+        patch.material_locked = !!m;
       }
     }
     for (const k of ["size_l_mm", "size_w_mm", "size_t_mm"]) if (fd.has(k)) patch[k] = num(fd, k);
     if (fd.has("notes")) patch.notes = str(fd, "notes");
+    if (["material_text", "stock_dims", "length_text", "kind"].some((k) => k in patch && patch[k] !== part[k as keyof FabPart])) await fillFromText(patch, part);
+    const changed = Object.keys(patch).filter((k) => {
+      const before = part[k as keyof FabPart];
+      return !["status_changed_at", "material_locked"].includes(k) && JSON.stringify(before ?? null) !== JSON.stringify(patch[k] ?? null);
+    });
+    if (!changed.length && !("material_locked" in patch)) return "";
     const { error } = await db().from("fab_parts").update(patch).eq("id", part.id);
     if (error) throw error;
-    const changed = Object.keys(patch).filter((k) => !["stage_changed_at", "material_locked"].includes(k));
-    if (changed.length) await logPart(part.id, "edit", { fields: changed.join(", ") });
+    if (patch.status) await logPart(part.id, "stage", { from: part.status, to: patch.status, by: str(fd, "by") });
+    const other = changed.filter((k) => k !== "status");
+    if (other.length) await logPart(part.id, "edit", { fields: other.join(", ") });
+    return patch.status ? stockForStatus({ ...part, ...(patch as Partial<FabPart>), status: part.status }, patch.status as JobStatus) : "";
   });
 }
 
-export async function movePart(fd: FormData): Promise<FabResult> {
+/**
+ * Change a part's status (board drag, table dropdown, part page). A stock
+ * part leaving Not Started / Have CAM for In Progress / Finished takes its
+ * stock off the rack automatically; the returned note says what was taken.
+ */
+export async function setPartStatus(fd: FormData): Promise<FabResult<string>> {
   return run(async () => {
     const part = await loadPart(str(fd, "id"));
-    const stage = str(fd, "stage");
-    if (!STAGES[part.kind].some((s) => s.key === stage)) throw new Error("That column isn't on this board");
-    if (stage === part.stage) return;
-    const { error } = await db().from("fab_parts").update({ stage, stage_changed_at: new Date().toISOString() }).eq("id", part.id);
+    const status = str(fd, "status");
+    if (!isJobStatus(status)) throw new Error("Pick a status");
+    if (status === part.status) return "";
+    const { error } = await db().from("fab_parts").update({ status, status_changed_at: new Date().toISOString() }).eq("id", part.id);
     if (error) throw error;
-    await logPart(part.id, "stage", { from: part.stage, to: stage, by: str(fd, "by") });
+    await logPart(part.id, "stage", { from: part.status, to: status, by: str(fd, "by") });
+    return stockForStatus(part, status);
+  });
+}
+
+/** When a status change means the part got made, take what's still uncut off the rack. */
+async function stockForStatus(part: FabPart, to: JobStatus): Promise<string> {
+  if (!isStockKind(part.kind) || !BEFORE_CUT.includes(part.status) || !USES_STOCK.includes(to)) return "";
+  if (!part.material_id) return "No stock material set, so nothing was taken off the rack.";
+  const { data: d } = part.design_id ? await db().from("fab_designs").select("copies").eq("id", part.design_id).maybeSingle() : { data: null };
+  const count = toCut(part, (d?.copies as number) ?? 1);
+  if (!count) return "";
+  try {
+    return await takeFromRack(part, count);
+  } catch (e) {
+    return `Status saved, but taking stock failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+/**
+ * Take `count` copies of a part off the rack, using the same packing as the
+ * cut plan: sticks best-fit with the kerf, sheet parts nested around what's
+ * already cut away (offcuts and part-used sheets first). Each cut is a normal,
+ * undoable stock log entry.
+ */
+async function takeFromRack(part: FabPart, count: number): Promise<string> {
+  const [material, pieces, settings, fab, machines] = await Promise.all([
+    getMaterial(part.material_id!),
+    getStockPieces(part.material_id!),
+    getPartsSettings(),
+    getFabSettings(),
+    getMachines(),
+  ]);
+  if (!material) return "Its stock material is gone, so nothing was taken.";
+  const project = [part.bot, part.name].filter(Boolean).join(" · ");
+  let took = 0;
+  if (isSheet(material)) {
+    const w = part.geometry?.width ?? part.size_w_mm;
+    const h = part.geometry?.height ?? part.size_l_mm;
+    if (!w || !h) return "No size on this part, so no stock was taken — set its size or outline.";
+    const best = checkPart({ part, material, machines, processProp: settings.onshape_process_prop, units: "in" }).best?.machine;
+    const gap = settings.nest_gap_mm + (best?.tool_diameter_mm ?? 0);
+    const res = nestSheets(
+      Array.from({ length: count }, () => ({ id: part.id, name: part.name, w, h })),
+      pieces.filter((p) => p.width_mm).map((p) => ({ pieceId: p.id, w: p.width_mm!, l: p.length_mm, zones: p.dead_zones.map(zoneToNest) })),
+      { gap, margin: settings.nest_margin_mm, bed: best?.bed_w_mm && best.bed_l_mm ? { w: best.bed_w_mm, l: best.bed_l_mm } : null, full: null },
+    );
+    for (const sheet of res.sheets) {
+      await cutPlannedSheet(sheet.pieceId!, sheet, gap, project);
+      took += sheet.placements.length;
+    }
+  } else {
+    const len = part.size_l_mm;
+    if (!len) return "No length on this part, so no stock was taken — set its length.";
+    const res = nestSticks(
+      Array.from({ length: count }, () => ({ id: part.id, name: part.name, len })),
+      pieces.map((p) => ({ pieceId: p.id, len: p.length_mm })),
+      fab.kerf_mm,
+      null,
+    );
+    for (const stick of res.sticks) took += await cutPlannedStick(stick.pieceId!, stick.cuts.map((c) => c.len), project);
+  }
+  if (took) await markCut([{ partId: part.id, count: took }], isSheet(material) ? "sheet" : "stick", false);
+  const what = isSheet(material) ? "sheet" : "stick";
+  if (!took) return `Nothing on the rack fits ${count} × ${part.name} — no stock taken. Add ${what}s to the shopping list.`;
+  if (took < count) return `Took ${took} of ${count} off the rack; ${count - took} still need stock.`;
+  return `Took ${count} × ${part.name} off the rack.`;
+}
+
+/**
+ * Record a nested sheet as cut: the placed parts become unusable areas on it,
+ * or it's used up when there's little left. Checks it hasn't changed since.
+ */
+async function cutPlannedSheet(pieceId: string, plan: { w: number; l: number; placements: Placement[]; yield: number }, gap: number, project: string) {
+  const { data: piece } = await db().from("fab_pieces").select("*").eq("id", pieceId).maybeSingle();
+  if (!piece || piece.status !== "stock") throw new Error("That sheet isn't on the rack any more — refresh the plan");
+  if (Math.abs(Number(piece.width_mm) - plan.w) > 0.5 || Math.abs(Number(piece.length_mm) - plan.l) > 0.5)
+    throw new Error("That sheet has changed since the plan was made — refresh the plan");
+  let zones = placementZones(plan.placements, gap);
+  if (zones.length > 40) {
+    // the stock log keeps 40 areas per cut; one box around them all is the safe side
+    const x0 = Math.min(...zones.map((z) => z.x));
+    const y0 = Math.min(...zones.map((z) => z.y));
+    zones = [{ x: x0, y: y0, w: Math.max(...zones.map((z) => z.x + z.w)) - x0, h: Math.max(...zones.map((z) => z.y + z.h)) - y0 }];
+  }
+  const cut = new FormData();
+  cut.set("piece_id", pieceId);
+  cut.set("mode", plan.yield > 0.85 ? "whole" : "cutouts");
+  cut.set("zones", JSON.stringify(zones));
+  cut.set("cutout_note", plan.placements.length > 1 ? `${plan.placements.length} parts` : plan.placements[0]?.name ?? "");
+  cut.set("project", project);
+  cut.set("note", "Cut plan");
+  const r = await cutSheet(cut);
+  if (!r.ok) throw new Error(r.error);
+}
+
+/** Cut lengths off a stick one at a time (each its own undoable entry). Returns how many were cut. */
+async function cutPlannedStick(pieceId: string, lengths: number[], project: string): Promise<number> {
+  let n = 0;
+  for (const len of lengths) {
+    const cut = new FormData();
+    cut.set("piece_id", pieceId);
+    cut.set("used_mm", String(len));
+    cut.set("count", "1");
+    cut.set("project", project);
+    const r = await cutLinear(cut);
+    if (!r.ok) {
+      if (n) break;
+      throw new Error(r.error);
+    }
+    n++;
+  }
+  return n;
+}
+
+/**
+ * Rows pasted from the Machining / 3D Printing sheet. A part already here
+ * with the same bot + name (on that sheet's kinds) is updated — only the
+ * columns that were pasted — so pasting onto Onshape-synced parts fills in
+ * their tracker columns. New names are added.
+ */
+export async function importSheet(fd: FormData): Promise<FabResult<{ added: number; updated: number }>> {
+  return run(async () => {
+    const tracker = str(fd, "tracker") === "print" ? "print" : "machining";
+    const { rows, columns, error } = readSheet(str(fd, "text"));
+    if (error) throw new Error(error);
+    if (!rows.length) throw new Error("No parts found under the header row");
+    if (rows.length > 2000) throw new Error("That's more than 2000 rows — paste it in parts");
+
+    const { data: existing, error: ee } = await db().from("fab_parts").select("*").eq("missing", false);
+    if (ee) throw ee;
+    const mine = (existing ?? []).map(toPart).filter((p) => trackerOf(p.kind) === tracker);
+    const byKey = new Map(mine.map((p) => [jobKey(p), p]));
+    const has = new Set<string>(columns);
+
+    const patch = (r: ImportRow) => {
+      const out: Record<string, unknown> = { name: r.name };
+      if (has.has("status")) out.status = r.status;
+      if (has.has("priority")) out.priority = r.priority;
+      if (has.has("qty")) out.quantity = r.qty;
+      if (has.has("spare_qty")) out.spare_qty = r.spare_qty;
+      for (const f of TEXT_FIELDS) {
+        if (f === "name" || !has.has(f)) continue;
+        const v = (r[f] ?? "").trim();
+        if (f === "dri") out.assignees = splitPeople(v);
+        else out[SHEET_TO_PART[f]] = v;
+      }
+      return out;
+    };
+
+    const inserts: Record<string, unknown>[] = [];
+    const seen = new Set<string>();
+    let updated = 0;
+    for (const r of rows) {
+      const key = jobKey(r);
+      if (seen.has(key)) continue; // the sheet lists a few parts twice; keep the first
+      seen.add(key);
+      const old = byKey.get(key);
+      const row = patch(r);
+      if (old) {
+        if (row.status && row.status !== old.status) row.status_changed_at = new Date().toISOString();
+        await fillFromText(row, old);
+        const { error: ue } = await db().from("fab_parts").update(row).eq("id", old.id);
+        if (ue) throw ue;
+        updated++;
+      } else {
+        row.kind = kindFromMaterial(r.material ?? "", tracker);
+        row.status ??= "not_started";
+        await fillFromText(row, {});
+        inserts.push(row);
+      }
+    }
+    for (let i = 0; i < inserts.length; i += 200) {
+      const { error: ie } = await db().from("fab_parts").insert(inserts.slice(i, i + 200));
+      if (ie) throw ie;
+    }
+    return { added: inserts.length, updated };
   });
 }
 
@@ -576,56 +830,42 @@ interface CommitCount {
   count: number;
 }
 
-/** After cutting: bump each part's cut count, and move it on once every copy is cut. */
-async function markCut(counts: CommitCount[], what: string) {
+/**
+ * After cutting: bump each part's cut count. From the cut plan (`advance`),
+ * a part still waiting on stock moves to In Progress once every copy is cut.
+ */
+async function markCut(counts: CommitCount[], what: string, advance = true) {
   const byPart = new Map<string, number>();
   for (const c of counts) byPart.set(c.partId, (byPart.get(c.partId) ?? 0) + c.count);
   for (const [partId, n] of byPart) {
     const part = await loadPart(partId);
     const { data: d } = part.design_id ? await db().from("fab_designs").select("copies").eq("id", part.design_id).maybeSingle() : { data: null };
-    const need = part.quantity * ((d?.copies as number) ?? 1);
+    const need = needed(part, (d?.copies as number) ?? 1);
     const cut_qty = part.cut_qty + n;
-    const flow = CUT_FLOW[part.kind];
     const patch: Record<string, unknown> = { cut_qty };
-    if (flow && cut_qty >= need && flow.before.includes(part.stage)) {
-      patch.stage = flow.after;
-      patch.stage_changed_at = new Date().toISOString();
+    if (advance && isStockKind(part.kind) && cut_qty >= need && BEFORE_CUT.includes(part.status)) {
+      patch.status = AFTER_CUT;
+      patch.status_changed_at = new Date().toISOString();
     }
     const { error } = await db().from("fab_parts").update(patch).eq("id", partId);
     if (error) throw error;
-    await logPart(partId, "cut", { count: n, from: what, total: cut_qty, of: need, moved_to: patch.stage });
+    await logPart(partId, "cut", { count: n, from: what, total: cut_qty, of: need, moved_to: patch.status });
   }
 }
 
-/** Cut a planned sheet: the rack piece becomes its leftovers, the parts count as cut. */
+/** Cut a planned sheet from the cut plan; the parts on it count as cut. */
 export async function commitSheet(fd: FormData): Promise<FabResult> {
   return run(async () => {
-    const plan = JSON.parse(str(fd, "plan") || "{}") as {
-      pieceId: string;
-      w: number;
-      l: number;
-      remaining: { w: number; l: number }[];
-      counts: CommitCount[];
-      project: string;
-    };
+    const plan = JSON.parse(str(fd, "plan") || "{}") as { pieceId: string; w: number; l: number; placements: Placement[]; yield: number; gap: number; project: string };
     if (!plan.pieceId) throw new Error("Receive that sheet into stock before cutting it");
-    const { data: piece } = await db().from("fab_pieces").select("*").eq("id", plan.pieceId).maybeSingle();
-    if (!piece || piece.status !== "stock") throw new Error("That sheet isn't on the rack any more — refresh the plan");
-    if (Math.abs(Number(piece.width_mm) - plan.w) > 0.5 || Math.abs(Number(piece.length_mm) - plan.l) > 0.5 || piece.has_cutouts)
-      throw new Error("That sheet has changed since the plan was made — refresh the plan");
-    const cut = new FormData();
-    cut.set("piece_id", plan.pieceId);
-    cut.set("mode", plan.remaining.length ? "remaining" : "whole");
-    cut.set("remaining", JSON.stringify(plan.remaining));
-    cut.set("project", plan.project);
-    cut.set("note", "Cut plan");
-    const r = await cutSheet(cut);
-    if (!r.ok) throw new Error(r.error);
-    await markCut(plan.counts, "sheet");
+    await cutPlannedSheet(plan.pieceId, plan, plan.gap, plan.project);
+    const counts = new Map<string, number>();
+    for (const p of plan.placements) counts.set(p.id, (counts.get(p.id) ?? 0) + 1);
+    await markCut([...counts].map(([partId, count]) => ({ partId, count })), "sheet");
   });
 }
 
-/** Cut a planned stick, one cut at a time (each is its own undoable log entry). */
+/** Cut a planned stick from the cut plan. */
 export async function commitStick(fd: FormData): Promise<FabResult> {
   return run(async () => {
     const plan = JSON.parse(str(fd, "plan") || "{}") as { pieceId: string; len: number; cuts: { partId: string; len: number }[]; project: string };
@@ -633,21 +873,8 @@ export async function commitStick(fd: FormData): Promise<FabResult> {
     const { data: piece } = await db().from("fab_pieces").select("*").eq("id", plan.pieceId).maybeSingle();
     if (!piece || piece.status !== "stock" || Math.abs(Number(piece.length_mm) - plan.len) > 0.5)
       throw new Error("That stick has changed since the plan was made — refresh the plan");
-    const done: CommitCount[] = [];
-    try {
-      for (const c of plan.cuts) {
-        const cut = new FormData();
-        cut.set("piece_id", plan.pieceId);
-        cut.set("used_mm", String(c.len));
-        cut.set("count", "1");
-        cut.set("project", plan.project);
-        const r = await cutLinear(cut);
-        if (!r.ok) throw new Error(r.error);
-        done.push({ partId: c.partId, count: 1 });
-      }
-    } finally {
-      if (done.length) await markCut(done, "stick");
-    }
+    const n = await cutPlannedStick(plan.pieceId, plan.cuts.map((c) => c.len), plan.project);
+    await markCut(plan.cuts.slice(0, n).map((c) => ({ partId: c.partId, count: 1 })), "stick");
   });
 }
 

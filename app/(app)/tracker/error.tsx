@@ -8,8 +8,8 @@ export default function TrackerError({ error, reset }: { error: Error & { digest
       </p>
       <h1 className="display text-3xl">Couldn&apos;t load the tracker.</h1>
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        If the tracker is new here, the database needs <code className="mono">supabase/migrations/0010_tracker_dead_zones.sql</code> run once in the Supabase SQL editor. It adds the
-        tracker table and the unusable-area column for sheet stock.
+        After an update, the database may need the newest file in <code className="mono">supabase/migrations/</code> (currently{" "}
+        <code className="mono">0011_merge_tracker_into_parts.sql</code>) run once in the Supabase SQL editor.
       </p>
       {error.message && (
         <p className="mono text-xs break-words" style={{ color: "var(--muted)" }}>

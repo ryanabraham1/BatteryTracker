@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { addDesign, deleteDesign, syncDesign, updateDesign } from "@/app/parts-actions";
 import type { FabDesign } from "@/lib/parts";
+import { SUGGEST } from "@/lib/tracker";
 import { timeAgo } from "@/lib/format";
 import { Empty } from "./ui";
 import { ErrorText, Field, SubmitButton, useFabAction } from "./fab-ui";
@@ -28,6 +29,11 @@ export function PartsDesigns({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
+      <datalist id="design-bots">
+        {SUGGEST.bot.map((b) => (
+          <option key={b} value={b} />
+        ))}
+      </datalist>
       <div className="flex flex-col gap-3">
         {live.length === 0 && <Empty>No designs yet. Paste an Onshape assembly link to load its parts.</Empty>}
         {live.map((d) => (
@@ -53,9 +59,12 @@ export function PartsDesigns({
           <Field label="Onshape link" hint="Open the robot's top assembly (or a Part Studio) in Onshape and copy the URL.">
             <input name="url" className="input mono text-sm" placeholder="https://cad.onshape.com/documents/…/w/…/e/…" autoComplete="off" />
           </Field>
-          <div className="grid grid-cols-[1fr_110px] gap-2">
-            <Field label="Name" hint="Blank = the Onshape name">
+          <div className="grid grid-cols-[1fr_1fr_90px] gap-2">
+            <Field label="Name" hint="Blank = Onshape's">
               <input name="name" className="input" placeholder="2027 robot" />
+            </Field>
+            <Field label="Bot" hint="Its parts' Bot">
+              <input name="bot" className="input" placeholder="Aimbot" list="design-bots" />
             </Field>
             <Field label="Robots" hint="Copies to build">
               <input name="copies" type="number" min={1} defaultValue={1} className="input mono" />
@@ -114,7 +123,7 @@ export function PartsDesigns({
             {requireProp
               ? `Parts without a ${processProp} are left out, so bought parts from linked documents stay off the board.`
               : `Parts without a ${processProp} are sorted by their shape and material.`}{" "}
-            Change this in <Link href="/parts/machines" className="underline">Machines &amp; settings</Link>. Standard hardware (bolts, nuts) is always skipped.
+            Change this in <Link href="/tracker/machines" className="underline">Machines &amp; settings</Link>. Standard hardware (bolts, nuts) is always skipped.
           </p>
           <p style={{ color: "var(--muted)" }}>
             Syncing reads the BOM plus two calls per Part Studio. Plate outlines (DXF) come straight from the model; STEP files are fetched per part on demand, since
@@ -132,6 +141,7 @@ function DesignCard({ d, c, connected }: { d: FabDesign; c?: { live: number; mis
   const upd = useFabAction(updateDesign);
   const del = useFabAction(deleteDesign);
   const [copies, setCopies] = useState(d.copies);
+  const [bot, setBot] = useState(d.bot ?? "");
   return (
     <div className="card p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -156,7 +166,7 @@ function DesignCard({ d, c, connected }: { d: FabDesign; c?: { live: number; mis
         </div>
       </div>
       <p className="text-sm">
-        <Link href="/parts" className="underline">
+        <Link href="/tracker" className="underline">
           {c?.live ?? 0} parts
         </Link>
         {c?.done ? ` · ${c.done} done` : ""}
@@ -169,6 +179,19 @@ function DesignCard({ d, c, connected }: { d: FabDesign; c?: { live: number; mis
       )}
       <ErrorText error={sync.error ?? upd.error ?? del.error} />
       <div className="flex flex-wrap items-center gap-2 text-sm">
+        <label className="flex items-center gap-2">
+          Bot
+          <input
+            className="input py-1 w-32"
+            style={{ minHeight: 34 }}
+            value={bot}
+            list="design-bots"
+            onChange={(e) => setBot(e.target.value)}
+            onBlur={() => {
+              if (bot !== (d.bot ?? "")) upd.call({ id: d.id, bot });
+            }}
+          />
+        </label>
         <label className="flex items-center gap-2">
           Robots
           <input

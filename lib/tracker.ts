@@ -1,7 +1,8 @@
 /**
- * Fab tracker: the team's Machining and 3D Printing tracker sheets, one row
- * per part to make. Statuses are the sheet's; the other lists are the sheet's
- * dropdowns, offered as suggestions (anything typed is kept).
+ * The team's Machining and 3D Printing tracker sheets, as the fab tracker
+ * speaks them: statuses, the sheet's dropdowns (offered as suggestions —
+ * anything typed is kept) and reading rows pasted from the sheet. The rows
+ * themselves are parts (lib/parts.ts).
  */
 
 export type Tracker = "machining" | "print";
@@ -96,34 +97,7 @@ export const SUGGEST = {
   tapped: ["no", "yes", "both sides"],
 };
 
-export interface FabJob {
-  id: string;
-  tracker: Tracker;
-  status: JobStatus;
-  status_changed_at: string;
-  bot: string;
-  subsystem: string;
-  name: string;
-  priority: number | null;
-  qty: number;
-  spare_qty: number;
-  material: string;
-  stock_dims: string;
-  length: string;
-  tapped: string;
-  machine: string;
-  infill: string;
-  designer: string;
-  dri: string;
-  file: string;
-  notes: string;
-  linear_url: string;
-  material_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** The editable text columns, shared by the form, the import and the action. */
+/** The sheet's text columns (sheet names; see SHEET_TO_PART for where each is stored). */
 export const TEXT_FIELDS = [
   "bot",
   "subsystem",
@@ -141,6 +115,31 @@ export const TEXT_FIELDS = [
   "linear_url",
 ] as const;
 export type TextField = (typeof TEXT_FIELDS)[number];
+
+/** Part column for each sheet column (DRI becomes the people on the part). */
+export const SHEET_TO_PART: Record<Exclude<TextField, "dri">, string> = {
+  bot: "bot",
+  subsystem: "subsystem",
+  name: "name",
+  material: "material_text",
+  stock_dims: "stock_dims",
+  length: "length_text",
+  tapped: "tapped",
+  machine: "machine",
+  infill: "infill",
+  designer: "designer",
+  file: "file",
+  notes: "notes",
+  linear_url: "linear_url",
+};
+
+/** "Ana, Ben & Cy" → ["Ana", "Ben", "Cy"] */
+export const splitPeople = (s: string) =>
+  s
+    .split(/\s*(?:,|&|\/|\band\b)\s*/i)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 8);
 
 /** `WB-407` out of a Linear issue URL. */
 export function linearKey(url: string): string | null {

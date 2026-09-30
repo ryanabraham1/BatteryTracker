@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Onshape exports wait on Onshape's translation service
 export const maxDuration = 120;
 
-export default async function PartPage(props: PageProps<"/parts/[id]">) {
+export default async function PartPage(props: PageProps<"/tracker/[id]">) {
   const { id } = await props.params;
   const part = await getPart(id);
   if (!part) notFound();
