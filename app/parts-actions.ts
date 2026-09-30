@@ -14,6 +14,9 @@ import {
   isPartKind,
   kindFromProcess,
   MACHINE_PROCESSES,
+  hasPartNumber,
+  isPrintedMaterial,
+  isReferenceBody,
   isStockKind,
   kindFromMaterial,
   matchMaterial,
@@ -255,6 +258,7 @@ async function sync(designId: string): Promise<string> {
   const seen = new Set<string>();
   let added = 0;
   let skippedProcess = 0;
+  let skippedRef = 0;
   let noProp = 0;
   const dxfJobs: { partId: string; name: string; geometry: PartGeometry }[] = [];
 
@@ -273,13 +277,18 @@ async function sync(designId: string): Promise<string> {
     const props = trimProps({ ...line.props, ...(meta?.props ?? {}) });
     const name = line.name || meta?.name || shape?.name || "Unnamed part";
     const material = line.material || meta?.material || shape?.material || "";
+    if (isReferenceBody(name)) {
+      skippedRef++;
+      return;
+    }
     const processVal = findProp(props, prop);
     const fromProp = kindFromProcess(processVal);
     if (fromProp === "skip") {
       skippedProcess++;
       return;
     }
-    if (!fromProp && settings.onshape_require_prop) {
+    // no Process property: only parts with a team part number (COTS keep vendor names)
+    if (!fromProp && (settings.onshape_require_prop || !(hasPartNumber(name) || isPrintedMaterial(material)))) {
       noProp++;
       return;
     }
@@ -347,8 +356,9 @@ async function sync(designId: string): Promise<string> {
     added && `${added} new`,
     gone.length && `${gone.length} no longer in the design`,
     skippedProcess && `${skippedProcess} skipped (${prop} says not made here)`,
-    noProp && `${noProp} skipped (no ${prop} property)`,
+    noProp && `${noProp} skipped as COTS (no ${prop} property${settings.onshape_require_prop ? "" : ", part number or printed material"})`,
     skippedStandard && `${skippedStandard} standard hardware`,
+    skippedRef && `${skippedRef} reference bod${skippedRef > 1 ? "ies" : "y"} (origin cube etc.)`,
     failures.length && `${failures.length} Part Studio read${failures.length > 1 ? "s" : ""} failed: ${failures[0]}`,
   ].filter(Boolean);
   let note = parts.join(" · ");

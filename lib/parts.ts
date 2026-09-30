@@ -267,6 +267,21 @@ export function kindFromProcess(value: string): PartKind | "skip" | null {
   return null;
 }
 
+/**
+ * Reference geometry that lives in a CAD model but never gets made: the
+ * origin cube teams mate everything to, datums, envelopes, keep-outs.
+ */
+export function isReferenceBody(name: string): boolean {
+  return /\borigin\b|\bdatum|\breference\b|placeholder|keep[- ]?out|\benvelope\b|mock[- ]?up|\bdummy\b/i.test(name);
+}
+
+/**
+ * The team numbers every part it makes ("0201_Mounting_Plate": subsystem 02,
+ * part 01); bought parts keep their vendor names ("Kraken X44", "40t Spur
+ * Gear"). Without a Process property, that number is what says "we make this".
+ */
+export const hasPartNumber = (name: string) => /^\d{3,5}[_\-. ]/.test(name.trim());
+
 /** Laser vs router etc. when the Process property names one. */
 export function processHint(value: string | undefined): MachineProcess | null {
   const v = (value ?? "").toLowerCase();
@@ -276,7 +291,10 @@ export function processHint(value: string | undefined): MachineProcess | null {
   return null;
 }
 
-const FILAMENT = /\b(pla|petg|abs|asa|tpu|onyx|pa\d*|pa-?cf|nylon\s*(x|12|cf|filament)|filament|resin|pc-?cf|cf-?nylon)\b/i;
+const FILAMENT = /\b(pla|petg|abs|asa|tpu|onyx|pa\d*|pa-?cf|nylon\s*(x|12|cf|filament)|filament|resin|pc-?cf|cf-?nylon)\b|3d[\s-]*print|\bprinted\b/i;
+
+/** Onshape material that means "we print this" ("3D Printed", "PLA", "PETG-CF"). */
+export const isPrintedMaterial = (material: string) => FILAMENT.test(material);
 
 export interface ShapeFacts {
   /** sorted bounding dims, mm: l ≥ w ≥ t */

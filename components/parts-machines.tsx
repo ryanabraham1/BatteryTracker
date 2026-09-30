@@ -82,7 +82,7 @@ export function PartsMachines({ machines, settings, units }: { machines: FabMach
         </Field>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="onshape_require_prop" value="1" defaultChecked={settings.onshape_require_prop} className="mt-1" />
-          <span>Only load parts that have it (otherwise guess from shape and material)</span>
+          <span>Only load parts that have it. Off: parts named with a part number (0201_…) load too, sorted by shape and material; COTS with vendor names never do.</span>
         </label>
         <LengthInput name="nest_gap_mm" label="Gap between nested parts" units={units} defaultMm={settings.nest_gap_mm} hint="On top of the bit / kerf" />
         <LengthInput name="nest_margin_mm" label="Sheet edge margin" units={units} defaultMm={settings.nest_margin_mm} hint="Keep parts this far from the edge (clamps, tabs)" />

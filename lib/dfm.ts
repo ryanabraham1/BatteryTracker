@@ -373,7 +373,8 @@ export function checkPart({ part, material, machines, processProp, units }: DfmI
 
   if (!candidates.length) {
     const names = procs.map((p) => PROCESS_LABEL[p].toLowerCase()).join(" or ");
-    notes.push({ level: "fail", text: `No ${names} set up for ${KIND_LABEL[part.kind].toLowerCase()} parts — add one in Machines` });
+    // nothing to check against isn't the same as can't make
+    notes.push({ level: "warn", text: `No ${names} in Machines yet, so ${KIND_LABEL[part.kind].toLowerCase()} parts aren't checked — add yours` });
   }
 
   const sorted = [...checks].sort(

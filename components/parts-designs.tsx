@@ -122,8 +122,8 @@ export function PartsDesigns({
           <p style={{ color: "var(--muted)" }}>
             {requireProp
               ? `Parts without a ${processProp} are left out, so bought parts from linked documents stay off the board.`
-              : `Parts without a ${processProp} are sorted by their shape and material.`}{" "}
-            Change this in <Link href="/tracker/machines" className="underline">Machines &amp; settings</Link>. Standard hardware (bolts, nuts) is always skipped.
+              : `Parts without a ${processProp} load only if their name starts with a part number (0201_…), sorted by shape and material — bought parts like motors and gears keep vendor names, so they stay off.`}{" "}
+            Change this in <Link href="/tracker/machines" className="underline">Machines &amp; settings</Link>. Standard hardware (bolts, nuts) and origin cubes are always skipped.
           </p>
           <p style={{ color: "var(--muted)" }}>
             Syncing reads the BOM plus two calls per Part Studio. Plate outlines (DXF) come straight from the model; STEP files are fetched per part on demand, since
