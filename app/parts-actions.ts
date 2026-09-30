@@ -16,7 +16,9 @@ import {
   MACHINE_PROCESSES,
   hasPartNumber,
   isPrintedMaterial,
+  COTS_STATUSES,
   isReferenceBody,
+  isUnnamedBody,
   isStockKind,
   kindFromMaterial,
   matchMaterial,
@@ -25,6 +27,7 @@ import {
   toCut,
   trackerOf,
   USES_STOCK,
+  type CotsStatus,
   type FabPart,
   type MachineProcess,
   type PartGeometry,
@@ -218,14 +221,11 @@ async function sync(designId: string): Promise<string> {
   const ref: OnshapeRef = { did: design.document_id, wvm: design.wvm, wvmid: design.wvm_id, eid: design.element_id };
 
   // 1. What's in the design.
-  type Line = { source: PartSource; quantity: number; name: string; partNumber: string; material: string; description: string; props: Record<string, string> };
+  type Line = { source: PartSource; quantity: number; name: string; partNumber: string; material: string; description: string; props: Record<string, string>; standard?: boolean };
   let lines: Line[] = [];
-  let skippedStandard = 0;
   const metaCache = new Map<string, Map<string, StudioPart>>();
   if (design.element_type === "assembly") {
-    const bom = await assemblyBom(ref);
-    lines = bom.lines;
-    skippedStandard = bom.skippedStandard;
+    lines = (await assemblyBom(ref)).lines;
   } else {
     const meta = await studioMetadata(ref);
     metaCache.set(studioKey({ ...ref }), new Map(meta.map((m) => [m.partId, m])));
@@ -233,7 +233,8 @@ async function sync(designId: string): Promise<string> {
   }
 
   // 2. Properties + shapes per Part Studio.
-  const studios = [...new Map(lines.map((l) => [studioKey(l.source), l.source])).values()];
+  // standard hardware needs nothing more from Onshape (and lives in Onshape's library)
+  const studios = [...new Map(lines.filter((l) => !l.standard).map((l) => [studioKey(l.source), l.source])).values()];
   const shapeCache = new Map<string, Map<string, BodyShape>>();
   const failures: string[] = [];
   await pool(studios, 3, async (s) => {
@@ -259,7 +260,6 @@ async function sync(designId: string): Promise<string> {
   let added = 0;
   let skippedProcess = 0;
   let skippedRef = 0;
-  let noProp = 0;
   const dxfJobs: { partId: string; name: string; geometry: PartGeometry }[] = [];
 
   // merge duplicate lines (same part used in two sub-assemblies)
@@ -277,7 +277,7 @@ async function sync(designId: string): Promise<string> {
     const props = trimProps({ ...line.props, ...(meta?.props ?? {}) });
     const name = line.name || meta?.name || shape?.name || "Unnamed part";
     const material = line.material || meta?.material || shape?.material || "";
-    if (isReferenceBody(name)) {
+    if (isReferenceBody(name) || isUnnamedBody(name)) {
       skippedRef++;
       return;
     }
@@ -287,16 +287,17 @@ async function sync(designId: string): Promise<string> {
       skippedProcess++;
       return;
     }
-    // no Process property: only parts with a team part number (COTS keep vendor names)
-    if (!fromProp && (settings.onshape_require_prop || !(hasPartNumber(name) || isPrintedMaterial(material)))) {
-      noProp++;
-      return;
-    }
     seen.add(key);
     const old = existing.get(key);
     const oldProcess = old ? findProp(old.properties, prop) : null;
+    // What it is: standard hardware and bought parts go on the COTS BOM. Without a
+    // Process property, a part is ours only if it has a team part number or is printed.
+    const guess: PartKind = line.standard
+      ? "cots"
+      : (fromProp ??
+        (!settings.onshape_require_prop && (hasPartNumber(name) || isPrintedMaterial(material)) ? guessKind(name, material, shape?.facts ?? null) : "cots"));
     // a kind someone changed by hand sticks until the Process property itself changes
-    const kind: PartKind = old && oldProcess === processVal ? old.kind : (fromProp ?? guessKind(name, material, shape?.facts ?? null));
+    const kind: PartKind = old && oldProcess === processVal ? old.kind : guess;
     const f = shape?.facts;
     const sizes = f ? { size_l_mm: round(f.l), size_w_mm: round(f.w), size_t_mm: round(f.t) } : {};
     let geometry: PartGeometry | null | undefined;
@@ -323,6 +324,13 @@ async function sync(designId: string): Promise<string> {
     }
     // tracker columns Onshape can carry as properties (Subsystem, Priority, Machine, Tapped)
     Object.assign(row, sheetFromProps(props));
+    if (kind === "cots") {
+      row.hardware = !!line.standard;
+      const vendor = findProp(props, "Vendor") || findProp(props, "Supplier") || findProp(props, "Manufacturer");
+      const url = [findProp(props, "Product URL"), findProp(props, "URL"), findProp(props, "Link"), findProp(props, "Vendor URL")].find((u) => /^https?:\/\//i.test(u));
+      if (vendor) row.vendor = vendor;
+      if (url) row.url = url;
+    }
     let partId: string;
     if (old) {
       if (!old.bot && design.bot) row.bot = design.bot;
@@ -351,20 +359,21 @@ async function sync(designId: string): Promise<string> {
   // 5. Plate DXFs, straight from the model (no extra API calls).
   await pool(dxfJobs, 4, (j) => storeDxf(j.partId, j.name, j.geometry));
 
+  const { data: after } = await db().from("fab_parts").select("kind, hardware").eq("design_id", designId).eq("missing", false);
+  const made = (after ?? []).filter((p) => p.kind !== "cots").length;
+  const cots = (after ?? []).filter((p) => p.kind === "cots" && !p.hardware).length;
+  const hw = (after ?? []).filter((p) => p.kind === "cots" && p.hardware).length;
   const parts = [
-    `${seen.size} part${seen.size === 1 ? "" : "s"}`,
+    `${made} made part${made === 1 ? "" : "s"}`,
+    `${cots} COTS`,
+    hw && `${hw} hardware`,
     added && `${added} new`,
     gone.length && `${gone.length} no longer in the design`,
-    skippedProcess && `${skippedProcess} skipped (${prop} says not made here)`,
-    noProp && `${noProp} skipped as COTS (no ${prop} property${settings.onshape_require_prop ? "" : ", part number or printed material"})`,
-    skippedStandard && `${skippedStandard} standard hardware`,
-    skippedRef && `${skippedRef} reference bod${skippedRef > 1 ? "ies" : "y"} (origin cube etc.)`,
+    skippedProcess && `${skippedProcess} skipped (${prop} says not needed)`,
+    skippedRef && `${skippedRef} skipped (origin cubes, reference and unnamed bodies)`,
     failures.length && `${failures.length} Part Studio read${failures.length > 1 ? "s" : ""} failed: ${failures[0]}`,
   ].filter(Boolean);
-  let note = parts.join(" · ");
-  if (!seen.size && noProp && settings.onshape_require_prop) {
-    note += ` — none of the parts had a “${prop}” property. Add it in Onshape, or turn off “only parts with ${prop}” in Machines & settings.`;
-  }
+  const note = parts.join(" · ");
   await db().from("fab_designs").update({ last_synced_at: new Date().toISOString(), sync_note: note }).eq("id", designId);
   return note;
 }
@@ -505,6 +514,8 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
     }
     for (const k of ["size_l_mm", "size_w_mm", "size_t_mm"]) if (fd.has(k)) patch[k] = num(fd, k);
     if (fd.has("notes")) patch.notes = str(fd, "notes");
+    if (fd.has("vendor")) patch.vendor = str(fd, "vendor");
+    if (fd.has("url")) patch.url = str(fd, "url");
     if (["material_text", "stock_dims", "length_text", "kind"].some((k) => k in patch && patch[k] !== part[k as keyof FabPart])) await fillFromText(patch, part);
     const changed = Object.keys(patch).filter((k) => {
       const before = part[k as keyof FabPart];
@@ -517,6 +528,18 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
     const other = changed.filter((k) => k !== "status");
     if (other.length) await logPart(part.id, "edit", { fields: other.join(", ") });
     return patch.status ? stockForStatus({ ...part, ...(patch as Partial<FabPart>), status: part.status }, patch.status as JobStatus) : "";
+  });
+}
+
+/** A COTS line's buying status: need to buy → ordered → have it. */
+export async function setCotsStatus(fd: FormData): Promise<FabResult> {
+  return run(async () => {
+    const status = str(fd, "status");
+    if (!COTS_STATUSES.includes(status as CotsStatus)) throw new Error("Pick a status");
+    const ids = str(fd, "ids").split(",").filter(Boolean);
+    if (!ids.length) throw new Error("Nothing picked");
+    const { error } = await db().from("fab_parts").update({ cots_status: status }).in("id", ids).eq("kind", "cots");
+    if (error) throw error;
   });
 }
 
@@ -664,7 +687,7 @@ export async function importSheet(fd: FormData): Promise<FabResult<{ added: numb
 
     const { data: existing, error: ee } = await db().from("fab_parts").select("*").eq("missing", false);
     if (ee) throw ee;
-    const mine = (existing ?? []).map(toPart).filter((p) => trackerOf(p.kind) === tracker);
+    const mine = (existing ?? []).map(toPart).filter((p) => p.kind !== "cots" && trackerOf(p.kind) === tracker);
     const byKey = new Map(mine.map((p) => [jobKey(p), p]));
     const has = new Set<string>(columns);
 

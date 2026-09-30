@@ -108,6 +108,7 @@ export interface BomLine {
   quantity: number;
   /** every column, by header name */
   props: Record<string, string>;
+  standard?: boolean;
 }
 
 interface BomInfo {
@@ -128,7 +129,7 @@ interface BomInfo {
 }
 
 /** Flattened BOM of an assembly: one line per distinct part, quantity summed across sub-assemblies. */
-export async function assemblyBom(r: OnshapeRef): Promise<{ lines: BomLine[]; skippedStandard: number }> {
+export async function assemblyBom(r: OnshapeRef): Promise<{ lines: BomLine[] }> {
   const bom = await getJson<BomInfo>(
     `/assemblies${refPath(r)}/bom${q({ indented: false, generateIfAbsent: true, onlyVisibleColumns: false, thumbnail: false })}`,
   );
@@ -142,14 +143,9 @@ export async function assemblyBom(r: OnshapeRef): Promise<{ lines: BomLine[]; sk
     desc: header("description", "description"),
   };
   const lines: BomLine[] = [];
-  let skippedStandard = 0;
   for (const row of bom.rows) {
     const src = row.itemSource;
     if (!src?.partId || !src.documentId || !src.elementId || !src.wvmId) continue; // sub-assemblies, sketches
-    if (src.isStandardContent) {
-      skippedStandard++;
-      continue;
-    }
     const v = row.headerIdToValue;
     const props: Record<string, string> = {};
     for (const h of bom.headers) {
@@ -171,9 +167,11 @@ export async function assemblyBom(r: OnshapeRef): Promise<{ lines: BomLine[]; sk
       description: H.desc ? propText(v[H.desc]) : "",
       quantity: Math.max(1, Math.round(Number(H.qty ? propText(v[H.qty]) : 1) || 1)),
       props,
+      // bolts, nuts, washers from Onshape's standard library
+      standard: !!src.isStandardContent,
     });
   }
-  return { lines, skippedStandard };
+  return { lines };
 }
 
 // ── Part Studios ─────────────────────────────────────────────────────────────

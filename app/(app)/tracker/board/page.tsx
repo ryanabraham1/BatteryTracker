@@ -3,6 +3,7 @@ import { getMaterials, getUnits } from "@/lib/fab-data";
 import { getDesigns, getMachines, getPartFiles, getParts, getPartsSettings, getPerson, knownPeople } from "@/lib/parts-data";
 import { checkPart } from "@/lib/dfm";
 import { sizeLabel } from "@/lib/fab";
+import { isMade } from "@/lib/parts";
 import { PartsBoard, type BoardPart } from "@/components/parts-board";
 import { PageHead, UnitsToggle } from "@/components/fab-ui";
 import { PersonPicker } from "@/components/parts-ui";
@@ -26,7 +27,7 @@ export default async function PartsPage() {
   for (const f of files) fileCount.set(f.part_id, (fileCount.get(f.part_id) ?? 0) + 1);
 
   const board: BoardPart[] = parts
-    .filter((p) => !p.design_id || !designById.get(p.design_id)?.archived)
+    .filter((p) => isMade(p) && (!p.design_id || !designById.get(p.design_id)?.archived))
     .map((p) => {
       const material = p.material_id ? (matById.get(p.material_id) ?? null) : null;
       const dfm = checkPart({ part: p, material, machines, processProp: settings.onshape_process_prop, units });

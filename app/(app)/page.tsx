@@ -56,7 +56,7 @@ export default async function Home() {
   const kitPacked = [...kitStatus(kitItems, matById, pieces, pitIds).values()].reduce((n, s) => n + s.packed.length, 0);
 
   // ── Fab tracker ──
-  const jobList = parts ?? [];
+  const jobList = (parts ?? []).filter((p) => p.kind !== "cots");
   const jobsDone = jobList.filter((j) => isDone(j.status)).length;
   const openJobs = jobList.filter((j) => !isDone(j.status));
   const jobsActive = openJobs.filter((j) => j.status === "in_progress").length;

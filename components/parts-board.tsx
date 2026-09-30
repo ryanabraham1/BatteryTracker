@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition, type DragEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { addPart, assignPart, setPartStatus } from "@/app/parts-actions";
+import { addPart, assignPart, setPartStatus, updatePart } from "@/app/parts-actions";
 import { KIND_HINT, KIND_LABEL, PART_KINDS, trackerOf, type PartKind } from "@/lib/parts";
 import { isDone, priorityLabel, STATUS_LABEL, STATUS_TONE, STATUSES, type JobStatus } from "@/lib/tracker";
 import type { Level } from "@/lib/dfm";
@@ -438,11 +438,26 @@ function PartSheet({
           <ErrorText error={assign.error} />
         </div>
 
+        <CotsButton id={part.id} onDone={onClose} />
+
         <Link href={`/tracker/${part.id}`} className="btn btn-ghost py-3">
           Files, checks &amp; details <span aria-hidden>→</span>
         </Link>
       </div>
     </Sheet>
+  );
+}
+
+/** Bought, not made: off the tracker and onto the COTS BOM. */
+function CotsButton({ id, onDone }: { id: string; onDone: () => void }) {
+  const a = useFabAction(updatePart, onDone);
+  return (
+    <div>
+      <button type="button" className="btn btn-ghost py-3 w-full" disabled={a.pending} onClick={() => a.call({ id, kind: "cots" })}>
+        {a.pending ? "Moving…" : "We don't make this — move to COTS BOM"}
+      </button>
+      <ErrorText error={a.error} />
+    </div>
   );
 }
 

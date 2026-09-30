@@ -209,6 +209,7 @@ const KIND_PROCESSES: Record<PartKind, MachineProcess[]> = {
   shaft: ["lathe"],
   print: ["printer"],
   machined: ["mill"],
+  cots: [],
 };
 
 /** Materials a laser must never be pointed at, whatever the machine's list says. */
@@ -247,6 +248,8 @@ export interface DfmInput {
 }
 
 export function checkPart({ part, material, machines, processProp, units }: DfmInput): DfmResult {
+  // bought, not made
+  if (part.kind === "cots") return { level: "ok", notes: [], checks: [], best: null, unchecked: 0 };
   const L = (mm: number) => fmtLength(mm, units);
   const notes: Issue[] = [];
   const g = part.geometry;

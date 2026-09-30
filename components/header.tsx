@@ -154,10 +154,22 @@ const TRACKER_NAV: (NavItem & { desktopOnly?: boolean })[] = [
   {
     href: "/tracker/designs",
     label: "Onshape",
+    desktopOnly: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 2l9 5v10l-9 5-9-5V7z" />
         <path d="M12 12l9-5M12 12v10M12 12L3 7" />
+      </svg>
+    ),
+  },
+  {
+    href: "/tracker/bom",
+    label: "COTS",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="9" cy="20" r="1.5" />
+        <circle cx="18" cy="20" r="1.5" />
+        <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.5L21 8H6" />
       </svg>
     ),
   },

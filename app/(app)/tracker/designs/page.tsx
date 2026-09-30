@@ -12,7 +12,7 @@ export default async function DesignsPage() {
   const [designs, parts, settings] = await Promise.all([getDesigns({ includeArchived: true }), getParts({ includeMissing: true }), getPartsSettings()]);
   const counts = new Map<string, { live: number; missing: number; done: number }>();
   for (const p of parts) {
-    if (!p.design_id) continue;
+    if (!p.design_id || p.kind === "cots") continue;
     const c = counts.get(p.design_id) ?? { live: 0, missing: 0, done: 0 };
     if (p.missing) c.missing++;
     else c.live++;

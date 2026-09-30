@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getMaterials, getStockPieces, getUnits } from "@/lib/fab-data";
 import { fmtAmount, materialName, summarize } from "@/lib/fab";
 import { getDesigns, getParts, getPerson, knownPeople } from "@/lib/parts-data";
-import { trackerOf } from "@/lib/parts";
+import { isMade, trackerOf } from "@/lib/parts";
 import { TRACKER_LABEL, type Tracker } from "@/lib/tracker";
 import { TrackerTable } from "@/components/tracker";
 import { PageHead } from "@/components/fab-ui";
@@ -28,7 +28,7 @@ export async function TrackerPage({ tracker }: { tracker: Tracker }) {
       <Suspense fallback={null}>
         <TrackerTable
           tracker={tracker}
-          parts={parts.filter((p) => trackerOf(p.kind) === tracker && !(p.design_id && archived.has(p.design_id)))}
+          parts={parts.filter((p) => isMade(p) && trackerOf(p.kind) === tracker && !(p.design_id && archived.has(p.design_id)))}
           stock={stock}
           copies={copies}
           person={person}

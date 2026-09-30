@@ -77,12 +77,12 @@ export function PartsMachines({ machines, settings, units }: { machines: FabMach
         }}
       >
         <h2 className="text-xl font-medium tracking-tight">Onshape &amp; cut plan</h2>
-        <Field label="Process property" hint="The Onshape custom property that says how a part is made.">
+        <Field label="Process property" hint="Optional. An Onshape custom property on a part that overrides the guess of how it's made — see the Onshape tab for how to add one.">
           <input name="onshape_process_prop" className="input" defaultValue={settings.onshape_process_prop} />
         </Field>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="onshape_require_prop" value="1" defaultChecked={settings.onshape_require_prop} className="mt-1" />
-          <span>Only load parts that have it. Off: parts named with a part number (0201_…) load too, sorted by shape and material; COTS with vendor names never do.</span>
+          <span>Only parts with it go on the tracker (the rest go on the COTS BOM). Off — the usual — part-numbered (0201_…) and printed parts go on the tracker too.</span>
         </label>
         <LengthInput name="nest_gap_mm" label="Gap between nested parts" units={units} defaultMm={settings.nest_gap_mm} hint="On top of the bit / kerf" />
         <LengthInput name="nest_margin_mm" label="Sheet edge margin" units={units} defaultMm={settings.nest_margin_mm} hint="Keep parts this far from the edge (clamps, tabs)" />

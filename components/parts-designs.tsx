@@ -91,40 +91,62 @@ export function PartsDesigns({
             </p>
           )}
           <p>
-            Give each part a custom property called <b className="mono">{processProp}</b> in Onshape. Its value picks the board:
+            <b>You don&apos;t need to set anything up.</b> A synced part goes on the tracker if its name starts with a part number (
+            <span className="mono">0201_Mounting_Plate</span>) or its material is a 3D print, and the app guesses its kind from its shape and material. Everything
+            else — motors, gears, bearings, belts, bolts — goes on the <Link href="/tracker/bom" className="underline">COTS BOM</Link>. Origin cubes and unnamed
+            &ldquo;Part 7&rdquo; bodies are skipped.
           </p>
-          <ul className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            <li className="contents">
-              <span className="mono">Router, Laser, CNC, Plate</span>
-              <span>Plate</span>
-            </li>
-            <li className="contents">
-              <span className="mono">Tube, Saw, Bar</span>
-              <span>Tube &amp; bar</span>
-            </li>
-            <li className="contents">
-              <span className="mono">Lathe, Shaft, Hex</span>
-              <span>Shaft</span>
-            </li>
-            <li className="contents">
-              <span className="mono">3D print</span>
-              <span>3D print</span>
-            </li>
-            <li className="contents">
-              <span className="mono">Mill</span>
-              <span>Machined</span>
-            </li>
-            <li className="contents">
-              <span className="mono">COTS, Purchased</span>
-              <span>left out</span>
-            </li>
-          </ul>
-          <p style={{ color: "var(--muted)" }}>
-            {requireProp
-              ? `Parts without a ${processProp} are left out, so bought parts from linked documents stay off the board.`
-              : `Parts without a ${processProp} load only if their name starts with a part number (0201_…), sorted by shape and material — bought parts like motors and gears keep vendor names, so they stay off.`}{" "}
-            Change this in <Link href="/tracker/machines" className="underline">Machines &amp; settings</Link>. Standard hardware (bolts, nuts) and origin cubes are always skipped.
-          </p>
+          <details>
+            <summary className="cursor-pointer font-medium">Optional: say exactly how a part is made (a “{processProp}” property)</summary>
+            <div className="flex flex-col gap-2 mt-2">
+              <p>When the guess is wrong, a custom property on the part overrides it. Setting it up once (needs an Onshape company / education admin):</p>
+              <ol className="list-decimal pl-5 flex flex-col gap-1">
+                <li>
+                  Onshape → your account menu → <b>Company settings</b> (or <b>Enterprise settings</b>) → <b>Custom properties</b> → <b>Create custom property</b>.
+                </li>
+                <li>
+                  Name it <b className="mono">{processProp}</b>, applies to <b>Part</b>, type <b>List</b> with the values below (or Text).
+                </li>
+              </ol>
+              <p>Then on any part: right-click it in the Part Studio&apos;s parts list → <b>Properties</b> → pick its {processProp}.</p>
+              <ul className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                <li className="contents">
+                  <span className="mono">Router, Laser, CNC, Plate</span>
+                  <span>Plate</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">Tube, Saw, Bar</span>
+                  <span>Tube &amp; bar</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">Lathe, Shaft, Hex</span>
+                  <span>Shaft</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">3D print</span>
+                  <span>3D print</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">Mill</span>
+                  <span>Machined</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">COTS, Purchased</span>
+                  <span>COTS BOM</span>
+                </li>
+                <li className="contents">
+                  <span className="mono">Reference, N/A</span>
+                  <span>left out</span>
+                </li>
+              </ul>
+              <p style={{ color: "var(--muted)" }}>
+                Subsystem, Priority, Machine and Tapped properties fill in those tracker columns too.{" "}
+                {requireProp ? `Right now only parts with a ${processProp} go on the tracker — ` : ""}
+                Change the property name in <Link href="/tracker/machines" className="underline">Machines</Link>. Or skip Onshape for this: fix the kind on the tracker and it sticks
+                through re-syncs.
+              </p>
+            </div>
+          </details>
           <p style={{ color: "var(--muted)" }}>
             Syncing reads the BOM plus two calls per Part Studio. Plate outlines (DXF) come straight from the model; STEP files are fetched per part on demand, since
             Onshape counts API calls.

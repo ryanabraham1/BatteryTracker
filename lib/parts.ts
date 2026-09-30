@@ -8,7 +8,8 @@ import { parseLength } from "./units";
  * columns of the team's Machining / 3D Printing sheets; the kind says how
  * it's made (and which DFM checks and stock apply).
  */
-export type PartKind = "plate" | "tube" | "shaft" | "print" | "machined";
+export type PartKind = "plate" | "tube" | "shaft" | "print" | "machined" | "cots";
+/** Kinds the team makes — the tracker, board and cut plan. COTS lives on the BOM instead. */
 export const PART_KINDS: PartKind[] = ["plate", "tube", "shaft", "print", "machined"];
 export const KIND_LABEL: Record<PartKind, string> = {
   plate: "Plate",
@@ -16,6 +17,7 @@ export const KIND_LABEL: Record<PartKind, string> = {
   shaft: "Shaft",
   print: "3D print",
   machined: "Machined",
+  cots: "COTS",
 };
 export const KIND_HINT: Record<PartKind, string> = {
   plate: "Router / laser from sheet",
@@ -23,7 +25,15 @@ export const KIND_HINT: Record<PartKind, string> = {
   shaft: "Hex & round stock, lathe work",
   print: "Printed parts",
   machined: "Mill work from a block",
+  cots: "Bought, not made",
 };
+/** Made here (on the tracker), as opposed to bought (on the COTS BOM). */
+export const isMade = (p: { kind: PartKind }) => p.kind !== "cots";
+
+export type CotsStatus = "needed" | "ordered" | "have";
+export const COTS_STATUSES: CotsStatus[] = ["needed", "ordered", "have"];
+export const COTS_LABEL: Record<CotsStatus, string> = { needed: "Need to buy", ordered: "Ordered", have: "Have it" };
+export const COTS_TONE: Record<CotsStatus, "bad" | "warn" | "good"> = { needed: "bad", ordered: "warn", have: "good" };
 
 /** Which of the team's two tracker sheets a kind of part belongs to. */
 export const trackerOf = (k: PartKind): Tracker => (k === "print" ? "print" : "machining");
@@ -42,7 +52,7 @@ export const AFTER_CUT: JobStatus = "in_progress";
 /** Moving from a before-cut status to one of these means the stock got used. */
 export const USES_STOCK: JobStatus[] = ["in_progress", "finished", "spares_finished"];
 
-export const isPartKind = (v: unknown): v is PartKind => PART_KINDS.includes(v as PartKind);
+export const isPartKind = (v: unknown): v is PartKind => v === "cots" || PART_KINDS.includes(v as PartKind);
 
 export interface PartSource {
   did: string;
@@ -126,6 +136,12 @@ export interface FabPart {
   /** a file name or a Drive / Onshape link, as on the sheet */
   file: string;
   linear_url: string;
+  // COTS BOM
+  cots_status: CotsStatus;
+  vendor: string;
+  url: string;
+  /** Onshape standard content (bolts, nuts, washers) */
+  hardware: boolean;
   quantity: number;
   cut_qty: number;
   material_id: string | null;
@@ -256,8 +272,9 @@ export function kindFromProcess(value: string): PartKind | "skip" | null {
   const v = value.toLowerCase();
   if (!v.trim()) return null;
   const has = (...w: string[]) => w.some((x) => v.includes(x));
-  if (has("cots", "purchas", "buy", "bought", "vendor", "hardware", "off the shelf", "off-the-shelf", "n/a", "none", "skip", "don't make", "dont make", "do not make", "reference"))
-    return "skip";
+  // bought parts go on the COTS BOM; references and "not needed" aren't listed at all
+  if (has("n/a", "none", "skip", "reference", "not needed")) return "skip";
+  if (has("cots", "purchas", "buy", "bought", "vendor", "hardware", "off the shelf", "off-the-shelf", "don't make", "dont make", "do not make")) return "cots";
   if (has("print", "3d", "fdm", "additive", "sla")) return "print";
   if (has("mill")) return "machined";
   if (has("lathe", "shaft", "hex", "rod", "axle", "turn")) return "shaft";
@@ -280,6 +297,9 @@ export function isReferenceBody(name: string): boolean {
  * part 01); bought parts keep their vendor names ("Kraken X44", "40t Spur
  * Gear"). Without a Process property, that number is what says "we make this".
  */
+/** Onshape's default name for a body nobody named ("Part 7"). */
+export const isUnnamedBody = (name: string) => /^part\s*\d+$/i.test(name.trim());
+
 export const hasPartNumber = (name: string) => /^\d{3,5}[_\-. ]/.test(name.trim());
 
 /** Laser vs router etc. when the Process property names one. */
