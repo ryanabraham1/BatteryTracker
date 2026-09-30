@@ -1,9 +1,10 @@
 # 3256 Tools — FRC 3256
 
-Mobile-first PWA with two tools behind one team code. The home page (`/`) is a dashboard: what battery to grab next, battery warnings, fab stock that's low or on order, pit kit status, and recent activity from both. Each tool is a tap away from there or from the header switcher:
+Mobile-first PWA with three tools behind one team code. The home page (`/`) is a dashboard: what battery to grab next, battery warnings, fab stock that's low or on order, pit kit status, and recent activity from both. Each tool is a tap away from there or from the header switcher:
 
 - **Batteries** (`/battery`) — which batteries exist, what state each is in, how healthy it is, and which one to grab next. See [SPEC.md](SPEC.md).
 - **Fab stock** (`/stock`) — the raw material the team cuts: tube, bar, angle, channel, rod, hex shaft, sheet/plate. See [Fab stock](#fab-stock) below.
+- **Parts** (`/parts`) — what the team is making: parts loaded from Onshape onto kanban boards, manufacturability checks against the shop's machines, and a cut plan that nests parts onto the stock on the rack. See [Parts](#parts) below.
 
 The battery app used to live at the root; `next.config.ts` redirects the old `/batteries`, `/log`, `/comp` and `/settings` URLs.
 
@@ -20,6 +21,7 @@ The battery app used to live at the root; `next.config.ts` redirects the old `/b
    | `SUPABASE_SERVICE_ROLE_KEY` | service role key (server only) |
    | `TEAM_CODE` | the shared code everyone types on the login screen |
    | `SESSION_SECRET` | `openssl rand -hex 32` |
+   | `ONSHAPE_ACCESS_KEY` / `ONSHAPE_SECRET_KEY` | optional — Onshape API keys for Parts (dev-portal.onshape.com) |
 3. `npm install && npm run dev`
 
 ## How auth works
@@ -61,6 +63,26 @@ Tracks raw material as **individual pieces** — each stick has a length, each s
 
 Code: `lib/units.ts` (parse/format), `lib/fab.ts` (types, fit + summary logic), `lib/fab-data.ts` (reads), `app/fab-actions.ts` (server actions), `components/fab-*.tsx`. Schema: `supabase/migrations/0007_fab_stock.sql`.
 
+## Parts
+
+Needs [`0009_fab_parts.sql`](supabase/migrations/0009_fab_parts.sql) (tables + the private `fab-files` storage bucket) and, for Onshape, the two `ONSHAPE_*` env vars.
+
+- **Designs** (`/parts/designs`) — paste an Onshape assembly (or Part Studio) link. **Sync** reads the BOM (flattened, quantities summed, standard hardware skipped), then two calls per Part Studio: every part's properties, and its body details. A part's **`Process`** custom property picks its board (Router/Laser/CNC → Plate, Tube/Saw → Tube & bar, Lathe/Hex → Shaft, 3D print, Mill → Machined, COTS/Purchased → left out). Parts without it are left out by default so bought parts from linked documents stay off the board; turn that off in Machines to guess from shape and material instead. Re-syncing updates parts in place (board column, people and files stay); parts that left the design are flagged, not deleted. "Robots" multiplies every quantity.
+- **Board** (`/parts`) — one kanban board per kind, with columns that follow how that kind is made (plate: To CAM → Ready to cut → Cut → Deburr/tap → Done; tube: To cut → Cut to length → Drill/mill → Deburr → Done; …). Drag cards on desktop; tap a card on a phone to move it. **Who are you?** (per-device cookie) lets people take a part ("I'll take it") and filter to **Mine**.
+- **Part page** (`/parts/[id]`) — files, the DFM breakdown per machine, the stock material it's cut from (auto-matched by material name + thickness/profile; pick one by hand to lock it), size, Onshape properties, history.
+- **Files** — plates get a DXF generated straight from the model: the biggest flat face's loops (exact lines and arcs from Onshape's body details), no translation job. STEP (and STL for prints) are exported per part on demand, because Onshape counts API calls. Anything else (drawings, CAM files, photos) uploads straight from the phone to storage through a signed URL, so there's no size cap through the app. Uploading a DXF replaces the plate's outline (units from `$INSUNITS`, else whichever reading matches the model's size).
+- **Machines** (`/parts/machines`) — the shop's machines and what each can do. Specs left blank are reported as "not checked", never guessed. Seeded with the Sept 2026 shop: CNC router, xTool MetalFab 1200W (fiber laser, 24"×24", xTool's burr-free limits per metal), manual mill, 3-axis CNC mill, manual lathe, horizontal and vertical bandsaws.
+- **DFM checks** (`lib/dfm.ts`) — SendCutSend-style. Plates: material allowed on that machine (and never-laser materials like PVC and polycarbonate), thickness (per-material limits), fits the bed, holes vs the bit / min hole / half the thickness, sharp inside corners and inside radii vs the bit radius, narrowest slot vs the bit, thinnest web. Slots and webs are measured once per outline by casting rays from each edge straight into and out of the material. Tube/shaft: fits the saw / between centres / swing, and a matching stock profile exists. Mill/printer: fits the travel/bed. The best machine is the one with the fewest problems (the one the `Process` property names wins ties).
+- **Cut plan** (`/parts/plan`) — every part still in its pre-cut column, across all active designs (toggle designs on/off; leave single parts out). Parts that can't be made or have no matching stock are listed first. The rest are grouped by stock material: sheet parts are nested on their bounding boxes (MaxRects, 90° turns, bottom-left so the leftover is one clean strip) onto the clean sheets on the rack smallest-first, clamped to the machine bed, spaced by the bit + gap; sticks use best-fit decreasing with the saw kerf. Anything left over goes on new full sheets/sticks → **Add to shopping list**. Each sheet shows its layout, what goes back on the rack, and **Download DXF** (sheet + part outlines, outside/inside on separate layers). **Mark cut** records the cut on the rack (normal, undoable stock log entries) and counts the parts as cut; once every copy is cut the part moves to its "Cut" column.
+
+Code: `lib/parts.ts` (kinds, columns, classification, stock matching), `lib/onshape.ts` (API client), `lib/geom.ts` (DXF read/write, outlines), `lib/dfm.ts`, `lib/nest.ts`, `lib/parts-data.ts`, `app/parts-actions.ts`, `components/parts-*.tsx`, `components/part-detail.tsx`.
+
+## Fab tracker
+
+Needs [`0010_tracker_dead_zones.sql`](supabase/migrations/0010_tracker_dead_zones.sql). `/tracker` (Machining) and `/tracker/print` (3D printing) are the team's tracker sheets: same columns, statuses, #0–#4 priorities and dropdown lists (offered as suggestions). Grouped by subsystem, filtered by bot / subsystem / machine / status, status changes in place. **Import from sheet**: copy the rows with the header row out of the sheet (or a CSV) and paste; a part with the same bot + name updates instead of doubling. A machining row can link to a rack material to show whether the stock is on hand. Code: `lib/tracker.ts`, `lib/tracker-data.ts`, `app/tracker-actions.ts`, `components/tracker.tsx`.
+
+The same migration adds **unusable areas** to sheet stock (`fab_pieces.dead_zones`, rectangles in mm from the sheet's corner). Logging a cut as "Same, with holes" or editing a sheet shows it to scale: drag to mark what's gone. On-hand totals use the usable area, and "Find a piece" only suggests a sheet when the need fits a clean rectangle (`freeRects` in `lib/fab.ts`). Drawn in `components/sheet-map.tsx`.
+
 ## Deploy
 
-Vercel: import the repo, set the five env vars, deploy. `public/manifest.json` makes it installable (Add to Home Screen).
+Vercel: import the repo, set the five env vars (plus the two Onshape keys for Parts), deploy. `public/manifest.json` makes it installable (Add to Home Screen).

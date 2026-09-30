@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isAuthed } from "@/lib/auth";
 import { getFabSettings } from "@/lib/fab-data";
-import { FAB_SHAPES, isSheet, SHAPE_DIMS, type FabMaterial, type FabPiece, type FabShape, type OrderStatus } from "@/lib/fab";
+import { clipZones, FAB_SHAPES, isSheet, SHAPE_DIMS, toZones, type FabMaterial, type FabPiece, type FabShape, type OrderStatus, type Zone } from "@/lib/fab";
 import { fmtLength, fmtRect, isUnits } from "@/lib/units";
 
 export type FabResult<T = void> = { ok: true; data?: T } | { ok: false; error: string };
@@ -62,7 +62,12 @@ async function loadMaterial(id: string): Promise<FabMaterial> {
 async function loadPiece(id: string): Promise<{ piece: FabPiece; material: FabMaterial }> {
   const { data, error } = await db().from("fab_pieces").select("*").eq("id", id).single();
   if (error || !data) throw new Error("Piece not found");
-  const piece = { ...(data as FabPiece), length_mm: Number(data.length_mm), width_mm: data.width_mm === null ? null : Number(data.width_mm) };
+  const piece = {
+    ...(data as FabPiece),
+    length_mm: Number(data.length_mm),
+    width_mm: data.width_mm === null ? null : Number(data.width_mm),
+    dead_zones: toZones(data.dead_zones),
+  };
   if (piece.status !== "stock") throw new Error("That piece is already used up");
   return { piece, material: await loadMaterial(piece.material_id) };
 }
@@ -84,6 +89,20 @@ async function logEvent(materialId: string, pieceId: string | null, type: string
 /** Log labels use inches — they're a record, and the log page re-renders structured values anyway. */
 const pieceLabel = (m: FabMaterial, p: Pick<FabPiece, "length_mm" | "width_mm">) =>
   isSheet(m) && p.width_mm !== null ? fmtRect(p.width_mm, p.length_mm, "in") : fmtLength(p.length_mm, "in");
+
+/** Unusable zones from a form (JSON [{x,y,w,h}] in mm), clipped to the sheet and rounded to 0.01 mm. */
+function zonesFrom(fd: FormData, key: string, l: number, w: number): Zone[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(str(fd, key) || "[]");
+  } catch {
+    throw new Error("Couldn't read the marked areas");
+  }
+  const r = (n: number) => Math.round(n * 100) / 100;
+  const zones = clipZones(toZones(raw), l, w).map((z) => ({ x: r(z.x), y: r(z.y), w: r(z.w), h: r(z.h) }));
+  if (zones.length > 40) throw new Error("That's a lot of marked areas — 40 at most");
+  return zones;
+}
 
 /** Sheets are stored width ≤ length so W×L reads the same way everywhere. */
 function normRect(a: number, b: number): { w: number; l: number } {
@@ -151,7 +170,7 @@ export async function setMaterialArchived(fd: FormData): Promise<FabResult> {
 
 // ── Undo snapshots ───────────────────────────────────────────────────────────
 
-const PIECE_FIELDS = ["id", "material_id", "length_mm", "width_mm", "has_cutouts", "location_id", "status", "notes"] as const;
+const PIECE_FIELDS = ["id", "material_id", "length_mm", "width_mm", "has_cutouts", "dead_zones", "location_id", "status", "notes"] as const;
 const ORDER_FIELDS = ["id", "material_id", "quantity", "length_mm", "width_mm", "status", "expected_date", "notes", "received_at"] as const;
 type Snap = Record<string, unknown>;
 /** One row's change: `before` null = this entry created it, `after` null = this entry deleted it. */
@@ -167,6 +186,8 @@ interface Undo {
 function snap(row: object, fields: readonly string[]): Snap {
   const out: Snap = {};
   for (const f of fields) {
+    // columns added by later migrations may not be there yet (or in old snapshots)
+    if (!(f in row)) continue;
     const v = (row as Record<string, unknown>)[f];
     out[f] = f.endsWith("_mm") && v !== null && v !== undefined ? Number(v) : (v ?? null);
   }
@@ -182,8 +203,16 @@ function sameAs(current: Snap, expected: Snap): boolean {
     const b = expected[k];
     if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 0.01;
     if (k === "received_at" && a && b) return new Date(String(a)).getTime() === new Date(String(b)).getTime();
+    if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
     return (a ?? null) === (b ?? null);
   });
+}
+
+/** Same value with object keys sorted, so jsonb read back in another key order still compares equal. */
+function canon(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v && typeof v === "object") return Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Record<string, unknown>)[k])]));
+  return typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : v;
 }
 
 // ── Pieces ───────────────────────────────────────────────────────────────────
@@ -287,7 +316,8 @@ export async function cutLinear(fd: FormData): Promise<FabResult<{ leftover_mm: 
 
 /**
  * Sheets: `whole` uses the piece up; `remaining` replaces it with one or more
- * rectangles (JSON [{w,l}]); `cutouts` keeps the outline but flags it.
+ * clean rectangles (JSON [{w,l}]); `cutouts` keeps the outline and adds the
+ * areas that were cut away (JSON [{x,y,w,h}]) to its unusable zones.
  */
 export async function cutSheet(fd: FormData): Promise<FabResult> {
   return run(async () => {
@@ -297,12 +327,16 @@ export async function cutSheet(fd: FormData): Promise<FabResult> {
     const before = { w: piece.width_mm ?? 0, l: piece.length_mm };
     const changes: Change[] = [];
     let remaining: { w: number; l: number }[] = [];
+    let added: Zone[] = [];
     if (mode === "whole") {
       changes.push({ before: pieceSnap(piece), after: await updatePiece(piece.id, { status: "used" }) });
     } else if (mode === "cutouts") {
       const note = str(fd, "cutout_note");
       const notes = [piece.notes, note].filter(Boolean).join(" · ");
-      changes.push({ before: pieceSnap(piece), after: await updatePiece(piece.id, { has_cutouts: true, notes }) });
+      added = zonesFrom(fd, "zones", before.l, before.w);
+      const patch: Record<string, unknown> = { has_cutouts: true, notes };
+      if (added.length) patch.dead_zones = [...piece.dead_zones, ...added];
+      changes.push({ before: pieceSnap(piece), after: await updatePiece(piece.id, patch) });
     } else if (mode === "remaining") {
       try {
         remaining = (JSON.parse(str(fd, "remaining") || "[]") as { w: number; l: number }[])
@@ -320,7 +354,12 @@ export async function cutSheet(fd: FormData): Promise<FabResult> {
       const [first, ...rest] = remaining;
       changes.push({
         before: pieceSnap(piece),
-        after: await updatePiece(piece.id, { width_mm: first.w, length_mm: first.l, has_cutouts: false }),
+        after: await updatePiece(piece.id, {
+          width_mm: first.w,
+          length_mm: first.l,
+          has_cutouts: false,
+          ...(piece.dead_zones.length ? { dead_zones: [] } : {}),
+        }),
       });
       const created = await insertPieces(
         rest.map((r) => ({ material_id: material.id, width_mm: r.w, length_mm: r.l, location_id: piece.location_id })),
@@ -337,6 +376,7 @@ export async function cutSheet(fd: FormData): Promise<FabResult> {
         mode,
         before,
         remaining: remaining.length ? remaining : null,
+        zones: added.length ? added : null,
         project: str(fd, "project"),
         note: str(fd, "note") || (mode === "cutouts" ? str(fd, "cutout_note") : ""),
       },
@@ -378,12 +418,14 @@ export async function editPiece(fd: FormData): Promise<FabResult> {
       width = r.w;
       length = r.l;
     }
-    const next = {
+    const zones = isSheet(material) && fd.has("zones") ? zonesFrom(fd, "zones", length, width ?? 0) : null;
+    const next: Record<string, unknown> & { length_mm: number; width_mm: number | null } = {
       length_mm: length,
       width_mm: width,
-      has_cutouts: isSheet(material) && str(fd, "has_cutouts") === "1",
+      has_cutouts: isSheet(material) && (str(fd, "has_cutouts") === "1" || !!zones?.length),
       notes: str(fd, "notes"),
     };
+    if (zones) next.dead_zones = zones;
     const after = await updatePiece(piece.id, next);
     const before = pieceLabel(material, piece);
     const afterLabel = pieceLabel(material, next);
@@ -393,6 +435,7 @@ export async function editPiece(fd: FormData): Promise<FabResult> {
       "edit",
       {
         summary: before === afterLabel ? `${afterLabel} (notes / cutouts)` : `${before} → ${afterLabel}`,
+        zones: zones && JSON.stringify(zones) !== JSON.stringify(piece.dead_zones) ? zones.length : null,
         before: { length_mm: piece.length_mm, width_mm: piece.width_mm },
         after: { length_mm: length, width_mm: width },
       },

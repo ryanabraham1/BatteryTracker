@@ -1,6 +1,6 @@
 import { isAuthed } from "@/lib/auth";
 import { getLocations, getMaterials, getStockPieces } from "@/lib/fab-data";
-import { isSheet, SHAPE_LABEL, sizeLabel } from "@/lib/fab";
+import { isSheet, SHAPE_LABEL, sizeLabel, usableArea } from "@/lib/fab";
 import { toCsv } from "@/lib/format";
 import { MM_PER_IN } from "@/lib/units";
 
@@ -25,6 +25,8 @@ export async function GET() {
         length_mm: r2(p.length_mm),
         width_mm: isSheet(m) ? r2(p.width_mm) : null,
         has_cutouts: isSheet(m) ? p.has_cutouts : null,
+        unusable_zones: isSheet(m) ? p.dead_zones.length : null,
+        usable_sq_in: isSheet(m) ? r2(usableArea(p) / MM_PER_IN ** 2) : null,
         location: p.location_id ? (loc.get(p.location_id) ?? "") : "",
         vendor: m.vendor,
         vendor_part: m.vendor_part,

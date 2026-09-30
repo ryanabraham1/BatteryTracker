@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./supabase";
 import { isUnits, UNITS_COOKIE, type Units } from "./units";
 import {
   DEFAULT_FAB_SETTINGS,
+  toZones,
   type FabEvent,
   type FabKit,
   type FabKitItem,
@@ -36,7 +37,7 @@ function toMaterial(r: Record<string, unknown>): FabMaterial {
   };
 }
 function toPiece(r: Record<string, unknown>): FabPiece {
-  return { ...(r as unknown as FabPiece), length_mm: Number(r.length_mm), width_mm: N(r.width_mm) };
+  return { ...(r as unknown as FabPiece), length_mm: Number(r.length_mm), width_mm: N(r.width_mm), dead_zones: toZones(r.dead_zones) };
 }
 
 export async function getFabSettings(): Promise<FabSettings> {

@@ -21,10 +21,13 @@ import {
   type FabOrder,
   type FabPiece,
   type FabSettings,
+  type Zone,
+  usableArea,
 } from "@/lib/fab";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Sheet } from "./sheet";
+import { SheetMap, SheetThumb } from "./sheet-map";
 import { Empty } from "./ui";
 import { UndoButton } from "./fab-undo";
 import { ErrorText, Field, LengthInput, RectInput, SubmitButton, UnitsToggle, useFabAction } from "./fab-ui";
@@ -152,14 +155,24 @@ export function FabMaterialDetail({
               {shown.map((p) => {
                 const full = isFullPiece(m, p);
                 const dim = hasNeed && !fitIds.has(p.id);
+                const zoned = sheet && p.width_mm !== null && p.dead_zones.length > 0;
                 return (
                   <li key={p.id} className="p-3 sm:p-4 flex items-center gap-3 flex-wrap" style={{ borderColor: "var(--line)", opacity: dim ? 0.5 : 1 }}>
+                    {zoned && (
+                      <button type="button" className="shrink-0" onClick={() => setOpen({ kind: "edit", piece: p })} aria-label="Edit unusable areas">
+                        <SheetThumb length={p.length_mm} width={p.width_mm!} zones={p.dead_zones} className="w-16 h-10" />
+                      </button>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="mono text-lg font-semibold">{fmtPiece(m, p, units)}</span>
                         {p.id === best && <span className="pill pill-good">Best fit</span>}
                         <span className={`pill ${full ? "pill-purple" : "pill-muted"}`}>{full ? "Full" : "Offcut"}</span>
-                        {p.has_cutouts && <span className="pill pill-warn">Cutouts</span>}
+                        {zoned ? (
+                          <span className="pill pill-warn">{fmtAmount(m, usableArea(p), units)} usable</span>
+                        ) : (
+                          p.has_cutouts && <span className="pill pill-warn">Cutouts</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="chip">{p.location_id ? (locName.get(p.location_id) ?? "—") : "No location"}</span>
@@ -441,7 +454,8 @@ function CutLinearForm({ piece, settings, units, onDone }: { piece: FabPiece; se
 }
 
 function CutSheetForm({ m, piece, units, onDone }: { m: FabMaterial; piece: FabPiece; units: Units; onDone: () => void }) {
-  const [mode, setMode] = useState<"remaining" | "cutouts" | "whole">("remaining");
+  const [mode, setMode] = useState<"remaining" | "cutouts" | "whole">(piece.dead_zones.length ? "cutouts" : "remaining");
+  const [zones, setZones] = useState<Zone[]>([]);
   const [rects, setRects] = useState<{ key: number; w: number | null; l: number | null }[]>([{ key: 0, w: piece.width_mm, l: null }]);
   const a = useFabAction(cutSheet, onDone);
   const valid = rects.filter((r) => r.w && r.l).map((r) => ({ w: r.w, l: r.l }));
@@ -451,13 +465,14 @@ function CutSheetForm({ m, piece, units, onDone }: { m: FabMaterial; piece: FabP
       <input type="hidden" name="piece_id" value={piece.id} />
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="remaining" value={JSON.stringify(valid)} />
+      <input type="hidden" name="zones" value={JSON.stringify(zones)} />
       <div>
         <span className="label">What&apos;s left?</span>
         <div className="grid grid-cols-3 gap-2">
           {(
             [
               ["remaining", "Smaller piece(s)", "measure what's left"],
-              ["cutouts", "Same, with holes", "parts cut out of it"],
+              ["cutouts", "Same, with holes", "mark what was cut"],
               ["whole", "Nothing", "used all of it"],
             ] as const
           ).map(([v, label, sub]) => (
@@ -507,13 +522,28 @@ function CutSheetForm({ m, piece, units, onDone }: { m: FabMaterial; piece: FabP
         </div>
       )}
       {mode === "cutouts" && (
-        <Field label="What was cut (optional)" hint="Keeps the outline, marks it as having cutouts so it's not mistaken for a clean sheet.">
-          <input name="cutout_note" className="input" placeholder="4 gussets from one corner" />
-        </Field>
+        <>
+          {piece.width_mm !== null && (
+            <div>
+              <span className="label">Where was it cut?</span>
+              <SheetMap length={piece.length_mm} width={piece.width_mm} zones={zones} locked={piece.dead_zones} onChange={setZones} units={units} />
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                Mark the part of the sheet that&apos;s gone or can&apos;t be used. It&apos;s left out of what&apos;s on hand, and the sheet is only suggested for parts that fit in the clean area.
+                {piece.dead_zones.length > 0 && " Grey areas were marked before."}
+              </p>
+            </div>
+          )}
+          <Field label="What was cut (optional)">
+            <input name="cutout_note" className="input" placeholder="4 gussets from one corner" />
+          </Field>
+        </>
       )}
       <ProjectFields />
       <ErrorText error={a.error} />
-      <SubmitButton pending={a.pending} label={mode === "whole" ? `Use up this ${isSheet(m) ? "sheet" : "piece"}` : "Log cut"} />
+      <SubmitButton
+        pending={a.pending}
+        label={mode === "whole" ? `Use up this ${isSheet(m) ? "sheet" : "piece"}` : mode === "cutouts" && zones.length ? `Log cut · ${zones.length} ${zones.length === 1 ? "area" : "areas"}` : "Log cut"}
+      />
     </form>
   );
 }
@@ -542,6 +572,8 @@ function MoveForm({ piece, locations, onDone }: { piece: FabPiece; locations: Fa
 
 function EditForm({ m, piece, units, onDone }: { m: FabMaterial; piece: FabPiece; units: Units; onDone: () => void }) {
   const a = useFabAction(editPiece, onDone);
+  const [zones, setZones] = useState<Zone[]>(piece.dead_zones);
+  const [size, setSize] = useState<{ w: number | null; l: number | null }>({ w: piece.width_mm, l: piece.length_mm });
   const scrap = useFabAction(scrapPiece, onDone);
   return (
     <div className="flex flex-col gap-5">
@@ -549,10 +581,18 @@ function EditForm({ m, piece, units, onDone }: { m: FabMaterial; piece: FabPiece
         <input type="hidden" name="piece_id" value={piece.id} />
         {isSheet(m) ? (
           <>
-            <RectInput units={units} defaultW={piece.width_mm} defaultL={piece.length_mm} />
+            <RectInput units={units} defaultW={piece.width_mm} defaultL={piece.length_mm} onChange={(w, l) => setSize({ w, l })} />
+            <input type="hidden" name="zones" value={JSON.stringify(zones)} />
+            {size.w && size.l ? (
+              <div>
+                <span className="label">Unusable areas</span>
+                {/* Sheets are kept width ≤ length; draw the way they'll be saved. */}
+                <SheetMap length={Math.max(size.w, size.l)} width={Math.min(size.w, size.l)} zones={zones} onChange={setZones} units={units} />
+              </div>
+            ) : null}
             <label className="flex items-center gap-3 text-sm">
-              <input type="checkbox" name="has_cutouts" value="1" defaultChecked={piece.has_cutouts} />
-              Has cutouts (not a clean rectangle)
+              <input type="checkbox" name="has_cutouts" value="1" defaultChecked={piece.has_cutouts && !piece.dead_zones.length} />
+              Other cutouts not marked on the map
             </label>
           </>
         ) : (

@@ -106,22 +106,88 @@ const STOCK_NAV: NavItem[] = [
   { href: "/stock/setup", label: "Setup", icon: SETTINGS_ICON },
 ];
 
-const SEARCHABLE = ["/battery", "/battery/batteries", "/stock"];
+/** Parts app tabs: the build boards, the cut planner, Onshape designs, machines. */
+const PARTS_NAV: NavItem[] = [
+  {
+    href: "/parts",
+    label: "Board",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="5" height="16" rx="1" />
+        <rect x="10" y="4" width="5" height="11" rx="1" />
+        <rect x="17" y="4" width="4" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/parts/plan",
+    label: "Cut plan",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="1.5" />
+        <rect x="6" y="6" width="6" height="5" rx="0.5" />
+        <circle cx="16" cy="9" r="2" />
+        <rect x="6" y="14" width="11" height="4" rx="0.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/parts/designs",
+    label: "Designs",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2l9 5v10l-9 5-9-5V7z" />
+        <path d="M12 12l9-5M12 12v10M12 12L3 7" />
+      </svg>
+    ),
+  },
+  { href: "/parts/machines", label: "Machines", icon: SETTINGS_ICON },
+];
+
+/** Fab tracker tabs: the team's Machining and 3D Printing tracker sheets. */
+const TRACKER_NAV: NavItem[] = [
+  {
+    href: "/tracker",
+    label: "Machining",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M9 11l2 2 4-4" />
+        <path d="M4 6h1M4 12h1M4 18h1M9 18h11M9 6h11" />
+      </svg>
+    ),
+  },
+  {
+    href: "/tracker/print",
+    label: "3D printing",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="18" height="6" rx="1" />
+        <path d="M12 9v4M9 13h6l-1 3h-4zM5 21h14" />
+      </svg>
+    ),
+  },
+];
+
+const SEARCHABLE = ["/battery", "/battery/batteries", "/stock", "/parts"];
 
 /** The first tab of each app (board / rack) is exact, so it doesn't light up for the other tabs. */
 const SUBPAGES: Record<string, RegExp> = {
   "/battery": /^\/battery\/./,
   "/stock": /^\/stock\/(log|shopping|kit|setup)(\/|$)/,
+  "/parts": /^\/parts\/(plan|designs|machines)(\/|$)/,
+  "/tracker": /^\/tracker\/./,
 };
 
 function isActive(href: string, pathname: string) {
   const sub = SUBPAGES[href];
-  // The rack tab also covers material pages (/stock/<id>), but not the other stock tabs.
-  if (sub) return pathname === href || (href === "/stock" && pathname.startsWith("/stock/") && !sub.test(pathname));
+  // The rack / board tab also covers material and part pages (/stock/<id>, /parts/<id>), but not the other tabs.
+  if (sub) return pathname === href || ((href === "/stock" || href === "/parts") && pathname.startsWith(`${href}/`) && !sub.test(pathname));
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const isStockPath = (pathname: string) => pathname === "/stock" || pathname.startsWith("/stock/");
+const isPartsPath = (pathname: string) => pathname === "/parts" || pathname.startsWith("/parts/");
+const isTrackerPath = (pathname: string) => pathname === "/tracker" || pathname.startsWith("/tracker/");
 
 export function Header() {
   const pathname = usePathname();
@@ -145,11 +211,13 @@ export function Header() {
 
   const home = pathname === "/";
   const stockApp = isStockPath(pathname);
-  const batteryApp = !home && !stockApp;
-  const NAV = home ? [] : stockApp ? STOCK_NAV : BATTERY_NAV;
+  const partsApp = isPartsPath(pathname);
+  const trackerApp = isTrackerPath(pathname);
+  const batteryApp = !home && !stockApp && !partsApp && !trackerApp;
+  const NAV = home ? [] : stockApp ? STOCK_NAV : partsApp ? PARTS_NAV : trackerApp ? TRACKER_NAV : BATTERY_NAV;
   const canSearch = SEARCHABLE.includes(pathname) || pathname.startsWith("/battery/batteries/");
-  const searchTarget = stockApp ? "/stock" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
-  const searchWhat = stockApp ? "stock" : "batteries";
+  const searchTarget = stockApp ? "/stock" : partsApp ? "/parts" : pathname.startsWith("/battery/batteries") ? "/battery/batteries" : "/battery";
+  const searchWhat = stockApp ? "stock" : partsApp ? "parts" : "batteries";
 
   function search(e: FormEvent) {
     e.preventDefault();
@@ -202,6 +270,8 @@ export function Header() {
                 [
                   ["/battery", "Batteries", "Batteries", batteryApp],
                   ["/stock", "Fab stock", "Stock", stockApp],
+                  ["/tracker", "Tracker", "Track", trackerApp],
+                  ["/parts", "Parts", "Parts", partsApp],
                 ] as const
               ).map(([href, label, short, on]) => (
                 <Link
@@ -282,7 +352,7 @@ export function Header() {
               <input
                 ref={mobileInput}
                 className="input pr-11"
-                placeholder={stockApp ? "2x1, 1/4 poly, hex…" : "Search batteries…"}
+                placeholder={stockApp ? "2x1, 1/4 poly, hex…" : partsApp ? "Search parts…" : "Search batteries…"}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 aria-label={`Search ${searchWhat}`}

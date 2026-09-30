@@ -88,12 +88,26 @@ export interface FabMaterial {
 }
 
 export type PieceStatus = "stock" | "used" | "scrapped";
+
+/**
+ * A part of a sheet that can't be used, mm from the sheet's corner: x along
+ * the length, y across the width.
+ */
+export interface Zone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface FabPiece {
   id: string;
   material_id: string;
   length_mm: number;
   width_mm: number | null;
   has_cutouts: boolean;
+  /** Unusable areas of a sheet (empty for sticks and clean sheets). */
+  dead_zones: Zone[];
   location_id: string | null;
   status: PieceStatus;
   notes: string;
@@ -198,9 +212,100 @@ export function pieceArea(p: Pick<FabPiece, "length_mm" | "width_mm">): number {
   return p.length_mm * (p.width_mm ?? 0);
 }
 
-/** Amount of one piece: mm for linear stock, mm² for sheet. */
+/** Zones as stored (jsonb), cleaned up; anything unreadable is dropped. */
+export function toZones(v: unknown): Zone[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((z) => ({ x: Number(z?.x), y: Number(z?.y), w: Number(z?.w), h: Number(z?.h) }))
+    .filter((z) => [z.x, z.y, z.w, z.h].every(Number.isFinite) && z.w > 0 && z.h > 0);
+}
+
+type SheetLike = Pick<FabPiece, "length_mm" | "width_mm"> & { dead_zones?: Zone[] };
+
+/** Zones clipped to the sheet, dropping any that end up empty. */
+export function clipZones(zones: Zone[] | undefined, l: number, w: number): Zone[] {
+  const out: Zone[] = [];
+  for (const z of zones ?? []) {
+    const x0 = Math.max(0, z.x);
+    const y0 = Math.max(0, z.y);
+    const x1 = Math.min(l, z.x + z.w);
+    const y1 = Math.min(w, z.y + z.h);
+    if (x1 - x0 > 0.5 && y1 - y0 > 0.5) out.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+  }
+  return out;
+}
+
+/** Sorted unique edges of the sheet and its zones along one axis. */
+function edges(zones: Zone[], size: number, lo: "x" | "y", len: "w" | "h"): number[] {
+  const s = new Set([0, size]);
+  for (const z of zones) {
+    s.add(z[lo]);
+    s.add(z[lo] + z[len]);
+  }
+  return [...s].sort((a, b) => a - b);
+}
+
+/** Area the zones cover (overlaps counted once), mm². */
+export function deadArea(p: SheetLike): number {
+  const w = p.width_mm ?? 0;
+  const zones = clipZones(p.dead_zones, p.length_mm, w);
+  if (!zones.length) return 0;
+  const xs = edges(zones, p.length_mm, "x", "w");
+  const ys = edges(zones, w, "y", "h");
+  let area = 0;
+  for (let i = 0; i < xs.length - 1; i++) {
+    for (let j = 0; j < ys.length - 1; j++) {
+      const cx = (xs[i] + xs[i + 1]) / 2;
+      const cy = (ys[j] + ys[j + 1]) / 2;
+      if (zones.some((z) => cx > z.x && cx < z.x + z.w && cy > z.y && cy < z.y + z.h)) area += (xs[i + 1] - xs[i]) * (ys[j + 1] - ys[j]);
+    }
+  }
+  return area;
+}
+
+/** Sheet area minus the unusable zones, mm². */
+export function usableArea(p: SheetLike): number {
+  return pieceArea(p) - deadArea(p);
+}
+
+/**
+ * The biggest clean rectangles on a sheet that dodge every zone (maximal
+ * rectangles, biggest first). A clean sheet is one rectangle: itself.
+ */
+export function freeRects(p: SheetLike): Zone[] {
+  const W = p.width_mm ?? 0;
+  const L = p.length_mm;
+  const zones = clipZones(p.dead_zones, L, W);
+  if (!zones.length) return [{ x: 0, y: 0, w: L, h: W }];
+  const xs = edges(zones, L, "x", "w");
+  const ys = edges(zones, W, "y", "h");
+  const hits = (x0: number, y0: number, x1: number, y1: number) =>
+    zones.some((z) => z.x < x1 - 1e-6 && z.x + z.w > x0 + 1e-6 && z.y < y1 - 1e-6 && z.y + z.h > y0 + 1e-6);
+  const found: Zone[] = [];
+  for (let a = 0; a < xs.length; a++) {
+    for (let b = 0; b < ys.length; b++) {
+      // grow right as far as possible for each height, keeping only rectangles
+      // that can't grow in any direction
+      for (let d = ys.length - 1; d > b; d--) {
+        let c = a;
+        while (c + 1 < xs.length && !hits(xs[a], ys[b], xs[c + 1], ys[d])) c++;
+        if (c === a) continue;
+        const r = { x: xs[a], y: ys[b], w: xs[c] - xs[a], h: ys[d] - ys[b] };
+        const blocked = (x0: number, y0: number, x1: number, y1: number) => x0 < 0 || y0 < 0 || x1 > L || y1 > W || hits(x0, y0, x1, y1);
+        const left = a === 0 || blocked(xs[a - 1], r.y, r.x + r.w, r.y + r.h);
+        const down = b === 0 || blocked(r.x, ys[b - 1], r.x + r.w, r.y + r.h);
+        const up = d === ys.length - 1 || blocked(r.x, r.y, r.x + r.w, ys[d + 1]);
+        if (left && down && up) found.push(r);
+      }
+    }
+  }
+  const uniq = new Map(found.map((r) => [`${r.x}:${r.y}:${r.w}:${r.h}`, r]));
+  return [...uniq.values()].sort((a, b) => b.w * b.h - a.w * a.h);
+}
+
+/** Amount of one piece: mm for linear stock, usable mm² for sheet. */
 export function pieceAmount(m: FabMaterial, p: FabPiece): number {
-  return isSheet(m) ? pieceArea(p) : p.length_mm;
+  return isSheet(m) ? usableArea(p) : p.length_mm;
 }
 
 /** A piece counts as "full" when it's (within 1 mm of) the size it's bought at. */
@@ -209,7 +314,7 @@ export function isFullPiece(m: FabMaterial, p: FabPiece): boolean {
   const lenOk = p.length_mm >= m.full_length_mm - 1;
   if (!isSheet(m)) return lenOk;
   if (!m.full_width_mm || p.width_mm === null) return false;
-  return lenOk && p.width_mm >= m.full_width_mm - 1 && !p.has_cutouts;
+  return lenOk && p.width_mm >= m.full_width_mm - 1 && !p.has_cutouts && !p.dead_zones.length;
 }
 
 export function fmtPiece(m: FabMaterial, p: Pick<FabPiece, "length_mm" | "width_mm">, units: Units): string {
@@ -220,11 +325,9 @@ export function fmtAmount(m: FabMaterial, amount: number, units: Units): string 
   return isSheet(m) ? fmtArea(amount, units) : fmtLength(amount, units);
 }
 
-/** Does a W×L need fit in a sheet piece, either way round? */
-export function rectFits(needW: number, needL: number, p: Pick<FabPiece, "length_mm" | "width_mm">): boolean {
-  const w = p.width_mm ?? 0;
-  const l = p.length_mm;
-  return (needW <= w && needL <= l) || (needW <= l && needL <= w);
+/** Does a W×L need fit in a sheet piece, either way round, clear of its unusable zones? */
+export function rectFits(needW: number, needL: number, p: SheetLike): boolean {
+  return freeRects(p).some((r) => (needW <= r.h && needL <= r.w) || (needW <= r.w && needL <= r.h));
 }
 
 /**
@@ -237,7 +340,7 @@ export function bestFits(m: FabMaterial, pieces: FabPiece[], needL: number, need
     const w = needW ?? 0;
     return pieces
       .filter((p) => rectFits(w, needL, p))
-      .sort((a, b) => Number(a.has_cutouts) - Number(b.has_cutouts) || pieceArea(a) - pieceArea(b));
+      .sort((a, b) => Number(a.has_cutouts || a.dead_zones.length > 0) - Number(b.has_cutouts || b.dead_zones.length > 0) || usableArea(a) - usableArea(b));
   }
   return pieces.filter((p) => p.length_mm >= needL).sort((a, b) => a.length_mm - b.length_mm);
 }
@@ -334,7 +437,12 @@ export function describeEvent(e: FabEvent, m: FabMaterial | undefined, units: Un
         const mode = d.mode as string;
         const from = rect(d.before);
         if (mode === "whole") return `Used all of ${from} ${tail}`.trim();
-        if (mode === "cutouts") return `Cut parts out of ${from} (kept, has cutouts) ${tail}`.trim();
+        if (mode === "cutouts") {
+          const n = Array.isArray(d.zones) ? d.zones.length : 0;
+          return n
+            ? `Cut ${n === 1 ? "an area" : `${n} areas`} out of ${from} (marked unusable) ${tail}`.trim()
+            : `Cut parts out of ${from} (kept, has cutouts) ${tail}`.trim();
+        }
         const rem = Array.isArray(d.remaining) ? (d.remaining as unknown[]).map(rect).join(", ") : "";
         return `Cut ${from} → left ${rem || "nothing"} ${tail}`.trim();
       }
@@ -349,7 +457,8 @@ export function describeEvent(e: FabEvent, m: FabMaterial | undefined, units: Un
       if (!d.before || !d.after) return `Edited ${d.summary ?? "piece"}`;
       const before = size(d.before, null);
       const after = size(d.after, null);
-      return before === after ? `Edited ${after} (notes / cutouts)` : `Edited ${before} → ${after}`;
+      const zones = typeof d.zones === "number" ? ` · ${d.zones ? `${d.zones} unusable ${d.zones === 1 ? "area" : "areas"}` : "cleared unusable areas"}` : "";
+      return before === after ? `Edited ${after}${zones || " (notes / cutouts)"}` : `Edited ${before} → ${after}${zones}`;
     }
     case "scrap":
       return `Scrapped ${size(d, d.piece)}${d.reason ? ` — ${d.reason}` : ""}`;
