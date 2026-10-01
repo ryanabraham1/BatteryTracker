@@ -8,6 +8,7 @@ import { SUGGEST } from "@/lib/tracker";
 import { timeAgo } from "@/lib/format";
 import { Empty } from "./ui";
 import { ErrorText, Field, SubmitButton, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 export function PartsDesigns({
   designs,
@@ -231,15 +232,15 @@ function DesignCard({ d, c, connected }: { d: FabDesign; c?: { live: number; mis
         <button type="button" className="btn btn-ghost text-sm ml-auto" onClick={() => upd.call({ id: d.id, archived: d.archived ? "0" : "1" })}>
           {d.archived ? "Unarchive" : "Archive"}
         </button>
-        <button
-          type="button"
+        <ConfirmButton
           className="btn btn-danger text-sm"
-          onClick={() => {
-            if (confirm(`Delete ${d.name}, all ${c?.live ?? 0} of its parts, and their files? Archive it instead to keep the history.`)) del.call({ id: d.id });
-          }}
-        >
-          Delete
-        </button>
+          danger
+          pending={del.pending}
+          label="Delete"
+          confirmLabel="Delete design"
+          message={`Delete ${d.name}, all ${c?.live ?? 0} of its parts, and their files? Archive it instead to keep the history.`}
+          onConfirm={() => del.call({ id: d.id })}
+        />
       </div>
     </div>
   );

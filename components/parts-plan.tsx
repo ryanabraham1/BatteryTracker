@@ -12,6 +12,7 @@ import type { Level } from "@/lib/dfm";
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Empty } from "./ui";
 import { ErrorText, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 export interface PlanPart {
   id: string;
@@ -511,17 +512,13 @@ function SheetCard({
           Download DXF
         </button>
         {s.pieceId && (
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-primary text-sm"
-            disabled={commit.pending}
-            onClick={() => {
-              if (!confirm(`Mark this sheet cut? ${s.yield > 0.85 ? "The sheet is used up" : "The cut areas get marked unusable on the sheet"}, and ${s.placements.length} parts count as cut.`)) return;
-              commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, w: s.w, l: s.l, placements: s.placements, yield: s.yield, gap, project }) });
-            }}
-          >
-            {commit.pending ? "Saving…" : "Mark cut"}
-          </button>
+            pending={commit.pending}
+            label="Mark cut"
+            message={`${s.yield > 0.85 ? "This sheet gets used up" : "The cut areas get marked unusable on this sheet"}, and ${s.placements.length} part${s.placements.length > 1 ? "s" : ""} count as cut. You can undo it from the stock log.`}
+            onConfirm={() => commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, w: s.w, l: s.l, placements: s.placements, yield: s.yield, gap, project }) })}
+          />
         )}
       </div>
       <ErrorText error={commit.error} />
@@ -556,17 +553,13 @@ function StickCard({ m, s, units, where, project }: { m: FabMaterial; s: StickPl
           </span>
         </p>
         {s.pieceId && (
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-primary text-sm"
-            disabled={commit.pending}
-            onClick={() => {
-              if (!confirm(`Mark ${s.cuts.length} cut${s.cuts.length > 1 ? "s" : ""} from this ${fmtLength(s.len, units)} stick?`)) return;
-              commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, len: s.len, cuts: s.cuts.map((c) => ({ partId: c.id, len: c.len })), project }) });
-            }}
-          >
-            {commit.pending ? "Saving…" : "Mark cut"}
-          </button>
+            pending={commit.pending}
+            label="Mark cut"
+            message={`${s.cuts.length} cut${s.cuts.length > 1 ? "s" : ""} come off this ${fmtLength(s.len, units)} stick, leaving ${fmtLength(s.leftover, units)}. You can undo it from the stock log.`}
+            onConfirm={() => commit.call({ plan: JSON.stringify({ pieceId: s.pieceId, len: s.len, cuts: s.cuts.map((c) => ({ partId: c.id, len: c.len })), project }) })}
+          />
         )}
       </div>
       <div className="flex h-8 rounded overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--line)" }} aria-label={`${materialName(m)} cut layout`}>

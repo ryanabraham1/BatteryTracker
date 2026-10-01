@@ -18,6 +18,7 @@ import {
 import { fmtLength, fmtRect, type Units } from "@/lib/units";
 import { Empty } from "./ui";
 import { ErrorText, Field, LengthInput, RectInput, SubmitButton, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 export function FabKits({
   kits,
@@ -195,16 +196,14 @@ function KitCard({
             <button type="button" className="btn btn-ghost text-sm flex-1" onClick={() => setAdding(true)} disabled={materials.length === 0}>
               + Add item
             </button>
-            <button
-              type="button"
+            <ConfirmButton
               className="btn btn-danger text-sm"
-              disabled={del.pending}
-              onClick={() => {
-                if (confirm(`Delete the “${kit.name}” kit? The stock itself isn't touched.`)) del.call({ id: kit.id });
-              }}
-            >
-              Delete kit
-            </button>
+              danger
+              pending={del.pending}
+              label="Delete kit"
+              message={`Delete the “${kit.name}” kit? The stock itself isn't touched.`}
+              onConfirm={() => del.call({ id: kit.id })}
+            />
           </div>
         )}
         <ErrorText error={del.error ?? delItem.error} />

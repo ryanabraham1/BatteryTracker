@@ -6,6 +6,7 @@ import { MACHINE_FIELD_LABEL, MACHINE_PROCESSES, PROCESS_FIELDS, PROCESS_LABEL, 
 import { fmtLength, type Units } from "@/lib/units";
 import { Sheet } from "./sheet";
 import { ErrorText, Field, LengthInput, SubmitButton, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 const HINT: Partial<Record<keyof FabMachine, string>> = {
   tool_diameter_mm: "Router: the end mill you cut plate with. Sets the smallest inside radius and narrowest slot.",
@@ -146,15 +147,14 @@ function MachineSheet({ machine, onClose, units }: { machine: FabMachine | "new"
         <ErrorText error={save.error ?? del.error} />
         <SubmitButton pending={save.pending} label="Save machine" />
         {m && (
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-danger text-sm"
-            onClick={() => {
-              if (confirm(`Delete ${m.name}?`)) del.call({ id: m.id });
-            }}
-          >
-            Delete machine
-          </button>
+            danger
+            pending={del.pending}
+            label="Delete machine"
+            message={`Delete ${m.name}? Parts stop being checked against it.`}
+            onConfirm={() => del.call({ id: m.id })}
+          />
         )}
       </form>
     </Sheet>

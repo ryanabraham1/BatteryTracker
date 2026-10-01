@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createBattery, deleteBattery, updateBattery } from "@/app/actions";
 import { STATES, STATE_LABEL, type Battery } from "@/lib/types";
+import { ConfirmButton } from "./confirm-button";
 
 export function BatteryForm({ battery }: { battery?: Battery }) {
   const router = useRouter();
@@ -97,12 +98,14 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
         </button>
       </div>
       {editing && (
-        <button
-          type="button"
+        <ConfirmButton
           className="btn btn-danger mt-2"
-          disabled={pending}
-          onClick={() => {
-            if (!confirm(`Delete ${battery.name} and all of its history? This cannot be undone.`)) return;
+          danger
+          pending={pending}
+          label="Delete battery"
+          confirmLabel="Delete for good"
+          message={`Delete ${battery.name} and all of its history? This can't be undone.`}
+          onConfirm={() =>
             start(async () => {
               const r = await deleteBattery(battery.id);
               if (!r.ok) {
@@ -111,11 +114,9 @@ export function BatteryForm({ battery }: { battery?: Battery }) {
               }
               router.push("/battery/batteries");
               router.refresh();
-            });
-          }}
-        >
-          Delete battery
-        </button>
+            })
+          }
+        />
       )}
     </form>
   );

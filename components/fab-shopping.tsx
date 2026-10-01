@@ -10,6 +10,7 @@ import { Sheet } from "./sheet";
 import { Empty } from "./ui";
 import { ErrorText, useFabAction } from "./fab-ui";
 import { OrderForm, ReceiveForm } from "./fab-material-detail";
+import { ConfirmButton } from "./confirm-button";
 
 export function FabShopping({
   materials,
@@ -196,16 +197,15 @@ function OrderRow({ o, m, units, onReceive }: { o: FabOrder; m: FabMaterial; uni
         <button type="button" className="btn btn-primary text-sm" disabled={pending} onClick={onReceive}>
           Arrived
         </button>
-        <button
-          type="button"
+        <ConfirmButton
           className="btn btn-danger text-sm"
-          disabled={pending}
-          onClick={() => {
-            if (confirm("Remove this from the shopping list?")) del.call({ id: o.id });
-          }}
-        >
-          Remove
-        </button>
+          danger
+          pending={pending}
+          label="Remove"
+          confirmLabel="Remove it"
+          message="Take this off the shopping list?"
+          onConfirm={() => del.call({ id: o.id })}
+        />
         {m.url && (
           <a href={m.url} target="_blank" rel="noreferrer" className="text-sm underline" style={{ color: "var(--purple)" }}>
             Vendor ↗

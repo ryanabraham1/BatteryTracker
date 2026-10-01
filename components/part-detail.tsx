@@ -14,6 +14,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import { Sheet } from "./sheet";
 import { DfmPill, IssueList, Outline, PersonChip } from "./parts-ui";
 import { ErrorText, Field, LengthInput, SubmitButton, UnitsToggle, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 const FILE_ICON: Record<string, string> = { dxf: "DXF", step: "STEP", stl: "STL", pdf: "PDF", image: "IMG", other: "FILE" };
 
@@ -281,16 +282,15 @@ export function PartDetail({
             )}
           </section>
 
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-danger text-sm self-start"
-            disabled={del.pending}
-            onClick={() => {
-              if (confirm(`Delete ${p.name} and its files? ${p.source ? "It comes back on the next sync if it's still in the design." : ""}`)) del.call({ id: p.id });
-            }}
-          >
-            Delete part
-          </button>
+            danger
+            pending={del.pending}
+            label="Delete part"
+            confirmLabel="Delete for good"
+            message={`Delete ${p.name} and its files?${p.source ? " It comes back on the next sync if it's still in the design." : ""}`}
+            onConfirm={() => del.call({ id: p.id })}
+          />
           <ErrorText error={del.error} />
         </div>
       </div>
@@ -406,17 +406,15 @@ function Files({ part, files }: { part: FabPart; files: FabPartFile[] }) {
                   View
                 </a>
               )}
-              <button
-                type="button"
+              <ConfirmButton
                 className="text-xs shrink-0"
-                style={{ color: "var(--muted)" }}
-                aria-label={`Delete ${f.name}`}
-                onClick={() => {
-                  if (confirm(`Delete ${f.name}?`)) remove.call({ id: f.id });
-                }}
-              >
-                ✕
-              </button>
+                link
+                danger
+                label={<span style={{ color: "var(--muted)" }} aria-label={`Delete ${f.name}`}>✕</span>}
+                confirmLabel="Delete file"
+                message={`Delete ${f.name}?`}
+                onConfirm={() => remove.call({ id: f.id })}
+              />
             </li>
           ))}
         </ul>

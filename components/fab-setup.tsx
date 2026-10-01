@@ -6,6 +6,7 @@ import { deleteLocation, saveFabSettings, saveLocation } from "@/app/fab-actions
 import { sizeLabel, type FabLocation, type FabMaterial, type FabSettings } from "@/lib/fab";
 import type { Units } from "@/lib/units";
 import { ErrorText, Field, LengthInput, SubmitButton, useFabAction } from "./fab-ui";
+import { ConfirmButton } from "./confirm-button";
 
 export function FabSetup({
   settings,
@@ -128,18 +129,16 @@ function LocationRow({ l, count }: { l: FabLocation; count: number }) {
             Save
           </button>
         ) : (
-          <button
-            type="button"
+          <ConfirmButton
             className="btn btn-ghost text-sm"
-            disabled={del.pending}
-            onClick={() => {
-              const msg = count ? `${count} piece(s) are in ${l.name}; they'll become “No location”. Delete it?` : `Delete ${l.name}?`;
-              if (confirm(msg)) del.call({ id: l.id });
-            }}
-            aria-label={`Delete ${l.name}`}
-          >
-            ✕
-          </button>
+            link
+            danger
+            pending={del.pending}
+            label={<span aria-label={`Delete ${l.name}`}>✕</span>}
+            confirmLabel="Delete location"
+            message={count ? `${count} piece(s) are in ${l.name}; they'll become “No location”.` : `Delete ${l.name}?`}
+            onConfirm={() => del.call({ id: l.id })}
+          />
         )}
       </div>
       <span className="mono text-xs" style={{ color: "var(--muted)" }}>
