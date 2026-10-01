@@ -369,15 +369,6 @@ function IssueComposer({
         <details className="work-compose-more">
           <summary>More properties</summary>
           <div className="work-form-grid">
-            <Field label="Cycle">
-              <EntitySelect
-                disabled={pending}
-                items={items}
-                kind="cycle"
-                value={data.cycle}
-                onChange={(v) => patch("cycle", v)}
-              />
-            </Field>
             <Field label="Milestone">
               <EntitySelect
                 disabled={pending}
@@ -490,7 +481,7 @@ export function ItemEditor({
     setData((d) => ({ ...d, [key]: value }));
   }
   const issue = kind === "issue",
-    plan = ["project", "initiative", "cycle", "milestone"].includes(
+    plan = ["project", "initiative", "milestone"].includes(
       kind,
     );
   const defaultStatuses = issue
@@ -673,15 +664,6 @@ export function ItemEditor({
               <details className="work-advanced-properties">
                 <summary>More properties</summary>
                 <div className="work-form-grid">
-                  <Field label="Cycle">
-                    <EntitySelect
-                disabled={pending}
-                      items={items}
-                      kind="cycle"
-                      value={data.cycle}
-                      onChange={(v) => patch("cycle", v)}
-                    />
-                  </Field>
                   <Field label="Milestone">
                     <EntitySelect
                 disabled={pending}

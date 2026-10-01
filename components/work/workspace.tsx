@@ -52,11 +52,9 @@ const PAGE_GROUPS = [
     ],
   },
   {
-    paths: ["issues", "triage", "cycles", "views", "archive"],
+    paths: ["issues", "views", "archive"],
     tabs: [
       ["issues", "All issues"],
-      ["triage", "Triage"],
-      ["cycles", "Cycles"],
       ["views", "Saved views"],
     ],
     more: [
@@ -81,10 +79,6 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
     title: "My work",
     kind: "issue",
   },
-  triage: {
-    title: "Triage",
-    kind: "issue",
-  },
   projects: {
     title: "Projects",
     kind: "project",
@@ -92,10 +86,6 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
   initiatives: {
     title: "Initiatives",
     kind: "initiative",
-  },
-  cycles: {
-    title: "Cycles",
-    kind: "cycle",
   },
   views: {
     title: "Views",
@@ -120,7 +110,7 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
   },
 };
 function route(item: WorkItem) {
-  return `/work/${({ issue: "issues", project: "projects", milestone: "projects", initiative: "initiatives", cycle: "cycles", document: "documents", view: "views" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
+  return `/work/${({ issue: "issues", project: "projects", milestone: "projects", initiative: "initiatives", document: "documents", view: "views" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
 }
 export function WorkWorkspace({ section, entityId }: { section: string; entityId?: string; }) {
   const {snapshot, user, access} = useWork();
@@ -280,8 +270,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
   const activeFilter =
     current?.kind === "view" ? { ...current.data.filter, ...filter } : filter;
   let issues = filterIssues(items, activeFilter);
-  if (section === "triage")
-    issues = issues.filter((i) => i.data.status === "Triage");
   if (section === "my-issues")
     issues = member ? issues.filter((i) => i.data.assignee === actor) : [];
   issues = [...issues].sort((a, b) =>
@@ -310,7 +298,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
       })
     : [];
   const issueView =
-    (!current && ["issues", "triage", "my-issues"].includes(section)) ||
+    (!current && ["issues", "my-issues"].includes(section)) ||
     current?.kind === "view";
   const activeIssues = live.filter((i) => i.kind === "issue" && !done(i));
   const filtersActive = Object.values(activeFilter).some(Boolean);
@@ -668,15 +656,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                         empty="All labels"
                       />
                     </Field>
-                    <Field label="Cycle">
-                      <EntitySelect
-                        items={items}
-                        kind="cycle"
-                        value={activeFilter.cycle}
-                        onChange={(v) => updateFilter({ cycle: v })}
-                        empty="All cycles"
-                      />
-                    </Field>
                     <Field label="Priority">
                       <select
                         className="input"
@@ -721,7 +700,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                         Change status…
                       </option>
                       {[
-                        "Triage",
                         "Backlog",
                         "Todo",
                         "In progress",
@@ -752,23 +730,14 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     title={
                       filtersActive
                         ? "No matching issues"
-                        : section === "triage"
-                          ? "All caught up"
-                          : "No issues"
+                        : "No issues"
                     }
                     description={
                       filtersActive
                         ? "Try adjusting your filters or search."
-                        : section === "triage"
-                          ? "No issues need triage."
-                          : "Create an issue to get started."
+                        : "Create an issue to get started."
                     }
-                    onCreate={() =>
-                      create(
-                        "issue",
-                        section === "triage" ? { status: "Triage" } : {},
-                      )
-                    }
+                    onCreate={() => create("issue")}
                   />
                 ) : layout === "board" ? (
                   <IssueBoard
@@ -797,6 +766,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     }
                     onOpen={open}
                     onStatus={(i, status) => patch(i, { status })}
+                    onPatch={patch}
                     pending={pending || readOnly}
                     group={group}
                   />

@@ -16,12 +16,12 @@ import {
   type WorkItem,
   type WorkKind,
 } from "@/lib/work";
-import { Avatar, Labels } from "./collections";
+import { Avatar, LabelPicker } from "./collections";
 import { CommitInput, EntitySelect, Field } from "./editor";
 import { Icon, StatusIcon } from "./icons";
 import type { MilestoneActions } from "./milestone-menu";
 import { ProjectDetail } from "./project-detail";
-import { PropertyPicker } from "./property-picker";
+import { InlineEdit, PropertyPicker } from "./property-picker";
 export function RichText({ text }: { text: string }) {
   return (
     <div className="work-rich-text">
@@ -77,11 +77,9 @@ export function ItemDetail({
         ? i.data.parent === item.id
         : item.kind === "initiative"
           ? projects.some((p) => i.data.project === p.id)
-          : item.kind === "cycle"
-            ? i.data.cycle === item.id
-            : item.kind === "milestone"
-              ? i.data.milestone === item.id
-              : i.data.project === item.id),
+          : item.kind === "milestone"
+            ? i.data.milestone === item.id
+            : i.data.project === item.id),
   );
   const inverse = items.flatMap((i) =>
     (i.data.relations ?? [])
@@ -139,16 +137,12 @@ export function ItemDetail({
             </button>
           </div>
         </div>
-        <h1>{item.title}</h1>
+        <InlineEdit label="Title" value={item.title} disabled={pending} onSave={title => milestoneActions.onSave(item, { title })}><h1>{item.title}</h1></InlineEdit>
         {issue && item.data.parent && <button className="work-issue-parent" onClick={() => { const parent = items.find(i => i.id === item.data.parent); if (parent) onOpen(parent); }}><span>Sub-issue of</span><StatusIcon status={items.find(i => i.id === item.data.parent)?.data.status}/>{items.find(i => i.id === item.data.parent)?.title}</button>}
-        {!issue && <Labels item={item} items={items} />}
-        {item.data.description ? (
-          <RichText text={item.data.description} />
-        ) : (
-          <button className="work-description-placeholder" onClick={onEdit}>
-            Add a description…
-          </button>
-        )}
+        {!issue && <LabelPicker item={item} items={items} disabled={pending} onChange={labels => onPatch({ labels })} />}
+        <InlineEdit label="Description" multiline value={item.data.description ?? ""} disabled={pending} placeholder="Add a description…" onSave={description => onPatch({ description })}>
+          {item.data.description ? <RichText text={item.data.description} /> : <span className="work-description-placeholder">Add a description…</span>}
+        </InlineEdit>
         {!!item.data.attachments?.length && (
           <div className="work-import-attachments">
             {item.data.attachments.map((a) => (
@@ -215,11 +209,9 @@ export function ItemDetail({
                           team: item.data.team,
                           project: item.data.project,
                         }
-                      : item.kind === "cycle"
-                        ? { cycle: item.id, team: item.data.team }
-                        : item.kind === "milestone"
-                          ? { milestone: item.id, project: item.data.project }
-                          : { project: item.id },
+                      : item.kind === "milestone"
+                        ? { milestone: item.id, project: item.data.project }
+                        : { project: item.id },
                   )
                 }
               >
@@ -379,7 +371,7 @@ export function ItemDetail({
             empty="Unassigned"
           />
         </Field>
-        {issue && <section className="work-detail-labels"><h2>Labels</h2><Labels item={item} items={items}/><button className="work-text-button" onClick={onEdit} disabled={pending}><Icon name="plus" size={14}/> Add label</button></section>}
+        {issue && <section className="work-detail-labels"><h2>Labels</h2><LabelPicker item={item} items={items} disabled={pending} onChange={labels => onPatch({ labels })}/></section>}
         {issue && (
           <>
             <Field label="Project">
@@ -393,15 +385,6 @@ export function ItemDetail({
             </Field>
             <Field label="Milestone">
               <EntitySelect disabled={pending} kind="milestone" items={items.filter(i => i.kind !== "milestone" || i.data.project === item.data.project)} value={item.data.milestone} onChange={milestone => onPatch({milestone})}/>
-            </Field>
-            <Field label="Cycle">
-              <EntitySelect
-                disabled={pending}
-                kind="cycle"
-                items={items}
-                value={item.data.cycle}
-                onChange={(v) => onPatch({ cycle: v })}
-              />
             </Field>
             <Field label="Due date">
               <CommitInput

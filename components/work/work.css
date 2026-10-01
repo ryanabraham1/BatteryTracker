@@ -2328,3 +2328,14 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 .work-milestone-form-date { display:flex; align-items:center; gap:10px; }
 .work-milestone-form-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
 .work-milestone-form-actions .work-muted { margin-right:auto; }
+.work-inline-edit > [role=button] { border-radius:8px; cursor:text; }
+.work-inline-edit:not([data-disabled=true]) > [role=button]:hover { background:var(--paper); outline:6px solid var(--paper); }
+.work-inline-editing { display:grid; gap:8px; }
+.work-inline-editing textarea.input { width:100%; resize:vertical; }
+.work-inline-editing > div { display:flex; align-items:center; gap:10px; }
+.work-picker-options > button[role=menuitemcheckbox] { display:flex; align-items:center; gap:8px; width:100%; padding:7px 9px; border-radius:7px; text-align:left; color:inherit; }
+.work-picker-options > button[role=menuitemcheckbox]:hover { background:var(--paper); }
+.work-picker-options > button[role=menuitemcheckbox] > svg { margin-left:auto; }
+.work-row-prop { flex-shrink:0; }
+.work-row-prop .work-property-button { padding:2px 4px; min-height:24px; width:auto; }
+.work-label-picker { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }

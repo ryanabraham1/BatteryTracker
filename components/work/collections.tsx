@@ -10,12 +10,13 @@ import {
   progress,
   STATUSES,
   uniqueStatuses,
+  type WorkData,
   type WorkItem,
   type WorkKind,
 } from "@/lib/work";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
 import { clusterMilestones } from "@/lib/work-timeline";
-import { PropertyPicker } from "./property-picker";
+import { MultiPicker, PropertyPicker } from "./property-picker";
 import { Icon, MilestoneIcon, StatusIcon } from "./icons";
 export function Labels({ item, items }: { item: WorkItem; items: WorkItem[] }) {
   return (
@@ -34,6 +35,18 @@ export function Labels({ item, items }: { item: WorkItem; items: WorkItem[] }) {
       })}
     </span>
   );
+}
+/** Labels with a small checklist popover to add or remove them in place. */
+export function LabelPicker({ item, items, disabled, onChange }: { item: WorkItem; items: WorkItem[]; disabled: boolean; onChange: (labels: string[]) => void }) {
+  const all = items.filter(i => i.kind === "label" && !i.archived && !i.deleted_at);
+  const valid = (item.data.labels ?? []).filter(id => all.some(l => l.id === id));
+  return <span className="work-label-picker">
+    <Labels item={item} items={items} />
+    <MultiPicker label="Labels" disabled={disabled} values={valid} onChange={onChange} empty="Create labels in Settings → Labels"
+      options={all.map(l => ({ value: l.id, label: l.title, color: l.data.color }))}>
+      <Icon name="plus" size={14} /> {valid.length ? "Edit" : "Add label"}
+    </MultiPicker>
+  </span>;
 }
 export function Avatar({
   name,
@@ -101,6 +114,7 @@ export function IssueList({
   onSelect,
   onOpen,
   onStatus,
+  onPatch,
   pending,
   group,
 }: {
@@ -110,6 +124,7 @@ export function IssueList({
   onSelect: (id: string) => void;
   onOpen: (item: WorkItem) => void;
   onStatus: (item: WorkItem, status: string) => void;
+  onPatch: (item: WorkItem, data: WorkData) => void;
   pending: boolean;
   group: string;
 }) {
@@ -151,17 +166,9 @@ export function IssueList({
                   checked={selected.includes(item.id)}
                   onChange={() => onSelect(item.id)}
                 />
-                <span
-                  className="work-priority"
-                  data-priority={item.data.priority}
-                  title={PRIORITIES[item.data.priority ?? 0]}
-                >
-                  {item.data.priority === 1
-                    ? "!"
-                    : item.data.priority
-                      ? "▥"
-                      : "—"}
-                </span>
+                <div className="work-row-prop"><PropertyPicker label={`Priority for ${item.title}`} value={String(item.data.priority ?? 0)} disabled={pending} onChange={v => onPatch(item, { priority: Number(v) })}
+                  display={<span className="work-priority" data-priority={item.data.priority}>{item.data.priority === 1 ? "!" : item.data.priority ? "▥" : "—"}</span>}
+                  options={PRIORITIES.map((p, n) => ({ value: String(n), label: p }))} /></div>
                 <span className="work-code">{issueCode(item, items)}</span>
                 <div className="work-row-status-picker"><PropertyPicker label={`Status for ${item.title}`} value={item.data.status ?? "Backlog"} disabled={pending} onChange={status => onStatus(item,status)} display={<span className="work-sr-only">{item.data.status ?? "Backlog"}</span>} options={uniqueStatuses([item.data.status ?? "Backlog", ...STATUSES, ...rows.map(i => i.data.status ?? "Backlog")]).map(s => ({value:s,label:s,icon:<StatusIcon status={s}/>}))}/></div>
                 <button className="work-row-title" onClick={() => onOpen(item)}>
@@ -174,10 +181,9 @@ export function IssueList({
                 <span className="work-row-date">
                   {item.data.due && dateLabel(item.data.due)}
                 </span>
-                <Avatar
-                  small
-                  name={items.find((i) => i.id === item.data.assignee)?.title}
-                />
+                <div className="work-row-prop"><PropertyPicker label={`Assignee for ${item.title}`} value={item.data.assignee ?? ""} disabled={pending} onChange={assignee => onPatch(item, { assignee })}
+                  display={<Avatar small name={items.find((i) => i.id === item.data.assignee)?.title} />}
+                  options={[{ value: "", label: "Unassigned" }, ...items.filter(i => i.kind === "member" && !i.archived && !i.deleted_at).map(m => ({ value: m.id, label: m.title }))]} /></div>
               </div>
             ))}
           </section>
@@ -319,11 +325,9 @@ export function Collection({
               ? projects.some((p) => p.id === i.data.project)
               : kind === "project"
                 ? i.data.project === item.id
-                : kind === "cycle"
-                  ? i.data.cycle === item.id
-                  : kind === "milestone"
-                    ? i.data.milestone === item.id
-                    : false),
+                : kind === "milestone"
+                  ? i.data.milestone === item.id
+                  : false),
         );
         const pct = progress(children);
         return (
@@ -353,7 +357,6 @@ export function Collection({
             {[
               "project",
               "initiative",
-              "cycle",
               "milestone",
             ].includes(kind) && (
               <>

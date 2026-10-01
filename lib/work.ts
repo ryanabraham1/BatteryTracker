@@ -15,7 +15,6 @@ export const WORK_KINDS = [
 ] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
 export const STATUSES = [
-  "Triage",
   "Backlog",
   "Todo",
   "In progress",

@@ -1,12 +1,12 @@
 "use client";
 import { useRef, useState } from "react";
 import { dateLabel, today, done, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
-import { Avatar, Labels, Empty } from "./collections";
+import { Avatar, LabelPicker, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
 import { CommitInput, EntitySelect, Field, Modal } from "./editor";
 import { Icon, MilestoneIcon, PROJECT_ICONS, StatusIcon } from "./icons";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
-import { PropertyPicker } from "./property-picker";
+import { InlineEdit, PropertyPicker } from "./property-picker";
 
 const STATUS_ORDER = ["backlog", "todo", "planned", "in progress", "in review", "done", "completed", "canceled", "cancelled", "duplicate"];
 const statusRank = (s: string) => { const r = STATUS_ORDER.indexOf(s.toLowerCase()); return r < 0 ? 5 : r; };
@@ -83,8 +83,8 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
       <main className="work-project-content">
         {tab === "Overview" && <>
           <div className="work-project-heading"><ProjectEmblemPicker icon={item.data.icon} color={item.data.color} disabled={pending} onChange={onPatch} /><button className="work-text-button" onClick={onEdit}>Edit project</button></div>
-          <h1>{item.title}</h1>
-          {item.data.description ? <RichText text={item.data.description} /> : <button className="work-description-placeholder" onClick={onEdit}>Add a short summary…</button>}
+          <InlineEdit label="Project name" value={item.title} disabled={pending} onSave={title => milestoneActions.onSave(item, { title })}><h1>{item.title}</h1></InlineEdit>
+          <InlineEdit label="Summary" multiline value={item.data.description ?? ""} disabled={pending} placeholder="Add a short summary…" onSave={description => onPatch({ description })}>{item.data.description ? <RichText text={item.data.description} /> : <span className="work-description-placeholder">Add a short summary…</span>}</InlineEdit>
           <div className="work-project-inline-properties"><StatusIcon status={item.data.status} /><span>{item.data.status || "Planned"}</span><span className="work-priority" data-priority={item.data.priority}>{PRIORITIES[item.data.priority ?? 0]}</span><Avatar small name={items.find(i => i.id === item.data.assignee)?.title} /><span>{dateLabel(item.data.start)} → {dateLabel(item.data.due)}</span></div>
           <Labels item={item} items={items} />
           <section className="work-project-resources"><div className="work-section-title"><h2>Resources</h2><button className="work-text-button" disabled={pending} onClick={() => onCreate("document", { project: item.id })}><Icon name="plus" size={14} /> Add document</button></div>
@@ -127,7 +127,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
           <Field label="Dates"><div className="work-project-dates"><CommitInput className="work-inline-date" type="date" aria-label="Project start date" disabled={pending} value={item.data.start || ""} onCommit={start => onPatch({start})}/> <span>→</span><CommitInput className="work-inline-date" type="date" aria-label="Project target date" disabled={pending} value={item.data.due || ""} onCommit={due => onPatch({due})}/></div></Field>
           <Field label="Team"><EntitySelect disabled={pending} kind="team" items={items} value={item.data.team} onChange={team => !pending && onPatch({team})}/></Field>
           <Field label="Initiative"><EntitySelect disabled={pending} kind="initiative" items={items} value={item.data.initiative} onChange={initiative => !pending && onPatch({initiative})}/></Field>
-          <Field label="Labels"><div className="work-project-label-controls"><Labels item={item} items={items}/><button className="work-text-button" onClick={onEdit} disabled={pending}>Edit labels</button></div></Field>
+          <Field label="Labels"><div className="work-project-label-controls"><LabelPicker item={item} items={items} disabled={pending} onChange={labels => onPatch({ labels })}/></div></Field>
         </section>
         <section className="work-project-property-card"><div className="work-section-title"><h2>Milestones</h2><button className="work-icon-button" aria-label="Add milestone" disabled={pending} onClick={() => onCreate("milestone", {project:item.id})}><Icon name="plus" size={15}/></button></div>
           {milestoneRows()}{!milestones.length && <p className="work-muted">Add milestones to track project stages.</p>}
