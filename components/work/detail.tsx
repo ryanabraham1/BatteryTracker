@@ -21,6 +21,7 @@ import { CommitInput, EntitySelect, Field } from "./editor";
 import { Icon, StatusIcon } from "./icons";
 import type { MilestoneActions } from "./milestone-menu";
 import { ProjectDetail } from "./project-detail";
+import { useIssueMenu, type IssueActions } from "./issue-menu";
 import { InlineEdit, PropertyPicker } from "./property-picker";
 export function RichText({ text }: { text: string }) {
   return (
@@ -43,8 +44,10 @@ export function ItemDetail({
   onArchive,
   onDelete,
   milestoneActions,
+  issueActions,
 }: {
   milestoneActions: MilestoneActions;
+  issueActions: IssueActions;
   item: WorkItem;
   items: WorkItem[];
   events: WorkEvent[];
@@ -97,12 +100,14 @@ export function ItemDetail({
                 : "related",
       })),
   );
+  const issueMenu = useIssueMenu(items, issueActions);
   const history = events
     .filter((e) => e.item_id === item.id)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  if (item.kind === "project") return <ProjectDetail key={item.id} {...{item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions}} />;
+  if (item.kind === "project") return <ProjectDetail key={item.id} {...{item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions, issueActions}} />;
   return (
     <div className="work-detail" data-kind={item.kind}>
+      {issueMenu.element}
       <div className="work-detail-main">
         <div className="work-detail-kicker">
           <span className="work-code">
@@ -231,6 +236,7 @@ export function ItemDetail({
                   key={i.id}
                   className="work-child"
                   onClick={() => onOpen(i)}
+                  onContextMenu={(e) => issueMenu.show(i, e)}
                 >
                   <StatusIcon status={i.data.status} />
                   <span className="work-code">{issueCode(i, items)}</span>

@@ -8,6 +8,7 @@ import { Avatar, LabelPicker, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
 import { CommitInput, EntitySelect, Field, Modal } from "./editor";
 import { Icon, MilestoneIcon, PROJECT_ICONS, StatusIcon } from "./icons";
+import { useIssueMenu, type IssueActions } from "./issue-menu";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
 import { InlineEdit, PropertyPicker } from "./property-picker";
 import { IssueFilterFields } from "./filter-fields";
@@ -30,8 +31,9 @@ function ProjectEmblemPicker({ icon, color, disabled, onChange }: { icon?: strin
 function healthLabel(health: string) { return ({offTrack:"Off track", atRisk:"At risk", onTrack:"On track"} as Record<string,string>)[health] || health; }
 
 type Tab = "Overview" | "Activity" | "Issues" | "Updates";
-export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions }: {
+export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions, issueActions }: {
   milestoneActions: MilestoneActions;
+  issueActions: IssueActions;
   item: WorkItem; items: WorkItem[]; events: WorkEvent[]; pending: boolean;
   onEdit: () => void; onPatch: (data: WorkData) => void;
   onComment: (body: string, type?: string) => Promise<boolean>;
@@ -40,6 +42,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
 }) {
   const [tab, setTab] = useState<Tab>("Overview");
   const milestoneMenu = useMilestoneMenu(milestoneActions);
+  const issueMenu = useIssueMenu(items, issueActions);
   const [composer, setComposer] = useState(false);
   const { user } = useWork();
   const router = useRouter();
@@ -146,7 +149,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
                 </button>
                 <button className="work-icon-button" aria-label={`Add ${label} issue`} disabled={pending} onClick={() => onCreate("issue", { project: item.id, team: item.data.team, status: label, ...(milestone ? { milestone } : {}) })}><Icon name="plus" size={14}/></button>
               </div>
-              {!closed && rows.map(i => <button className="work-project-issue-row" key={i.id} onClick={() => onOpen(i)}><StatusIcon status={i.data.status} /><span className="work-code">{issueCode(i, items)}</span><span>{i.title}</span>{i.data.due && <time>{dateLabel(i.data.due)}</time>}<Avatar small name={items.find(m => m.id === i.data.assignee)?.title}/></button>)}
+              {!closed && rows.map(i => <button className="work-project-issue-row" key={i.id} onClick={() => onOpen(i)} onContextMenu={e => issueMenu.show(i, e)}><StatusIcon status={i.data.status} /><span className="work-code">{issueCode(i, items)}</span><span>{i.title}</span>{i.data.due && <time>{dateLabel(i.data.due)}</time>}<Avatar small name={items.find(m => m.id === i.data.assignee)?.title}/></button>)}
             </section>;
           })}
           {!filtered.length && <Empty title="No issues here" description={milestone ? "Add an issue to this milestone or clear the filter." : "Create the first issue for this project."} />}
@@ -172,7 +175,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
         <details className="work-project-manage"><summary>Manage project</summary><button className="work-text-button" disabled={pending} onClick={onArchive}>{item.archived ? "Restore from archive" : "Archive project"}</button><button className="work-text-button" disabled={pending} onClick={onDelete}>Move to trash</button></details>
       </aside>}
     </div>
-    {milestoneMenu.element}
+    {milestoneMenu.element}{issueMenu.element}
     {composer && <Modal title="Project update" onClose={() => setComposer(false)}><form className="work-update-composer" onSubmit={async e => { e.preventDefault(); if (await onComment(body, "update")) { setBody(""); setComposer(false); } }}><h2>{item.title}</h2><textarea autoFocus className="input" aria-label="Project update" placeholder="Share progress, blockers, and next steps…" rows={8} required value={body} onChange={e => setBody(e.target.value)}/><div><span className="work-muted">Markdown supported</span><button className="btn btn-primary" disabled={pending || !body.trim()}>{pending ? "Posting…" : "Post update"}</button></div></form></Modal>}
   </div>;
 }

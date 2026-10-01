@@ -788,6 +788,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                 }}
                 onPatch={(data) => patch(current, data)}
                 milestoneActions={milestoneActions}
+                issueActions={issueActions}
                 onComment={(body, type) =>
                   new Promise((resolve) =>
                     startTransition(async () => {
