@@ -1,9 +1,9 @@
 "use client";
 import { useRef, useState } from "react";
-import { dateLabel, done, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
+import { dateLabel, today, done, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
 import { Avatar, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
-import { EntitySelect, Field, Modal } from "./editor";
+import { CommitInput, EntitySelect, Field, Modal } from "./editor";
 import { Icon, MilestoneIcon, PROJECT_ICONS, StatusIcon } from "./icons";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
 import { PropertyPicker } from "./property-picker";
@@ -63,7 +63,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   function milestoneRows() {
     return milestones.map(m => {
       const status = milestoneProgress(m, issues);
-      const overdue = !status.complete && !!m.data.due && m.data.due < new Date().toLocaleDateString("en-CA");
+      const overdue = !status.complete && !!m.data.due && m.data.due < today();
       return <div key={m.id} className="work-milestone-entry" onContextMenu={e => milestoneMenu.show(m, e)}><button className="work-milestone-row" onClick={() => { setMilestone(m.id); setTab("Issues"); }} title={`${m.title}: ${status.completed}/${status.total} completed. Click to view issues.`}>
         <MilestoneIcon percent={status.percent} complete={status.complete} overdue={overdue} />
         <span className="work-milestone-name"><b>{m.title}</b><small>{status.percent}%</small></span>
@@ -124,7 +124,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
           <Field label="Status"><PropertyPicker label="Status" value={item.data.status || "Planned"} disabled={pending} onChange={status => onPatch({ status })} options={uniqueStatuses([item.data.status || "Planned", "Planned", "In progress", "Done", "Canceled"]).map(s => ({ value: s, label: s, icon: <StatusIcon status={s}/> }))}/></Field>
           <Field label="Priority"><PropertyPicker label="Priority" value={String(item.data.priority ?? 0)} disabled={pending} onChange={v => onPatch({ priority: Number(v) })} icon={<Icon name="insights" size={15}/>} options={PRIORITIES.map((p,n) => ({value:String(n),label:p}))}/></Field>
           <Field label="Lead"><EntitySelect disabled={pending} kind="member" items={items} value={item.data.assignee} onChange={assignee => !pending && onPatch({assignee})} empty="Assign lead" /></Field>
-          <Field label="Dates"><div className="work-project-dates"><input className="work-inline-date" type="date" aria-label="Project start date" disabled={pending} value={item.data.start || ""} onChange={e => onPatch({start:e.target.value})}/> <span>→</span><input className="work-inline-date" type="date" aria-label="Project target date" disabled={pending} value={item.data.due || ""} onChange={e => onPatch({due:e.target.value})}/></div></Field>
+          <Field label="Dates"><div className="work-project-dates"><CommitInput className="work-inline-date" type="date" aria-label="Project start date" disabled={pending} value={item.data.start || ""} onCommit={start => onPatch({start})}/> <span>→</span><CommitInput className="work-inline-date" type="date" aria-label="Project target date" disabled={pending} value={item.data.due || ""} onCommit={due => onPatch({due})}/></div></Field>
           <Field label="Team"><EntitySelect disabled={pending} kind="team" items={items} value={item.data.team} onChange={team => !pending && onPatch({team})}/></Field>
           <Field label="Initiative"><EntitySelect disabled={pending} kind="initiative" items={items} value={item.data.initiative} onChange={initiative => !pending && onPatch({initiative})}/></Field>
           <Field label="Labels"><div className="work-project-label-controls"><Labels item={item} items={items}/><button className="work-text-button" onClick={onEdit} disabled={pending}>Edit labels</button></div></Field>

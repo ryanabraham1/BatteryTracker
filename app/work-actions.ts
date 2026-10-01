@@ -130,16 +130,33 @@ export async function mutateWork(
           (c.deleted !== undefined && typeof c.deleted !== "boolean")
         )
           throw new Error("Invalid archive action.");
-        const valid = validateWorkInput(before.kind, c.title ?? before.title, {
-          ...before.data,
-          ...c.data,
-        });
+        // Validate only what this change sets, so stored values from imports or
+        // since-trashed references can't block an unrelated edit.
+        const changed = Object.fromEntries(
+          Object.entries(c.data ?? {}).filter(
+            ([k, v]) =>
+              JSON.stringify(v) !==
+              JSON.stringify((before.data as Record<string, unknown>)[k]),
+          ),
+        );
+        const valid = validateWorkInput(
+          before.kind,
+          c.title ?? before.title,
+          changed,
+          before.data,
+        );
         await references(valid.data, c.id, before.kind);
+        // The database resets a recurring issue's next date unless due/recurrence
+        // are restated, so carry the stored values along.
+        const keep: WorkData = {};
+        if (before.data.due !== undefined) keep.due = before.data.due;
+        if (before.data.recurrence !== undefined)
+          keep.recurrence = before.data.recurrence;
         normalized.push({
           id: c.id,
           revision: c.revision,
           title: valid.title,
-          data: valid.data,
+          data: { ...keep, ...valid.data },
           ...(c.archived !== undefined ? { archived: c.archived } : {}),
           ...(c.deleted !== undefined ? { deleted: c.deleted } : {}),
         });

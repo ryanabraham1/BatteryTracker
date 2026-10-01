@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 export const PROJECT_ICONS = ["projects","rocket","bolt","gear","wrench","target","flag","cube","battery","bot","star","heart","flame","trophy","timeline","insights"];
 const paths: Record<string, string> = {
   issues: "M4 5h16M4 12h16M4 19h16",
@@ -12,6 +12,7 @@ const paths: Record<string, string> = {
   updates: "M4 4h16v13H8l-4 4zM8 8h8M8 12h5",
   insights: "M4 20V4M4 20h17M8 16v-5M13 16V7M18 16V3",
   requests: "M4 6h16v14H4zM4 6l8 7 8-7",
+  customers: "M4 6h16v14H4zM4 6l8 7 8-7",
   releases: "M12 3l8 5v9l-8 5-8-5V8zM4 8l8 5 8-5M12 13v9",
   archive: "M3 3h18v5H3zM5 8v13h14V8M9 12h6",
   settings: "M4 7h16M4 17h16M8 4v6M16 14v6",
@@ -91,7 +92,7 @@ export function StatusIcon({ status = "Backlog" }: { status?: string }) {
 /** Diamond that fills from the bottom up with milestone progress (Linear-style). */
 export function MilestoneIcon({ percent = 0, complete = false, overdue = false, size = 15 }: { percent?: number; complete?: boolean; overdue?: boolean; size?: number }) {
   const pct = complete ? 100 : Math.max(0, Math.min(100, percent));
-  const id = `ms-${Math.round(pct)}-${size}`;
+  const id = `ms-${useId().replace(/:/g, "")}`;
   const color = complete ? "var(--purple)" : overdue ? "#cf5959" : "var(--muted)";
   return (
     <span className="work-milestone-diamond" data-complete={complete} data-overdue={overdue} title={`${pct}%`} style={{ color }}>

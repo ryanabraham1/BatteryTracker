@@ -17,7 +17,7 @@ import {
   type WorkKind,
 } from "@/lib/work";
 import { Avatar, Labels } from "./collections";
-import { EntitySelect, Field } from "./editor";
+import { CommitInput, EntitySelect, Field } from "./editor";
 import { Icon, StatusIcon } from "./icons";
 import type { MilestoneActions } from "./milestone-menu";
 import { ProjectDetail } from "./project-detail";
@@ -79,13 +79,9 @@ export function ItemDetail({
           ? projects.some((p) => i.data.project === p.id)
           : item.kind === "cycle"
             ? i.data.cycle === item.id
-            : item.kind === "release"
-              ? i.data.release === item.id
-              : item.kind === "customer"
-                ? i.data.customer === item.id
-                : item.kind === "milestone"
-                  ? i.data.milestone === item.id
-                  : i.data.project === item.id),
+            : item.kind === "milestone"
+              ? i.data.milestone === item.id
+              : i.data.project === item.id),
   );
   const inverse = items.flatMap((i) =>
     (i.data.relations ?? [])
@@ -223,11 +219,7 @@ export function ItemDetail({
                         ? { cycle: item.id, team: item.data.team }
                         : item.kind === "milestone"
                           ? { milestone: item.id, project: item.data.project }
-                          : item.kind === "release"
-                            ? { release: item.id, project: item.data.project }
-                            : item.kind === "customer"
-                              ? { customer: item.id, status: "Triage" }
-                              : { project: item.id },
+                          : { project: item.id },
                   )
                 }
               >
@@ -412,26 +404,31 @@ export function ItemDetail({
               />
             </Field>
             <Field label="Due date">
-              <input
+              <CommitInput
                 className="input"
                 type="date"
+                aria-label="Due date"
+                disabled={pending}
                 value={item.data.due ?? ""}
-                onChange={(e) => onPatch({ due: e.target.value })}
+                onCommit={(due) => onPatch({ due })}
               />
             </Field>
             <Field label="Estimate">
-              <input
+              <CommitInput
                 className="input"
                 type="number"
                 min={0}
                 max={100}
-                value={item.data.estimate ?? 0}
-                onChange={(e) => onPatch({ estimate: Number(e.target.value) })}
+                step={1}
+                aria-label="Estimate"
+                disabled={pending}
+                value={String(item.data.estimate ?? 0)}
+                onCommit={(v) => onPatch({ estimate: Math.min(100, Math.max(0, Math.round(Number(v) || 0))) })}
               />
             </Field>
           </>
         )}
-        {item.kind === "milestone" && <><Field label="Project"><EntitySelect disabled={pending} kind="project" items={items} value={item.data.project} onChange={project => onPatch({project})}/></Field><Field label="Target date"><input className="input" type="date" aria-label="Milestone target date" disabled={pending} value={item.data.due || ""} onChange={e => onPatch({due:e.target.value})}/></Field></>}
+        {item.kind === "milestone" && <><Field label="Project"><EntitySelect disabled={pending} kind="project" items={items} value={item.data.project} onChange={project => onPatch({project})}/></Field><Field label="Target date"><CommitInput className="input" type="date" aria-label="Milestone target date" disabled={pending} value={item.data.due || ""} onCommit={due => onPatch({due})}/></Field></>}
         {!["issue", "document"].includes(item.kind) && (
           <div className="work-detail-progress">
             <div className="work-progress">

@@ -52,7 +52,7 @@ const PAGE_GROUPS = [
     ],
   },
   {
-    paths: ["issues", "triage", "cycles", "views", "requests", "archive"],
+    paths: ["issues", "triage", "cycles", "views", "archive"],
     tabs: [
       ["issues", "All issues"],
       ["triage", "Triage"],
@@ -60,15 +60,7 @@ const PAGE_GROUPS = [
       ["views", "Saved views"],
     ],
     more: [
-      ["requests", "Requests"],
       ["archive", "Archive & trash"],
-    ],
-  },
-  {
-    paths: ["projects", "releases"],
-    tabs: [
-      ["projects", "Projects"],
-      ["releases", "Releases"],
     ],
   },
   {
@@ -120,14 +112,6 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
   insights: {
     title: "Team",
   },
-  requests: {
-    title: "Requests",
-    kind: "customer",
-  },
-  releases: {
-    title: "Releases",
-    kind: "release",
-  },
   archive: {
     title: "Archive & trash",
   },
@@ -136,7 +120,7 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
   },
 };
 function route(item: WorkItem) {
-  return `/work/${({ issue: "issues", project: "projects", milestone: "projects", initiative: "initiatives", cycle: "cycles", document: "documents", view: "views", customer: "requests", release: "releases" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
+  return `/work/${({ issue: "issues", project: "projects", milestone: "projects", initiative: "initiatives", cycle: "cycles", document: "documents", view: "views" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
 }
 export function WorkWorkspace({ section, entityId }: { section: string; entityId?: string; }) {
   const {snapshot, user, access} = useWork();
@@ -197,6 +181,8 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     (PAGE_GROUPS.find((g) => g.paths.includes(path))?.paths ?? [path]).includes(
       section,
     );
+  const teams = useMemo(() => live.filter((i) => i.kind === "team"), [live]);
+  const soleTeamPreset = useMemo<WorkData>(() => (teams.length === 1 ? { team: teams[0].id } : {}), [teams]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 4500);
@@ -214,17 +200,21 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
         !typing &&
         !e.metaKey &&
         !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey &&
         e.key.toLowerCase() === "c" &&
         !editor &&
-        !command
+        !command &&
+        !document.querySelector("dialog[open]")
       ) {
         e.preventDefault();
-        setEditor({ kind: "issue" });
+        if (readOnly) setError("Your account has view-only access.");
+        else setEditor({ kind: "issue", preset: soleTeamPreset });
       }
     }
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [editor, command]);
+  }, [editor, command, readOnly, soleTeamPreset]);
   function create(kind: WorkKind = info?.kind ?? "issue", preset?: WorkData) {
     if (readOnly) {
       setError("Your account has view-only access.");
@@ -233,21 +223,17 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     setError("");
     setEditor({
       kind,
-      preset: {
-        ...(kind === "issue" &&
-        live.filter((i) => i.kind === "team").length === 1
-          ? { team: live.find((i) => i.kind === "team")?.id }
-          : {}),
-        ...preset,
-      },
+      preset: { ...(kind === "issue" ? soleTeamPreset : {}), ...preset },
     });
   }
   function open(item: WorkItem) {
+    setError("");
     setSelected([]);
     setSidebarOpen(false);
     router.push(route(item));
   }
   function navigate(path: string) {
+    setError("");
     setFilter({});
     setSelected([]);
     setSidebarOpen(false);
@@ -270,22 +256,24 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     setToast(success);
     return result.items;
   }
+  // Menus and dialogs hold the item they opened on, so always save against the latest revision.
+  const latest = (item: WorkItem) => items.find((i) => i.id === item.id) ?? item;
   function patch(item: WorkItem, data: WorkData) {
     startTransition(async () => {
       applyOptimistic([{ id: item.id, data }]);
-      await change([{ id: item.id, revision: item.revision, data }]);
+      await change([{ id: item.id, revision: latest(item).revision, data }]);
     });
   }
   function saveItem(item: WorkItem, changes: { title?: string; data?: WorkData }) {
     startTransition(async () => {
       applyOptimistic([{ id: item.id, ...changes }]);
-      await change([{ id: item.id, revision: item.revision, ...changes }]);
+      await change([{ id: item.id, revision: latest(item).revision, ...changes }]);
     });
   }
   function trashItem(item: WorkItem) {
     startTransition(async () => {
       applyOptimistic([{ id: item.id, deleted: true }]);
-      await change([{ id: item.id, revision: item.revision, deleted: true }], "Moved to trash");
+      await change([{ id: item.id, revision: latest(item).revision, deleted: true }], "Moved to trash");
     });
   }
   const milestoneActions = { onSave: saveItem, onTrash: trashItem, onOpen: open, disabled: pending || readOnly };
@@ -573,9 +561,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                       onClick={() => create()}
                     >
                       <Icon name="plus" size={16} />
-                      {section === "requests"
-                        ? "Add requester"
-                        : `New ${KIND_NAMES[info.kind].toLowerCase()}`}
+                      New {KIND_NAMES[info.kind].toLowerCase()}
                     </button>
                   )}
                   {section === "views" && (
@@ -1227,20 +1213,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                   onOpen={open}
                   onCreate={() => create()}
                 />
-                {section === "requests" && (
-                  <div className="work-settings-intro">
-                    <p>
-                      Requests are issues in Triage. Link them to a requester to
-                      keep their feedback together.
-                    </p>
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => create("issue", { status: "Triage" })}
-                    >
-                      Submit request
-                    </button>
-                  </div>
-                )}
               </>
             ) : null}
           </>

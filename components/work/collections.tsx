@@ -2,6 +2,7 @@
 import { useState } from "react";
 import {
   dateLabel,
+  today as todayKey,
   done,
   issueCode,
   milestoneProgress,
@@ -320,13 +321,9 @@ export function Collection({
                 ? i.data.project === item.id
                 : kind === "cycle"
                   ? i.data.cycle === item.id
-                  : kind === "release"
-                    ? i.data.release === item.id
-                    : kind === "customer"
-                      ? i.data.customer === item.id
-                      : kind === "milestone"
-                        ? i.data.milestone === item.id
-                        : false),
+                  : kind === "milestone"
+                    ? i.data.milestone === item.id
+                    : false),
         );
         const pct = progress(children);
         return (
@@ -357,8 +354,6 @@ export function Collection({
               "project",
               "initiative",
               "cycle",
-              "release",
-              "customer",
               "milestone",
             ].includes(kind) && (
               <>
@@ -401,7 +396,7 @@ export function Timeline({ projects, items, onOpen, milestoneActions }: { projec
   const milestoneMenu = useMilestoneMenu(milestoneActions);
   const [scale, setScale] = useState("month");
   const [focusToday, setFocusToday] = useState(true);
-  const now = new Date().toLocaleDateString("en-CA");
+  const now = todayKey();
   const today = Date.parse(now);
   const day = 86400000;
   const milestones = items.filter(i => i.kind === "milestone" && !i.archived && !i.deleted_at && projects.some(p => p.id === i.data.project));

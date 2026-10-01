@@ -177,6 +177,10 @@ export function milestoneProgress(milestone: WorkItem, items: WorkItem[]) {
   const percent = issues.length ? Math.round(100 * (completed + started / 4) / issues.length) : done(milestone) ? 100 : 0;
   return { total: issues.length, completed, percent, complete: done(milestone) || (issues.length > 0 && completed === issues.length) };
 }
+/** Today's date in the team's timezone, so server and browser agree on overdue. */
+export function today() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
 export function dateLabel(date?: string) {
   return date
     ? new Date(`${date.slice(0, 10)}T12:00:00`).toLocaleDateString("en-US", {
@@ -189,6 +193,7 @@ export function validateWorkInput(
   kind: unknown,
   title: unknown,
   input: unknown,
+  existing: WorkData = {},
 ): { kind: WorkKind; title: string; data: WorkData } {
   if (!WORK_KINDS.includes(kind as WorkKind))
     throw new Error("Choose a valid item type.");
@@ -273,7 +278,9 @@ export function validateWorkInput(
         throw new Error(`Invalid ${k} date.`);
       data[k] = d[k];
     }
-  if (d.start && d.due && String(d.start) > String(d.due))
+  // Cross-field rules judge the result of the change, but only when it touches those fields.
+  const merged = () => ({ ...existing, ...data }) as WorkData;
+  if (("start" in data || "due" in data) && merged().start && merged().due && merged().start! > merged().due!)
     throw new Error("End date must be after the start date.");
   for (const k of ["labels", "subscribers", "favorites"])
     if (d[k] !== undefined) {
@@ -351,7 +358,7 @@ export function validateWorkInput(
       throw new Error("Invalid repeat date.");
     data.nextRepeat = d.nextRepeat;
   }
-  if (data.recurrence && !data.due)
+  if (("recurrence" in data || "due" in data) && merged().recurrence && !merged().due)
     throw new Error("Set a due date for a recurring issue.");
   return {
     kind: kind as WorkKind,

@@ -120,3 +120,13 @@ test("status choices deduplicate imported capitalization while preserving the se
   const { uniqueStatuses } = await import("../lib/work.ts");
   assert.deepEqual(uniqueStatuses(["In Progress", "Backlog", "In progress", "Done", "done"]), ["In Progress", "Backlog", "Done"]);
 });
+
+test("an edit is judged against stored values only for the fields it touches", () => {
+  const stored = { start: "2026-10-10", due: "2026-10-01", recurrence: "weekly", estimate: 0.5 };
+  // Untouched legacy values don't block an unrelated change.
+  assert.deepEqual(validateWorkInput("project", "p", { status: "Done" }, stored).data, { status: "Done" });
+  // Touching a date re-checks the pair, and recurrence still needs a due date.
+  assert.throws(() => validateWorkInput("project", "p", { due: "2026-09-01" }, { start: "2026-10-10" }));
+  assert.throws(() => validateWorkInput("issue", "i", { due: "" }, { recurrence: "weekly", due: "2026-10-01" }));
+  assert.throws(() => validateWorkInput("issue", "i", { recurrence: "weekly" }, {}));
+});

@@ -70,6 +70,50 @@ export function Field({
     </div>
   );
 }
+/** Saves once the field is finished (blur, Enter, or a picked date) instead of on every keystroke. */
+export function CommitInput({
+  value,
+  onCommit,
+  disabled = false,
+  ...rest
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+  disabled?: boolean;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "disabled">) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const shown = draft ?? value;
+  function commit(next: string) {
+    if (timer.current) clearTimeout(timer.current);
+    setDraft(null);
+    if (next !== value) onCommit(next);
+  }
+  return (
+    <input
+      {...rest}
+      disabled={disabled}
+      value={shown}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        // A date picked from the calendar saves after a short pause; typed digits keep the field open.
+        if (rest.type === "date") {
+          const next = e.target.value;
+          if (timer.current) clearTimeout(timer.current);
+          timer.current = setTimeout(() => commit(next), 700);
+        }
+      }}
+      onBlur={(e) => commit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit(e.currentTarget.value);
+        }
+      }}
+    />
+  );
+}
 export function EntitySelect({
   items,
   kind,
@@ -150,13 +194,21 @@ function IssueComposer({
     key: "team" | "assignee" | "project",
     empty: string,
   ) {
+    const onPick = (v: string) =>
+      key === "project"
+        ? setData((d) => ({
+            ...d,
+            project: v,
+            ...(d.milestone && items.find((i) => i.id === d.milestone)?.data.project !== v ? { milestone: "" } : {}),
+          }))
+        : patch(key, v);
     return (
       <label className="work-compose-chip">
         <Icon name={icon} size={15} />
         <select
           aria-label={label}
           value={data[key] ?? ""}
-          onChange={(e) => patch(key, e.target.value)}
+          onChange={(e) => onPick(e.target.value)}
         >
           <option value="">{empty}</option>
           {items
@@ -357,24 +409,6 @@ function IssueComposer({
                 onChange={(e) => patch("due", e.target.value)}
               />
             </Field>
-            <Field label="Requester / customer">
-              <EntitySelect
-                disabled={pending}
-                items={items}
-                kind="customer"
-                value={data.customer}
-                onChange={(v) => patch("customer", v)}
-              />
-            </Field>
-            <Field label="Release">
-              <EntitySelect
-                disabled={pending}
-                items={items}
-                kind="release"
-                value={data.release}
-                onChange={(v) => patch("release", v)}
-              />
-            </Field>
             <Field label="Repeats">
               <select
                 className="input"
@@ -456,7 +490,7 @@ export function ItemEditor({
     setData((d) => ({ ...d, [key]: value }));
   }
   const issue = kind === "issue",
-    plan = ["project", "initiative", "cycle", "milestone", "release"].includes(
+    plan = ["project", "initiative", "cycle", "milestone"].includes(
       kind,
     );
   const defaultStatuses = issue
@@ -557,7 +591,7 @@ export function ItemEditor({
                 </Field>
               </>
             )}
-            {!["member", "team", "label", "customer", "view"].includes(
+            {!["member", "team", "label", "view"].includes(
               kind,
             ) && (
               <Field label="Team">
@@ -583,14 +617,20 @@ export function ItemEditor({
                 />
               </Field>
             )}
-            {["issue", "document", "milestone", "release"].includes(kind) && (
+            {["issue", "document", "milestone"].includes(kind) && (
               <Field label="Project">
                 <EntitySelect
                 disabled={pending}
                   items={items}
                   kind="project"
                   value={data.project}
-                  onChange={(v) => patch("project", v)}
+                  onChange={(v) =>
+                    setData((d) => ({
+                      ...d,
+                      project: v,
+                      ...(kind === "issue" && d.milestone && items.find((i) => i.id === d.milestone)?.data.project !== v ? { milestone: "" } : {}),
+                    }))
+                  }
                 />
               </Field>
             )}
@@ -676,24 +716,6 @@ export function ItemEditor({
                       onChange={(e) =>
                         patch("estimate", Number(e.target.value))
                       }
-                    />
-                  </Field>
-                  <Field label="Requester / customer">
-                    <EntitySelect
-                disabled={pending}
-                      items={items}
-                      kind="customer"
-                      value={data.customer}
-                      onChange={(v) => patch("customer", v)}
-                    />
-                  </Field>
-                  <Field label="Release">
-                    <EntitySelect
-                disabled={pending}
-                      items={items}
-                      kind="release"
-                      value={data.release}
-                      onChange={(v) => patch("release", v)}
                     />
                   </Field>
                 </div>
