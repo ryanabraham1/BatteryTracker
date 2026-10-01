@@ -24,8 +24,8 @@ export const metadata: Metadata = {
     title: "3256 Tools",
   },
   icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png",
+    icon: "/icon-192.png?v=wb1",
+    apple: "/icon-192.png?v=wb1",
   },
 };
 
