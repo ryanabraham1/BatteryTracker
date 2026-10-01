@@ -198,7 +198,7 @@ export async function addWorkComment(
       throw new Error("Enter a comment of 1–20,000 characters.");
     const { data: item } = await supabaseAdmin()
       .from("work_items")
-      .select("id")
+      .select("id,title")
       .eq("id", id)
       .is("deleted_at", null)
       .single();
@@ -211,11 +211,36 @@ export async function addWorkComment(
       type,
     });
     if (error) throw error;
+    if (type === "update")
+      await postDiscordUpdate(String(item.title ?? ""), user.name, body.trim());
     revalidatePath("/work", "layout");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: message(e) };
   }
+}
+// Best-effort: mirrors project updates to Discord; never fails the save.
+async function postDiscordUpdate(title: string, actor: string, body: string) {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "3256Tools",
+        allowed_mentions: { parse: [] },
+        embeds: [
+          {
+            title: `Project update: ${title}`.slice(0, 256),
+            description: body.slice(0, 4000),
+            footer: { text: actor },
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {}
 }
 export async function markWorkRead(
   eventIds: string[],
