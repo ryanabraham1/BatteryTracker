@@ -49,6 +49,7 @@ export const SUGGEST = {
   bot: ["Aimbot", "Dumper", "EveryBot", "Other"],
   subsystem: ["Drivebase", "Turret", "Shooter", "Indexer", "Intake", "Climb", "La Tolva (Hopper)", "Driverstation", "Other"],
   machine: ["CNC Router", "CNC Mill", "Bridgeport Mill", "Lathe", "Horizontal Bandsaw", "Vertical Bandsaw", "xTool MetalFab", "Laser Cutter", "Fabworks"],
+  // the Machining Tracker's dropdown, in its order
   material: [
     "Polycarbonate Sheet",
     "Aluminum Sheet",
@@ -68,9 +69,11 @@ export const SUGGEST = {
     "Aluminum Block",
     "Birch",
     "Aluminum Nutstrip - #10-32",
+    "Nutstrip",
     "SRPP",
     "CF",
     "SplineXL Rod",
+    "hollow pc",
     "Corrugated Polycarbonate Sheet",
   ],
   filament: ["PLA (Bambu)", "PETG-CF (Bambu)", "PA-CF (Bambu)", "ABS (Stratasys)", "TPU"],

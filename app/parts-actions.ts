@@ -23,6 +23,8 @@ import {
   kindFromMaterial,
   matchMaterial,
   needed,
+  sheetDefaults,
+  isRawMaterial,
   sizesFromText,
   toCut,
   trackerOf,
@@ -35,7 +37,7 @@ import {
   type PartSource,
 } from "@/lib/parts";
 import { toPartGeometry } from "@/lib/dfm";
-import { isJobStatus, jobKey, readSheet, SHEET_TO_PART, splitPeople, TEXT_FIELDS, type ImportRow, type JobStatus } from "@/lib/tracker";
+import { isJobStatus, jobKey, readSheet, SHEET_TO_PART, splitPeople, SUGGEST, TEXT_FIELDS, type ImportRow, type JobStatus } from "@/lib/tracker";
 import { checkPart } from "@/lib/dfm";
 import { findVendorLink } from "@/lib/vendors";
 import { isSheet } from "@/lib/fab";
@@ -313,7 +315,6 @@ async function sync(designId: string): Promise<string> {
       part_number: line.partNumber || meta?.partNumber || "",
       description: line.description || meta?.description || "",
       quantity: line.quantity,
-      material_text: material,
       properties: props,
       missing: false,
       kind,
@@ -323,6 +324,13 @@ async function sync(designId: string): Promise<string> {
     if (!old?.material_locked) {
       row.material_id = matchMaterial({ kind, material_text: material, size_l_mm: f?.l ?? null, size_w_mm: f?.w ?? null, size_t_mm: f?.t ?? null }, materials)?.id ?? null;
     }
+    // the sheet's Stock / Dims / Length / Machine, in its own words; never over something typed
+    const rack = materials.find((m) => m.id === (row.material_id ?? old?.material_id)) ?? null;
+    const fill = sheetDefaults({ kind, material_text: material, size_l_mm: f?.l ?? null, size_w_mm: f?.w ?? null, size_t_mm: f?.t ?? null }, rack);
+    const cur = (k: "material_text" | "stock_dims" | "length_text" | "machine") => (old ? old[k] : "");
+    if (!cur("material_text") || (cur("material_text") === old?.properties?.Material && isRawMaterial(cur("material_text"), SUGGEST.material)) || cur("material_text") === material)
+      row.material_text = kind === "print" ? material : (fill.material_text ?? material);
+    for (const k of ["stock_dims", "length_text", "machine"] as const) if (!cur(k) && fill[k]) row[k] = fill[k];
     // tracker columns Onshape can carry as properties (Subsystem, Priority, Machine, Tapped)
     Object.assign(row, sheetFromProps(props));
     if (kind === "cots") {

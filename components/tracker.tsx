@@ -103,6 +103,83 @@ export function TrackerTable({
     people: [...new Set(jobs.flatMap((j) => j.assignees).concat(person ? [person] : []))].sort(),
   };
 
+  /** The sheet's columns, in its order. Status and Part stay put while the rest scrolls. */
+  const cols: { key: string; label: string; w: number; pin?: number; render: (j: FabPart) => React.ReactNode }[] = [
+    { key: "status", label: "Status", w: 150, pin: 0, render: (j) => <StatusSelect key={`${j.id}-${j.status}`} job={j} person={person} /> },
+    {
+      key: "part",
+      label: "Part #_Name",
+      w: 250,
+      pin: 150,
+      render: (j) => (
+        <span className="flex items-center gap-1 min-w-0 px-1">
+          <Link href={`/tracker/${j.id}`} className="font-medium hover:underline truncate" title={j.name}>
+            {j.name}
+          </Link>
+          <button type="button" className="text-xs px-1 shrink-0" style={{ color: "var(--muted)" }} onClick={() => setEdit(j)} aria-label={`Edit everything for ${j.name}`} title="All fields">
+            ✎
+          </button>
+          {j.cut_qty > 0 && isStockKind(j.kind) && j.cut_qty < need(j) && (
+            <span className="chip shrink-0" title="Cut so far">
+              {j.cut_qty}/{need(j)}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    { key: "pri", label: "Priority", w: 72, render: (j) => <DropCell part={j} field="priority" value={j.priority === null ? "" : `#${j.priority}`} choices={PRIORITIES.map((p) => `#${p}`)} save={(v) => v.replace("#", "")} strict /> },
+    { key: "bot", label: "Bot", w: 110, render: (j) => <DropCell part={j} field="bot" value={j.bot} choices={lists.bot} /> },
+    { key: "sub", label: "Subsystem", w: 140, render: (j) => <DropCell part={j} field="subsystem" value={j.subsystem} choices={lists.subsystem} /> },
+    { key: "qty", label: "Qty", w: 56, render: (j) => <Cell part={j} field="quantity" value={String(j.quantity)} numeric /> },
+    { key: "spare", label: "Spare", w: 60, render: (j) => <Cell part={j} field="spare_qty" value={j.spare_qty ? String(j.spare_qty) : ""} numeric /> },
+    ...(print
+      ? [
+          { key: "mat", label: "Material", w: 170, render: (j: FabPart) => <DropCell part={j} field="material" value={j.material_text} choices={lists.material} /> },
+          { key: "infill", label: "Infill", w: 80, render: (j: FabPart) => <Cell part={j} field="infill" value={j.infill} /> },
+          { key: "designer", label: "Designer", w: 120, render: (j: FabPart) => <Cell part={j} field="designer" value={j.designer} /> },
+        ]
+      : [
+          {
+            key: "kind",
+            label: "Kind",
+            w: 120,
+            render: (j: FabPart) => <DropCell part={j} field="kind" value={j.kind} choices={PART_KINDS.filter((k) => k !== "print")} labels={KIND_LABEL} strict required />,
+          },
+          {
+            key: "mat",
+            label: "Stock Material/Type",
+            w: 250,
+            render: (j: FabPart) => (
+              <span className="block">
+                <DropCell part={j} field="material" value={j.material_text} choices={lists.material} />
+                <StockNote job={j} stock={stock} />
+              </span>
+            ),
+          },
+          { key: "dims", label: "Stock Dimensions", w: 160, render: (j: FabPart) => <DropCell part={j} field="stock_dims" value={j.stock_dims} choices={lists.stock_dims} /> },
+          { key: "len", label: "Length", w: 90, render: (j: FabPart) => <Cell part={j} field="length" value={j.length_text} /> },
+          { key: "tap", label: "Tapped?", w: 100, render: (j: FabPart) => <DropCell part={j} field="tapped" value={j.tapped} choices={lists.tapped} /> },
+          { key: "machine", label: "Machine", w: 160, render: (j: FabPart) => <DropCell part={j} field="machine" value={j.machine} choices={lists.machine} /> },
+        ]),
+    { key: "dri", label: "DRI", w: 120, render: (j) => <Cell part={j} field="dri" value={j.assignees.join(", ")} list="tr-people" /> },
+    {
+      key: "file",
+      label: print ? "STL File" : "Drawing/CAM File",
+      w: 190,
+      render: (j) => (
+        <span className="flex items-center gap-1">
+          <Cell part={j} field="file" value={j.file} />
+          {isUrl(j.file) && (
+            <a href={j.file} target="_blank" rel="noreferrer" className="text-xs shrink-0 px-1" style={{ color: "var(--purple)" }} aria-label="Open file link">
+              ↗
+            </a>
+          )}
+        </span>
+      ),
+    },
+    { key: "notes", label: "Notes", w: 260, render: (j) => <Cell part={j} field="notes" value={j.notes} /> },
+  ];
+
   const counts = useMemo(() => {
     const c = new Map<StatusFilter, number>([
       ["open", 0],
@@ -238,120 +315,29 @@ export function TrackerTable({
               </ul>
               {/* desktop: the sheet's columns */}
               <div className="hidden md:block card overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="sheet-table text-sm" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
+                  <colgroup>
+                    {cols.map((c) => (
+                      <col key={c.key} style={{ width: c.w }} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr className="text-left eyebrow" style={{ color: "var(--muted)" }}>
-                      <th className="px-2 py-2 font-medium">Status</th>
-                      <th className="px-1 py-2 font-medium">Pri</th>
-                      <th className="px-2 py-2 font-medium">Part</th>
-                      <th className="px-1 py-2 font-medium">Bot</th>
-                      <th className="px-1 py-2 font-medium">Qty</th>
-                      <th className="px-1 py-2 font-medium">Spare</th>
-                      {print ? (
-                        <>
-                          <th className="px-1 py-2 font-medium">Material</th>
-                          <th className="px-1 py-2 font-medium">Infill</th>
-                          <th className="px-1 py-2 font-medium">Designer</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="px-1 py-2 font-medium">Kind</th>
-                          <th className="px-1 py-2 font-medium">Stock material / type</th>
-                          <th className="px-1 py-2 font-medium">Stock dims</th>
-                          <th className="px-1 py-2 font-medium">Length</th>
-                          <th className="px-1 py-2 font-medium">Tapped</th>
-                          <th className="px-1 py-2 font-medium">Machine</th>
-                        </>
-                      )}
-                      <th className="px-1 py-2 font-medium">DRI</th>
-                      <th className="px-1 py-2 font-medium">File</th>
-                      <th className="px-1 py-2 font-medium">Notes</th>
+                      {cols.map((c) => (
+                        <th key={c.key} className={`px-2 py-2 font-medium whitespace-nowrap ${c.pin !== undefined ? "pin" : ""}`} style={c.pin !== undefined ? { left: c.pin } : undefined}>
+                          {c.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((j) => (
-                      <tr key={j.id} className="border-t align-top hover:bg-[var(--paper)]" style={{ borderColor: "var(--line)", opacity: isDone(j.status) ? 0.6 : 1 }}>
-                        <td className="px-2 py-1.5">
-                          <StatusSelect key={`${j.id}-${j.status}`} job={j} person={person} />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <SelectCell part={j} field="priority" value={j.priority === null ? "" : String(j.priority)} options={[["", "—"], ...PRIORITIES.map((p) => [String(p), `#${p}`] as [string, string])]} mono bad={j.priority === 0} />
-                        </td>
-                        <td className="px-2 py-1.5 min-w-[220px]">
-                          <span className="flex items-start gap-1">
-                            <Link href={`/tracker/${j.id}`} className="font-medium hover:underline pt-1">
-                              {j.name}
-                            </Link>
-                            <button type="button" className="text-xs px-1 pt-1.5 shrink-0" style={{ color: "var(--muted)" }} onClick={() => setEdit(j)} aria-label={`Edit everything for ${j.name}`} title="All fields">
-                              ✎
-                            </button>
-                          </span>
-                          {j.cut_qty > 0 && isStockKind(j.kind) && j.cut_qty < need(j) && (
-                            <span className="block text-[11px]" style={{ color: "var(--muted)" }}>
-                              cut {j.cut_qty}/{need(j)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <Cell part={j} field="bot" value={j.bot} list="tr-bot" w="w-24" />
-                        </td>
-                        <td className="px-1 py-1.5" title={need(j) !== j.quantity + j.spare_qty ? `${need(j)} across all robots` : undefined}>
-                          <Cell part={j} field="quantity" value={String(j.quantity)} mono w="w-12" numeric />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <Cell part={j} field="spare_qty" value={j.spare_qty ? String(j.spare_qty) : ""} mono w="w-12" numeric placeholder="0" />
-                        </td>
-                        {print ? (
-                          <>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="material" value={j.material_text} list="tr-material" w="w-40" />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="infill" value={j.infill} w="w-16" placeholder="40%" />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="designer" value={j.designer} w="w-28" />
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-1 py-1.5">
-                              <SelectCell part={j} field="kind" value={j.kind} options={PART_KINDS.filter((k) => k !== "print").map((k) => [k, KIND_LABEL[k]] as [string, string])} />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="material" value={j.material_text} list="tr-material" w="w-56" />
-                              <StockNote job={j} stock={stock} />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="stock_dims" value={j.stock_dims} list="tr-stock_dims" w="w-32" mono />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="length" value={j.length_text} w="w-20" mono placeholder='18.5"' />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="tapped" value={j.tapped} list="tr-tapped" w="w-24" />
-                            </td>
-                            <td className="px-1 py-1.5">
-                              <Cell part={j} field="machine" value={j.machine} list="tr-machine" w="w-36" />
-                            </td>
-                          </>
-                        )}
-                        <td className="px-1 py-1.5">
-                          <Cell part={j} field="dri" value={j.assignees.join(", ")} list="tr-people" w="w-28" />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <span className="flex items-center gap-1">
-                            <Cell part={j} field="file" value={j.file} w="w-32" placeholder="name or link" />
-                            {isUrl(j.file) && (
-                              <a href={j.file} target="_blank" rel="noreferrer" className="text-xs shrink-0" style={{ color: "var(--purple)" }} aria-label="Open file link">
-                                ↗
-                              </a>
-                            )}
-                          </span>
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <Cell part={j} field="notes" value={j.notes} w="w-56" />
-                        </td>
+                      <tr key={j.id} className="border-t" style={{ borderColor: "var(--line)", opacity: isDone(j.status) ? 0.6 : 1 }}>
+                        {cols.map((c) => (
+                          <td key={c.key} className={`px-1 py-1 ${c.pin !== undefined ? "pin" : ""}`} style={c.pin !== undefined ? { left: c.pin } : undefined}>
+                            {c.render(j)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -383,75 +369,113 @@ export function TrackerTable({
 }
 
 /**
- * A spreadsheet cell: looks like text, edits in place, saves when you leave it
- * (Enter saves, Esc puts it back). `list` gives it the sheet's dropdown.
+ * A spreadsheet cell: reads like text, edits in place, saves when you leave
+ * it (Enter saves, Esc puts it back).
  */
-function Cell({
+function Cell({ part, field, value, list, numeric }: { part: FabPart; field: string; value: string; list?: string; numeric?: boolean }) {
+  const a = useFabAction(updatePart);
+  return (
+    <input
+      key={value}
+      defaultValue={value}
+      list={list}
+      inputMode={numeric ? "numeric" : undefined}
+      aria-label={`${field.replace("_", " ")} for ${part.name}`}
+      className={`cell ${numeric ? "mono text-right" : ""}`}
+      data-error={!!a.error}
+      style={{ opacity: a.pending ? 0.5 : 1 }}
+      title={a.error ?? (value || undefined)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          e.currentTarget.value = value;
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={(e) => {
+        const v = e.currentTarget.value.trim();
+        if (v !== value.trim()) a.call({ id: part.id, [field]: v });
+      }}
+    />
+  );
+}
+
+/**
+ * A dropdown cell like the sheet's: its list of choices, the current value
+ * even when it's not on the list, and (unless `strict`) "Other…" to type one.
+ */
+const OTHER = "__other__";
+
+function DropCell({
   part,
   field,
   value,
-  list,
-  w = "w-28",
-  mono,
-  numeric,
-  placeholder,
+  choices,
+  labels,
+  strict,
+  required,
+  save = (v) => v,
 }: {
   part: FabPart;
   field: string;
   value: string;
-  list?: string;
-  w?: string;
-  mono?: boolean;
-  numeric?: boolean;
-  placeholder?: string;
+  choices: string[];
+  labels?: Record<string, string>;
+  strict?: boolean;
+  /** no blank choice */
+  required?: boolean;
+  save?: (v: string) => string;
 }) {
   const a = useFabAction(updatePart);
-  return (
-    <span className="block">
+  const [typing, setTyping] = useState(false);
+  const shown = value;
+  const opts = shown && !choices.some((c) => c.toLowerCase() === shown.toLowerCase()) ? [shown, ...choices] : choices;
+  if (typing) {
+    return (
       <input
-        key={value}
+        autoFocus
         defaultValue={value}
-        list={list}
-        placeholder={placeholder}
-        inputMode={numeric ? "numeric" : undefined}
-        aria-label={`${field.replace("_", " ")} for ${part.name}`}
-        className={`${w} ${mono ? "mono" : ""} text-sm bg-transparent rounded px-1.5 py-1 border border-transparent hover:border-[var(--line)] focus:border-[var(--purple)] focus:bg-[var(--surface)] outline-none`}
-        style={{ opacity: a.pending ? 0.5 : 1, borderColor: a.error ? "var(--bad)" : undefined }}
-        title={a.error ?? undefined}
+        className="cell"
+        aria-label={`${field} for ${part.name}`}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") {
-            e.currentTarget.value = value;
-            e.currentTarget.blur();
-          }
+          if (e.key === "Escape") setTyping(false);
         }}
         onBlur={(e) => {
           const v = e.currentTarget.value.trim();
-          if (v !== value.trim()) a.call({ id: part.id, [field]: v });
+          setTyping(false);
+          if (v !== value) a.call({ id: part.id, [field]: save(v) });
         }}
       />
-    </span>
-  );
-}
-
-/** A cell with a fixed list (kind, priority): a plain dropdown that saves on change. */
-function SelectCell({ part, field, value, options, mono, bad }: { part: FabPart; field: string; value: string; options: [string, string][]; mono?: boolean; bad?: boolean }) {
-  const a = useFabAction(updatePart);
+    );
+  }
   return (
     <select
       key={value}
-      defaultValue={value}
+      defaultValue={shown}
       aria-label={`${field} for ${part.name}`}
-      className={`${mono ? "mono font-semibold" : ""} text-sm bg-transparent rounded px-1 py-1 border border-transparent hover:border-[var(--line)] focus:border-[var(--purple)] outline-none cursor-pointer`}
-      style={{ opacity: a.pending ? 0.5 : 1, color: bad ? "var(--bad)" : undefined, borderColor: a.error ? "var(--bad)" : undefined }}
-      title={a.error ?? undefined}
-      onChange={(e) => a.call({ id: part.id, [field]: e.target.value })}
+      className="cell"
+      data-empty={!shown}
+      data-error={!!a.error}
+      title={a.error ?? (shown || undefined)}
+      style={{ opacity: a.pending ? 0.5 : 1, color: field === "priority" && shown === "#0" ? "var(--bad)" : undefined }}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v === OTHER) {
+          e.target.value = shown;
+          setTyping(true);
+          return;
+        }
+        a.call({ id: part.id, [field]: save(v) });
+      }}
     >
-      {options.map(([v, label]) => (
-        <option key={v} value={v}>
-          {label}
+      {(!required || !shown) && <option value="">—</option>}
+      {opts.map((o) => (
+        <option key={o} value={o}>
+          {labels?.[o] ?? o}
         </option>
       ))}
+      {!strict && <option value={OTHER}>Other…</option>}
     </select>
   );
 }

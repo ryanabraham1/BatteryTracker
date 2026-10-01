@@ -337,7 +337,7 @@ export function guessKind(name: string, material: string, s: ShapeFacts | null):
   const n = name.toLowerCase();
   if (FILAMENT.test(material)) return "print";
   if (/\b(tube|tubing|rail|extrusion)\b/.test(n)) return "tube";
-  if (/\b(shaft|axle|hex|standoff)\b/.test(n)) return "shaft";
+  if (/\b(shaft|axle|standoff)\b|hex/.test(n)) return "shaft";
   if (/\b(plate|gusset|bracket|panel|sheet)\b/.test(n) && (!s || s.t <= 25.4)) return "plate";
   if (!s) return "machined";
   if (s.flat && s.t <= 25.4 && s.w >= 3 * s.t) return "plate";
@@ -452,6 +452,105 @@ export function needed(p: Pick<FabPart, "quantity" | "spare_qty">, copies = 1): 
 export function toCut(p: Pick<FabPart, "quantity" | "spare_qty" | "cut_qty">, copies = 1): number {
   return Math.max(0, needed(p, copies) - p.cut_qty);
 }
+
+// ── Filling in the sheet's columns ───────────────────────────────────────────
+
+const IN = 25.4;
+/** '1/8" thick' etc. for a thickness in mm, when it's one of the sheet's sizes. */
+function thickLabel(mm: number | null): string {
+  if (mm === null) return "";
+  const sizes: [number, string][] = [
+    [1 / 32, '1/32" thick'],
+    [1 / 16, '1/16" thick'],
+    [1 / 8, '1/8" thick'],
+    [3 / 16, '3/16" thick'],
+    [1 / 4, '1/4" thick'],
+    [3 / 8, '3/8" thick'],
+    [1 / 2, '1/2" thick'],
+  ];
+  const hit = sizes.find(([inch]) => Math.abs(inch * IN - mm) <= 0.3);
+  return hit ? hit[1] : `${+(mm / IN).toFixed(3)}" thick`;
+}
+/** Decimal inches the way the team writes lengths ('18.5"'). */
+const inchText = (mm: number | null) => (mm === null ? "" : `${+(mm / IN).toFixed(3)}"`);
+
+/**
+ * The tracker sheet's columns for a part, worked out from what Onshape knows
+ * (kind, material, size) and the rack stock it matched — in the sheet's own
+ * words ("Aluminum Sheet", '1/8" thick', "CNC Router"). Blank where it can't
+ * tell. Only ever used to fill empty cells.
+ */
+export function sheetDefaults(
+  p: Pick<FabPart, "kind" | "material_text" | "size_l_mm" | "size_w_mm" | "size_t_mm">,
+  rack: Pick<FabMaterial, "shape" | "dim_a_mm" | "dim_b_mm" | "wall_mm"> | null,
+): { material_text?: string; stock_dims?: string; length_text?: string; machine?: string } {
+  const m = p.material_text.toLowerCase();
+  const alu = /alum|606\d|707\d|\bal\b/.test(m) || !m.trim();
+  const out: ReturnType<typeof sheetDefaults> = {};
+  const wallText = (mm: number | null | undefined) => (mm ? (Math.abs(mm - IN / 16) < 0.3 ? '1/16" wall' : Math.abs(mm - IN / 8) < 0.3 ? '1/8" wall' : `${+(mm / IN).toFixed(3)}" wall`) : "");
+  switch (p.kind) {
+    case "plate": {
+      out.material_text = /polycarb|lexan/.test(m)
+        ? "Polycarbonate Sheet"
+        : /polyprop|\bpp\b|srpp/.test(m)
+          ? "SRPP"
+          : /carbon|\bcf\b/.test(m)
+            ? "CF"
+            : /birch|wood|ply/.test(m)
+              ? "Birch"
+              : alu
+                ? "Aluminum Sheet"
+                : "";
+      out.stock_dims = thickLabel(rack?.wall_mm ?? p.size_t_mm);
+      out.machine = out.material_text === "SRPP" || out.material_text === "Birch" ? "Laser Cutter" : "CNC Router";
+      break;
+    }
+    case "tube": {
+      const w = rack?.dim_a_mm ?? p.size_w_mm;
+      const h = rack?.dim_b_mm ?? p.size_t_mm;
+      const round = rack?.shape === "round_tube" || (w !== null && h !== null && Math.abs(w - h) < 0.5 && rack?.shape !== "box_tube");
+      if (/polycarb/.test(m)) out.material_text = "Polycarbonate Round Tube";
+      else if (rack?.shape === "angle") out.material_text = "Aluminum L Bracket";
+      else if (round && rack?.shape === "round_tube") out.material_text = "Aluminum Round Tube";
+      else if (w !== null && h !== null) {
+        const a = +(Math.max(w, h) / IN).toFixed(2);
+        const b = +(Math.min(w, h) / IN).toFixed(2);
+        const size = `${a}x${b}`;
+        out.material_text = ["1x1", "2x1", "2x2", "0.75x0.75"].includes(size) ? `Aluminum Punched Box Tube ${size}` : "Aluminum Plain Box Tube";
+      }
+      const roundDia = w !== null && (rack?.shape === "round_tube" || out.material_text?.includes("Round Tube")) ? w / IN : null;
+      const listed = roundDia === null ? null : [1, 1.5, 2, 2.5, 3, 4].find((d) => Math.abs(d - roundDia) <= 0.15);
+      out.stock_dims =
+        roundDia !== null
+          ? `${listed ?? +roundDia.toFixed(2)}" diam round tube`
+          : wallText(rack?.wall_mm) || (out.material_text?.includes("Box Tube") ? '1/16" wall' : "");
+      out.length_text = inchText(p.size_l_mm);
+      out.machine = "Horizontal Bandsaw";
+      break;
+    }
+    case "shaft": {
+      const hex = rack?.shape === "hex_shaft" || /hex/.test(m);
+      out.material_text = hex || rack?.shape !== "round_rod" ? "Aluminum Thunderhex Rod" : "Aluminum Round Rod";
+      const d = rack?.dim_a_mm ?? p.size_t_mm;
+      // hex is measured across the corners here (½" hex ≈ 0.54"), so allow for that
+      out.stock_dims = d === null ? "" : d >= 12.2 && d <= 15 ? "1/2 diam shaft" : d >= 9 && d <= 11.2 ? "3/8 diam shaft" : `${+(d / IN).toFixed(3)} diam shaft`;
+      out.length_text = inchText(p.size_l_mm);
+      out.machine = "Horizontal Bandsaw";
+      break;
+    }
+    case "machined":
+      out.material_text = alu ? "Aluminum Block" : "";
+      out.machine = "CNC Mill";
+      break;
+    default:
+      break;
+  }
+  for (const k of Object.keys(out) as (keyof typeof out)[]) if (!out[k]) delete out[k];
+  return out;
+}
+
+/** A material cell still holding Onshape's raw material ("6061-T6"), not one of the sheet's choices. */
+export const isRawMaterial = (text: string, sheetChoices: string[]) => !!text.trim() && !sheetChoices.some((c) => c.toLowerCase() === text.trim().toLowerCase());
 
 // ── Reading the sheet's text columns ─────────────────────────────────────────
 
