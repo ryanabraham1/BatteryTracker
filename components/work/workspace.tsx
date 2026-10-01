@@ -10,6 +10,7 @@ import {
   KIND_NAMES,
   PRIORITIES,
   progress,
+  STATUSES,
   type WorkData,
   type WorkFilter,
   type WorkItem,
@@ -25,7 +26,7 @@ import {
 } from "./collections";
 import { ItemDetail, RichText } from "./detail";
 import { EntitySelect, Field, ItemEditor, Modal } from "./editor";
-import { Icon } from "./icons";
+import { Icon, StatusIcon } from "./icons";
 import { AccessPanel } from "./access";
 import { GettingStarted, HelpGuide } from "./help";
 
@@ -626,7 +627,11 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                   >
                     <Icon name="filter" size={15} />
                     Filter
-                    {filtersActive && <span className="work-online-dot" />}
+                    {filtersActive && (
+                      <span className="work-filter-count">
+                        {Object.entries(activeFilter).filter(([k, v]) => v && k !== "query").length || ""}
+                      </span>
+                    )}
                   </button>
                   <input
                     className="work-inline-search"
@@ -682,12 +687,46 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                       />
                     </Field>
                     <Field label="Assignee">
-                      <EntitySelect
-                        items={items}
-                        kind="member"
-                        value={activeFilter.assignee}
+                      <PropertyPicker
+                        label="Assignee"
+                        value={activeFilter.assignee ?? ""}
                         onChange={(v) => updateFilter({ assignee: v })}
-                        empty="Everyone"
+                        icon={<Icon name="member" size={15} />}
+                        options={[
+                          { value: "", label: "Everyone" },
+                          { value: "unassigned", label: "Unassigned" },
+                          ...items
+                            .filter((i) => i.kind === "member" && !i.archived && !i.deleted_at)
+                            .map((m) => ({ value: m.id, label: m.title })),
+                        ]}
+                      />
+                    </Field>
+                    <Field label="Status">
+                      <PropertyPicker
+                        label="Status"
+                        value={activeFilter.status ?? ""}
+                        onChange={(v) => updateFilter({ status: v })}
+                        icon={<Icon name="my-issues" size={15} />}
+                        options={[
+                          { value: "", label: "All statuses" },
+                          { value: "open", label: "Open" },
+                          ...STATUSES.map((st) => ({ value: st, label: st, icon: <StatusIcon status={st} /> })),
+                        ]}
+                      />
+                    </Field>
+                    <Field label="Due date">
+                      <PropertyPicker
+                        label="Due date"
+                        value={activeFilter.due ?? ""}
+                        onChange={(v) => updateFilter({ due: v })}
+                        icon={<Icon name="timeline" size={15} />}
+                        options={[
+                          { value: "", label: "Any time" },
+                          { value: "overdue", label: "Overdue" },
+                          { value: "week", label: "Due in the next 7 days" },
+                          { value: "any", label: "Has a due date" },
+                          { value: "none", label: "No due date" },
+                        ]}
                       />
                     </Field>
                     <Field label="Project">
@@ -709,20 +748,16 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                       />
                     </Field>
                     <Field label="Priority">
-                      <select
-                        className="input"
+                      <PropertyPicker
+                        label="Priority"
                         value={activeFilter.priority ?? ""}
-                        onChange={(e) =>
-                          updateFilter({ priority: e.target.value })
-                        }
-                      >
-                        <option value="">All priorities</option>
-                        {PRIORITIES.map((p, n) => (
-                          <option key={p} value={n}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => updateFilter({ priority: v })}
+                        icon={<Icon name="filter" size={15} />}
+                        options={[
+                          { value: "", label: "All priorities" },
+                          ...PRIORITIES.map((p, n) => ({ value: String(n), label: p })),
+                        ]}
+                      />
                     </Field>
                     <button
                       className="work-text-button"

@@ -119,6 +119,8 @@ export type WorkFilter = {
   label?: string;
   status?: string;
   cycle?: string;
+  /** "overdue" | "week" | "none" | "any" */
+  due?: string;
 };
 export type WorkSnapshot = {
   items: WorkItem[];
@@ -141,6 +143,19 @@ export function issueCode(item: WorkItem, items: WorkItem[]) {
   if (item.data.source?.identifier) return item.data.source.identifier;
   return `${items.find((i) => i.id === item.data.team)?.data.identifier || "WB"}-${item.number}`;
 }
+function matchesDue(item: WorkItem, due?: string) {
+  if (!due) return true;
+  const d = item.data.due;
+  if (due === "none") return !d;
+  if (!d) return false;
+  if (due === "any") return true;
+  const now = today();
+  if (due === "overdue") return d < now && !done(item);
+  const end = new Date(`${now}T12:00:00`);
+  end.setDate(end.getDate() + 7);
+  const limit = end.toLocaleDateString("en-CA");
+  return due === "week" ? d >= now && d <= limit : true;
+}
 export function filterIssues(items: WorkItem[], filter: WorkFilter) {
   return items.filter(
     (i) =>
@@ -158,7 +173,9 @@ export function filterIssues(items: WorkItem[], filter: WorkFilter) {
           : i.data.assignee === filter.assignee)) &&
       (!filter.project || i.data.project === filter.project) &&
       (!filter.cycle || i.data.cycle === filter.cycle) &&
-      (!filter.status || i.data.status === filter.status) &&
+      (!filter.status ||
+        (filter.status === "open" ? !done(i) : i.data.status === filter.status)) &&
+      matchesDue(i, filter.due) &&
       (!filter.label || i.data.labels?.includes(filter.label)) &&
       (!filter.priority || String(i.data.priority ?? 0) === filter.priority),
   );
@@ -339,6 +356,7 @@ export function validateWorkInput(
       "label",
       "status",
       "cycle",
+      "due",
     ]) {
       const v = (d.filter as Record<string, unknown>)[k];
       if (v !== undefined) {

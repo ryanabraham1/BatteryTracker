@@ -2388,3 +2388,7 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
   .work-toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
   .work-list { padding-bottom: 80px; }
 }
+.work-filter-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--purple); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.work-filter-count:empty { display: none; }
+.work-filter-panel .work-field { min-width: 0; }
+.work-filter-panel > .work-text-button { align-self: end; justify-self: start; }
