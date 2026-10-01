@@ -34,7 +34,7 @@ export function GettingStarted({ onHelp }: { onHelp: () => void }) {
         <b>New here? Three things to know</b>
         <ul>
           <li>
-            An <b>issue</b> is one task. Type a title in the box above and press Enter to add one.
+            An <b>issue</b> is one task. Use <b>Create issue</b> in the sidebar (or press <kbd>C</kbd>) to add one.
           </li>
           <li>
             Click the circle next to an issue to change its status, like <i>Todo</i> or <i>Done</i>.
