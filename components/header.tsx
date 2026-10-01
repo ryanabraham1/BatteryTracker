@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCompMode } from "./comp-mode";
+import { Sheet } from "./sheet";
 import { ThemeToggle } from "./theme-toggle";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
@@ -174,7 +175,7 @@ const TRACKER_NAV: (NavItem & { desktopOnly?: boolean })[] = [
       </svg>
     ),
   },
-  // phones reach Machines from the Onshape, cut plan and part pages
+  // Phones reach these tools from the More tab.
   { href: "/tracker/machines", label: "Machines", icon: SETTINGS_ICON, desktopOnly: true },
 ];
 
@@ -212,9 +213,23 @@ export function Header() {
     setLastUrlQ(urlQ);
     setQ(urlQ);
   }
-  // Mobile search is collapsed behind an icon so the top bar stays one row tall.
+  // Mobile search expands below the app switcher.
   const [searchOpen, setSearchOpen] = useState(!!urlQ);
+  const [moreOpen, setMoreOpen] = useState(false);
   const mobileInput = useRef<HTMLInputElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty("--app-header-height", `${header.getBoundingClientRect().height}px`);
+    });
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--app-header-height");
+    };
+  }, []);
   useEffect(() => {
     if (searchOpen) mobileInput.current?.focus();
   }, [searchOpen]);
@@ -244,9 +259,9 @@ export function Header() {
     <button
       type="button"
       onClick={() => setCompMode(!compMode)}
-      className="pill"
+      className="pill max-w-[150px] overflow-hidden text-ellipsis"
       style={{
-        minHeight: 36,
+        minHeight: 44,
         padding: "0 0.8rem",
         ...(compMode
           ? { background: "var(--purple)", color: "#fff" }
@@ -262,20 +277,21 @@ export function Header() {
   return (
     <>
       <header
+        ref={headerRef}
         className="sticky top-0 z-30 border-b pt-safe"
         style={{ background: "var(--surface)", borderColor: "var(--line)" }}
       >
-        <div className="mx-auto max-w-[1400px] px-4 py-2 flex items-center gap-3 min-h-[56px]">
-          <div className="flex items-center gap-2 shrink-0 min-h-[44px]">
+        <div className="mx-auto max-w-[1400px] px-4 py-2 grid grid-cols-[1fr_auto] sm:flex items-center gap-x-3 gap-y-1.5 min-h-[56px]">
+          <div className="contents sm:flex sm:items-center sm:gap-2 min-w-0 sm:min-h-[44px]">
             {/* Home: the 3256 Tools dashboard */}
             <Link href="/" prefetch={false} className="flex items-center gap-2 min-h-[44px]" aria-label="3256 Tools home" aria-current={home ? "page" : undefined}>
               <span className="eyebrow px-2 py-1 rounded-md" style={{ background: "var(--plum)", color: "var(--plum-text)" }}>
                 3256
               </span>
-              <span className={`font-medium tracking-tight ${home ? "" : "hidden lg:inline"}`}>Tools</span>
+              <span className={`font-medium tracking-tight ${home ? "" : "sm:hidden lg:inline"}`}>Tools</span>
             </Link>
             {/* App switcher: batteries ↔ fab stock */}
-            <nav className="inline-flex rounded-lg p-0.5 overflow-x-auto max-w-[calc(100vw-92px)]" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
+            <nav className="col-span-full row-start-2 grid grid-cols-4 sm:inline-flex rounded-lg p-0.5 sm:overflow-x-auto min-w-0" style={{ background: "var(--paper)", border: "1px solid var(--line)" }} aria-label="App">
               {(
                 [
                   ["/battery", "Batteries", "Batteries", batteryApp],
@@ -288,8 +304,8 @@ export function Header() {
                   key={href}
                   href={href}
                   prefetch={false}
-                  className="rounded-md px-2.5 flex items-center text-sm font-medium tracking-tight whitespace-nowrap"
-                  style={{ minHeight: 36, background: on ? "var(--plum)" : "transparent", color: on ? "#fff" : "var(--muted)" }}
+                  className="rounded-md px-2 sm:px-2.5 flex items-center justify-center text-sm font-medium tracking-tight whitespace-nowrap min-h-11 sm:min-h-9"
+                  style={{ background: on ? "var(--plum)" : "transparent", color: on ? "#fff" : "var(--muted)" }}
                   aria-current={on ? "page" : undefined}
                 >
                   <span className="hidden sm:inline">{label}</span>
@@ -300,7 +316,7 @@ export function Header() {
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden xl:flex items-center gap-1">
             {NAV.map((n) => {
               const active = isActive(n.href, pathname);
               return (
@@ -319,9 +335,9 @@ export function Header() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="col-start-2 row-start-1 ml-auto flex shrink-0 items-center gap-2">
             {canSearch && (
-              <form onSubmit={search} className="hidden md:block">
+              <form onSubmit={search} className="hidden xl:block">
                 <input
                   className="input py-1.5 w-44"
                   style={{ minHeight: 38 }}
@@ -336,7 +352,7 @@ export function Header() {
             {canSearch && (
               <button
                 type="button"
-                className="md:hidden flex items-center justify-center w-11 h-11 -mr-1 rounded-full"
+                className="xl:hidden flex items-center justify-center w-11 h-11 -mr-1 rounded-full"
                 style={{ color: searchOpen || urlQ ? "var(--purple-dark)" : "var(--muted)", background: searchOpen || urlQ ? "var(--purple-soft)" : "transparent" }}
                 onClick={() => (searchOpen ? clearSearch() : setSearchOpen(true))}
                 aria-label={searchOpen ? "Close search" : `Search ${searchWhat}`}
@@ -359,7 +375,7 @@ export function Header() {
           </div>
         </div>
         {canSearch && searchOpen && (
-          <form onSubmit={search} className="md:hidden px-4 pb-2.5 fade-in">
+          <form onSubmit={search} className="xl:hidden px-4 pb-2.5 fade-in">
             <div className="relative">
               <input
                 ref={mobileInput}
@@ -389,12 +405,12 @@ export function Header() {
       {/* Mobile bottom tab bar (the home dashboard has none) */}
       {NAV.length > 0 && (
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t pb-safe"
+        className="xl:hidden fixed bottom-0 inset-x-0 z-30 border-t pb-safe"
         style={{ background: "var(--surface)", borderColor: "var(--line)" }}
         aria-label="Primary"
       >
-        <div className="flex items-stretch px-1">
-          {NAV.filter((n) => !("desktopOnly" in n && n.desktopOnly)).map((n) => {
+        <div className="flex items-stretch gap-1 px-2 py-1">
+          {NAV.filter((n) => trackerApp ? !["/tracker/bom", "/tracker/designs", "/tracker/machines"].includes(n.href) : !("desktopOnly" in n && n.desktopOnly)).map((n) => {
             const active = isActive(n.href, pathname);
             return (
               <Link key={n.href} href={n.href} className="tabbar-item" data-active={active} aria-current={active ? "page" : undefined}>
@@ -403,9 +419,26 @@ export function Header() {
               </Link>
             );
           })}
+          {trackerApp && (
+            <button type="button" className="tabbar-item" data-active={["/tracker/bom", "/tracker/designs", "/tracker/machines"].some(href => isActive(href, pathname))} aria-label="More tracker tools" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+              <span>More</span>
+            </button>
+          )}
         </div>
       </nav>
       )}
+      {trackerApp && <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Tracker tools">
+        <div className="grid gap-2">
+          {TRACKER_NAV.filter(n => ["/tracker/bom", "/tracker/designs", "/tracker/machines"].includes(n.href)).map(n => (
+            <Link key={n.href} href={n.href} onClick={() => setMoreOpen(false)} className="tile flex items-center gap-3 min-h-14" aria-current={isActive(n.href, pathname) ? "page" : undefined} data-selected={isActive(n.href, pathname)}>
+              <span className="w-6 h-6 shrink-0" style={{ color: "var(--purple)" }}>{n.icon}</span>
+              <span className="font-medium">{n.label}</span>
+              <span className="ml-auto" aria-hidden>→</span>
+            </Link>
+          ))}
+        </div>
+      </Sheet>}
     </>
   );
 }

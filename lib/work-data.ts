@@ -1,5 +1,5 @@
 import "server-only";
-import { requireWorkUser } from "./work-auth";
+import { getWorkUser, requireWorkUser } from "./work-auth";
 import { supabaseAdmin } from "./supabase";
 import type { WorkSnapshot } from "./work";
 import { compactWorkSnapshot } from "./work-snapshot";
@@ -69,5 +69,28 @@ export async function getWork(full = false): Promise<WorkSnapshot> {
         ? "Work needs its database migration. Apply the team_work migration to the linked Supabase project."
         : "Work couldn't load. Check your connection and try again.",
     };
+  }
+}
+
+/** Read-only home preview; Work still requires its own authorized Google session. */
+export async function getWorkHome() {
+  try {
+    const user = await getWorkUser();
+    if (!user) return { state: "signed-out" as const, items: [], memberId: null };
+    const db = supabaseAdmin();
+    const signal = AbortSignal.timeout(5000);
+    const items = await collect<WorkSnapshot["items"][number]>((from, to) =>
+      db.from("work_items")
+        .select("*")
+        .in("kind", ["issue", "project", "initiative", "team"])
+        .eq("archived", false)
+        .is("deleted_at", null)
+        .order("number")
+        .range(from, to)
+        .abortSignal(signal),
+    );
+    return { state: "ready" as const, items, memberId: user.memberId };
+  } catch {
+    return { state: "error" as const, items: [], memberId: null };
   }
 }

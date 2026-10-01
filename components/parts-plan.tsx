@@ -160,7 +160,7 @@ export function PartsPlan({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="parts-plan flex flex-col gap-4">
       {/* Scope */}
       <section className="card p-4 flex flex-col gap-3">
         <div className="flex flex-wrap gap-2 items-center">
@@ -197,7 +197,7 @@ export function PartsPlan({
           <h2 className="text-xl font-medium tracking-tight">Needs attention first</h2>
           <ul className="flex flex-col gap-1.5 text-sm">
             {cantMake.map((p) => (
-              <li key={p.id} className="flex gap-2">
+              <li key={p.id} className="plan-attention-row flex gap-2">
                 <span className="pill pill-bad shrink-0">Can&apos;t make</span>
                 <Link href={`/tracker/${p.id}`} className="underline font-medium">
                   {p.name}
@@ -206,7 +206,7 @@ export function PartsPlan({
               </li>
             ))}
             {noMaterial.map((p) => (
-              <li key={p.id} className="flex gap-2">
+              <li key={p.id} className="plan-attention-row flex gap-2">
                 <span className="pill pill-warn shrink-0">No stock</span>
                 <Link href={`/tracker/${p.id}`} className="underline font-medium">
                   {p.name}

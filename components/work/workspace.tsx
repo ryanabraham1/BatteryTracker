@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import { addWorkComment, markWorkRead, mutateWork } from "@/app/work-actions";
 import {
+  activeWorkItems,
   dateLabel,
   done,
   filterIssues,
@@ -23,6 +24,7 @@ import {
   IssueList,
   Timeline,
 } from "./collections";
+import { ProjectDetail } from "./project-detail";
 import { ItemDetail, RichText } from "./detail";
 import { Field, ItemEditor, Modal } from "./editor";
 import { Icon } from "./icons";
@@ -134,6 +136,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
   const [sort, setSort] = useState("priority");
   const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editor, setEditor] = useState<{
     kind: WorkKind;
@@ -168,13 +171,22 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
           : i;
       }),
   );
-  const live = useMemo(() => items.filter((i) => !i.archived && !i.deleted_at), [items]);
+  const live = useMemo(() => activeWorkItems(items), [items]);
   const byId = useMemo(() => new Map(live.map(i => [i.id, i])), [live]);
   const receiptByEvent = useMemo(() => new Map(snapshot.receipts.map(r => [r.event_id, r])), [snapshot.receipts]);
   const member = live.find((i) => i.id === actor && i.kind === "member");
   const current = entityId
     ? items.find((i) => i.id === entityId && !i.deleted_at)
     : undefined;
+  const preview = !entityId && section === "projects" ? live.find(i => i.id === previewId && i.kind === "project") : undefined;
+  useEffect(() => {
+    if (!preview) return;
+    function closePreview(e: KeyboardEvent) {
+      if (e.key === "Escape" && !document.querySelector("dialog[open], :popover-open")) setPreviewId(null);
+    }
+    window.addEventListener("keydown", closePreview);
+    return () => window.removeEventListener("keydown", closePreview);
+  }, [preview]);
   const info = SECTIONS[section];
   const pageGroup = PAGE_GROUPS.find((g) => g.paths.includes(section));
   const navActive = (path: string) =>
@@ -238,12 +250,14 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     });
   }
   function open(item: WorkItem) {
+    setPreviewId(null);
     setError("");
     setSelected([]);
     setSidebarOpen(false);
     router.push(route(item));
   }
   function navigate(path: string) {
+    setPreviewId(null);
     setError("");
     setFilter({});
     setSelected([]);
@@ -844,7 +858,8 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                 }
               />
             ) : section === "projects" ? (
-              <>
+              <div className="work-project-browser">
+                <div className="work-project-browser-main">
                 <div className="work-toolbar">
                   <span className="work-toolbar-count">
                     {live.filter((i) => i.kind === "project").length} projects
@@ -871,6 +886,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     items={items}
                     projects={live.filter((i) => i.kind === "project")}
                     onOpen={open}
+                    onPreview={item => setPreviewId(item.id)}
                     milestoneActions={milestoneActions}
                   />
                 ) : (
@@ -879,10 +895,29 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     items={items}
                     kind="project"
                     onOpen={open}
+                    onPreview={item => setPreviewId(item.id)}
                     onCreate={() => create("project")}
                   />
                 )}
-              </>
+                </div>
+                {preview && <aside className="work-project-preview" aria-label={`${preview.title} project preview`}>
+                  <header className="work-project-preview-header">
+                    <h2>{preview.title}</h2>
+                    <button className="work-text-button" onClick={() => open(preview)}>Open project <Icon name="arrow" size={15}/></button>
+                    <button className="work-icon-button" aria-label="Close project preview" onClick={() => setPreviewId(null)}><Icon name="close" size={17}/></button>
+                  </header>
+                  <ProjectDetail key={preview.id} preview item={preview} items={items} events={snapshot.events}
+                    pending={pending || readOnly} onOpen={open} onCreate={create}
+                    onEdit={() => setEditor({ kind: "project", item: preview })}
+                    onPatch={data => patch(preview, data)} milestoneActions={milestoneActions} issueActions={issueActions}
+                    onComment={async (body, type) => {
+                      const result = await addWorkComment(preview.id, body, type ?? "update");
+                      if (!result.ok) { setError(result.error ?? "Couldn't post."); return false; }
+                      router.refresh(); return true;
+                    }}
+                    onArchive={() => archiveItem(preview)} onDelete={() => trashItem(preview)} />
+                </aside>}
+              </div>
             ) : section === "settings" ? (
               <>
                 <div className="work-settings-tabs">

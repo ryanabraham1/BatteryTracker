@@ -9,14 +9,23 @@
  * Server actions made while offline are queued by the app itself
  * (components/offline.tsx), not here.
  */
-const VERSION = "bt-v7";
+const VERSION = "bt-v8";
 const PAGES = `${VERSION}-pages`;
 const ASSETS = `${VERSION}-assets`;
 const NAV_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(PAGES).then((c) => c.addAll(["/", "/battery", "/battery/batteries", "/battery/log", "/battery/comp", "/stock"]).catch(() => {})),
+    caches.open(PAGES).then((c) => Promise.all(
+      ["/", "/battery", "/battery/batteries", "/battery/log", "/battery/comp", "/stock"].map(async (path) => {
+        try {
+          const res = await fetch(path);
+          if (res.ok && !res.redirected) await c.put(path, res);
+        } catch {
+          // One unavailable page must not prevent the others from being cached.
+        }
+      }),
+    )),
   );
   self.skipWaiting();
 });
@@ -67,7 +76,7 @@ self.addEventListener("fetch", (event) => {
         try {
           const res = await withTimeout(fetch(req), NAV_TIMEOUT_MS);
           // Only cache real pages (not the login redirect target of a signed-out user).
-          if (res.ok && !url.pathname.startsWith("/login")) c.put(req, res.clone());
+          if (res.ok && !res.redirected && !url.pathname.startsWith("/login")) c.put(req, res.clone());
           return res;
         } catch {
           const hit = await c.match(req, { ignoreSearch: true });

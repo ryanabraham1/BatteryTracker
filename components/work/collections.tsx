@@ -300,7 +300,9 @@ export function Collection({
   kind,
   onOpen,
   onCreate,
+  onPreview,
 }: {
+  onPreview?: (item: WorkItem) => void;
   rows: WorkItem[];
   items: WorkItem[];
   kind: WorkKind;
@@ -345,7 +347,8 @@ export function Collection({
           <button
             className="work-project-card"
             key={item.id}
-            onClick={() => onOpen(item)}
+            onClick={() => onPreview && item.kind === "project" ? onPreview(item) : onOpen(item)}
+            onDoubleClick={() => { if (onPreview && item.kind === "project") onOpen(item); }}
           >
             <div className="work-project-top">
               <span
@@ -406,7 +409,7 @@ export function Collection({
     </div>
   );
 }
-export function Timeline({ projects, items, onOpen, milestoneActions }: { projects: WorkItem[]; items: WorkItem[]; onOpen: (i: WorkItem) => void; milestoneActions: MilestoneActions; }) {
+export function Timeline({ projects, items, onOpen, onPreview, milestoneActions }: { onPreview?: (i: WorkItem) => void; projects: WorkItem[]; items: WorkItem[]; onOpen: (i: WorkItem) => void; milestoneActions: MilestoneActions; }) {
   const milestoneMenu = useMilestoneMenu(milestoneActions);
   const [scale, setScale] = useState("month");
   const [focusToday, setFocusToday] = useState(true);
@@ -435,9 +438,9 @@ export function Timeline({ projects, items, onOpen, milestoneActions }: { projec
         const positioned = labelSlots(stages, min, max, width - 190);
         const undated = stages.filter(m => !m.data.due);
         return <div className="work-roadmap-row" key={p.id} style={{minHeight:undated.length ? 145 : 102}}>
-          <button className="work-roadmap-project" onClick={() => onOpen(p)}><Icon name={p.data.icon || "projects"} style={{color:p.data.color || "var(--purple)"}}/><span>{p.title}<small>{p.data.status || "Planned"}</small></span><Avatar small name={items.find(i => i.id === p.data.assignee)?.title}/></button>
+          <button className="work-roadmap-project" onClick={() => onPreview ? onPreview(p) : onOpen(p)} onDoubleClick={() => { if (onPreview) onOpen(p); }}><Icon name={p.data.icon || "projects"} style={{color:p.data.color || "var(--purple)"}}/><span>{p.title}<small>{p.data.status || "Planned"}</small></span><Avatar small name={items.find(i => i.id === p.data.assignee)?.title}/></button>
           <div className="work-roadmap-track">{ticks.map(t => <span className="work-roadmap-guide" key={t} style={{left:`${x(t)}%`}}/>)}<span className="work-roadmap-today" style={{left:`${x(today)}%`}}><small>Today</small></span>
-            {start !== null && end !== null && end >= min && start <= max ? <button className="work-roadmap-bar" style={{left:`${Math.max(0,x(start))}%`,width:`${Math.max(.5,Math.min(100,x(end))-Math.max(0,x(start)))}%`}} onClick={() => onOpen(p)} title={`${p.title}: ${dateLabel(p.data.start)} – ${dateLabel(p.data.due)}`}><span>{p.title}</span></button> : <span className="work-roadmap-no-date">Set project dates to plan your timeline</span>}
+            {start !== null && end !== null && end >= min && start <= max ? <button className="work-roadmap-bar" style={{left:`${Math.max(0,x(start))}%`,width:`${Math.max(.5,Math.min(100,x(end))-Math.max(0,x(start)))}%`}} onClick={() => onPreview ? onPreview(p) : onOpen(p)} onDoubleClick={() => { if (onPreview) onOpen(p); }} title={`${p.title}: ${dateLabel(p.data.start)} – ${dateLabel(p.data.due)}`}><span>{p.title}</span></button> : <span className="work-roadmap-no-date">Set project dates to plan your timeline</span>}
             {positioned.map(({m,width:labelWidth}) => {
               const status = milestoneProgress(m, items);
               const left = x(Date.parse(m.data.due!));

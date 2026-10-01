@@ -268,7 +268,7 @@ export function TrackerTable({
         <FilterSelect label="Bot" value={bot} onChange={setBot} options={bots} />
         <FilterSelect label="Subsystem" value={subsystem} onChange={setSubsystem} options={subsystems} />
         <FilterSelect label={print ? "Material" : "Machine"} value={machine} onChange={setMachine} options={machines} />
-        <input className="input" placeholder="Search parts, notes, people…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the tracker" />
+        <input className="input col-span-2 sm:col-span-1" placeholder="Search parts, notes, people…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the tracker" />
       </div>
 
       {total === 0 ? (
@@ -510,7 +510,7 @@ function StatusSelect({ job, person }: { job: FabJob; person: string }) {
     <span className="inline-flex flex-col gap-0.5">
       <select
         className={`pill pill-${tone} cursor-pointer`}
-        style={{ appearance: "auto", border: 0, opacity: a.pending ? 0.6 : 1, maxWidth: 170 }}
+        style={{ appearance: "auto", border: 0, opacity: a.pending ? 0.6 : 1 }}
         value={shown}
         disabled={a.pending}
         onChange={(e) => {
@@ -548,7 +548,7 @@ function JobCard({ job: j, print, stock, need, person, onOpen }: { job: FabJob; 
     ? [j.material_text, j.infill && `${j.infill} infill`, j.designer, dri && `DRI ${dri}`]
     : [KIND_LABEL[j.kind], j.material_text, j.stock_dims, j.length_text && `L ${j.length_text}`, j.tapped && `tap: ${j.tapped}`, j.machine, dri && `DRI ${dri}`];
   return (
-    <div className="flex flex-col gap-2" style={{ opacity: isDone(j.status) ? 0.65 : 1 }}>
+    <div className="tracker-job-card flex flex-col gap-2" style={{ opacity: isDone(j.status) ? 0.65 : 1 }}>
       <div className="flex items-start gap-2">
         <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
           <span className="font-medium break-words">

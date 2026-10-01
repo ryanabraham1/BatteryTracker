@@ -92,12 +92,12 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
     <>
       {/* Mobile state tabs */}
       <div
-        className="md:hidden sticky top-[calc(56px+env(safe-area-inset-top))] z-20 -mx-4 px-4 py-2 mb-2 border-b"
+        className="md:hidden sticky top-[var(--app-header-height,56px)] z-20 -mx-4 px-4 py-2 mb-2 border-b"
         style={{ background: "var(--paper)", borderColor: "var(--line)" }}
         role="tablist"
         aria-label="Battery state"
       >
-        <div className="hscroll no-scrollbar">
+        <div className="battery-state-tabs grid grid-cols-2 gap-2">
           {STATES.map((state) => {
             const active = tab === state;
             const n = columns[state].length;
@@ -107,7 +107,7 @@ export function Board({ items, settings }: { items: BatteryWithHealth[]; setting
                 type="button"
                 role="tab"
                 aria-selected={active}
-                className="tile tile-chip flex items-center gap-2 text-sm"
+                className="tile tile-chip flex items-center gap-2 text-sm justify-center"
                 data-selected={active}
                 onClick={() => setTab(state)}
               >

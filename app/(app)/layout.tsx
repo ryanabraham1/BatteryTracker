@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <ServiceWorker />
         <Realtime />
         {/* Bottom padding clears the fixed mobile tab bar (+ home indicator); desktop just needs breathing room. */}
-        <main className="flex-1 mx-auto w-full max-w-[1400px] px-4 py-4 sm:py-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-16">
+        <main className="flex-1 mx-auto w-full max-w-[1400px] px-4 py-4 sm:py-5 pb-[calc(88px+env(safe-area-inset-bottom))] xl:pb-16">
           {children}
         </main>
       </OfflineProvider>

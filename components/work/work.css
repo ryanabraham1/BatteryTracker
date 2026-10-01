@@ -2423,3 +2423,84 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 .work-roadmap-marker > .work-milestone-diamond { display:block; }
 .work-roadmap-name { transform:translateX(-8px); padding-left:0; }
 .work-roadmap-name > span { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding-top:0; width:100%; }
+
+/* Phone layouts: readable issue titles and controls sized for fingers. */
+@media (max-width: 767px) {
+  .work-shell { min-width: 0; }
+  .work-toolbar-right { flex-wrap: wrap; }
+  .work-inline-search { min-width: 0; font-size: 16px; min-height: 44px; }
+  .work-icon-button, .work-control, .work-text-button,
+  .work-property-button, .work-layout-toggle button,
+  .work-topbar button, .work-page-tabs button { min-height: 44px; }
+  .work-icon-button, .work-layout-toggle button { min-width: 44px; }
+  .work-row-status-picker { width: 44px; }
+  .work-row-status-picker .work-property-button { width: 44px; min-height: 44px; }
+  .work-issue-row { grid-template-columns: 44px auto auto minmax(0, 1fr) 44px; gap: 2px 6px; padding: 8px 12px; }
+  .work-issue-row > .work-row-title { white-space: normal; overflow-wrap: anywhere; min-height: 44px; }
+  .work-issue-row > .work-row-project { grid-column: 4 / 6; grid-row: 2; }
+  .work-issue-row > .work-row-date { grid-column: 4 / 6; grid-row: 3; justify-self: start; }
+  .work-issue-row > .work-row-date:empty { display: none; }
+  .work-row-prop .work-property-button { padding: 6px; }
+  .work-project-issue-row, .work-child:has(.work-code) { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 4px 8px; padding: 12px 8px; min-height: 64px; }
+  .work-project-issue-row > span:nth-child(3), .work-child > span:nth-last-child(2) { grid-column: 2; grid-row: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+  .work-project-issue-row > .work-code, .work-child > .work-code { grid-column: 2; grid-row: 2; font-size: 12px; }
+  .work-project-issue-row time { grid-column: 2; grid-row: 3; text-align: left; }
+  .work-project-issue-row > .work-avatar, .work-child > .work-avatar { grid-column: 3; grid-row: 1 / 3; }
+  .work-board { scroll-snap-type: x proximity; scroll-padding-inline: 16px; padding: 16px; }
+  .work-board-column { width: min(280px, calc(100vw - 64px)); scroll-snap-align: start; }
+  .work-issue-card { overflow-wrap: anywhere; }
+  .work-issue-card h3 { font-size: 15px; line-height: 1.45; }
+  .work-properties, .work-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .work-field, .work-project-property-card .work-field { min-width: 0; }
+  .work-project-dates { flex-wrap: wrap; }
+  .work-project-property-card .work-property-button, .work-project-property-card .work-inline-date { min-height: 44px; }
+  .work-milestone-entry > .work-icon-button { opacity: 1; }
+  .work-picker-menu { max-width: calc(100vw - 16px); }
+  .work-picker-menu input, .work-dialog input:not([type=checkbox]), .work-dialog textarea, .work-dialog select, .work-inline-date { font-size: 16px; }
+  .work-picker-options > button, .work-context-menu > button { min-height: 44px; }
+  .work-dialog, .work-dialog-wide { width: 100%; max-width: 100%; max-height: 92dvh; margin: auto 0 0; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .work-dialog-head { position: sticky; top: 0; background: var(--surface); z-index: 2; padding: 10px 16px; }
+  .work-dialog-foot { position: sticky; bottom: 0; background: var(--surface); z-index: 2; padding: 12px 16px; }
+  .work-editor-body { padding: 20px 16px; }
+  .work-title-input { font-size: 23px; }
+  .work-sidebar-open { width: min(300px, calc(100vw - 48px)); padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 379px) {
+  .work-filter-panel { grid-template-columns: minmax(0, 1fr); }
+  .work-project-property-card .work-field { grid-template-columns: 64px minmax(0, 1fr); gap: 6px; }
+}
+@media (max-width: 767px) {
+  .work-compose-chip, .work-dialog .btn, .work-dialog .input { min-height: 44px; }
+  .work-compose-chip select, .work-compose-chip input, .work-compose-writing .work-description-input { font-size: 16px; }
+  .work-compose-top, .work-compose-writing, .work-compose-properties { padding-inline: 16px; }
+  .work-compose-top { flex-wrap: wrap; }
+}
+
+@media (max-width: 767px) {
+  .work-project-content h1 { font-size: 28px; line-height: 1.2; font-weight: 500; letter-spacing: -.8px; overflow-wrap: anywhere; }
+  .work-project-tabs > button { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  .work-toolbar-right .work-picker { flex: 1 1 0; min-width: 0; }
+  .work-toolbar-right .work-picker .work-property-button { width: 100%; min-width: 0; padding-inline: 4px; font-size: 12px; }
+  .work-toolbar-right .work-layout-toggle { flex: 0 0 auto; margin-left: 0; }
+}
+
+/* Keep timeline content behind the frozen project column, including while scrolling. */
+.work-roadmap-head > div, .work-roadmap-track { isolation:isolate; clip-path:inset(0 -190px 0 0); }
+.work-roadmap-project, .work-roadmap-head > span { min-width:0; overflow:hidden; z-index:4; }
+.work-roadmap-project > span:nth-child(2) { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.work-project-browser { display:flex; align-items:stretch; min-height:calc(100dvh - 160px); }
+.work-project-browser-main { flex:1; min-width:0; }
+.work-project-preview { flex:0 0 400px; min-width:0; border-left:1px solid var(--line); background:var(--paper); position:sticky; top:0; height:calc(100dvh - 156px); overflow:auto; }
+.work-project-preview-header { display:flex; align-items:center; gap:10px; padding:14px 16px; position:sticky; top:0; z-index:5; background:var(--surface); border-bottom:1px solid var(--line); }
+.work-project-preview-header h2 { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; }
+.work-project-preview-header .work-text-button { flex-shrink:0; }
+.work-project-detail[data-preview=true] .work-project-columns { display:block; height:auto; min-height:0; }
+.work-project-detail[data-preview=true] .work-project-sidebar { overflow:visible; padding:16px; }
+@media(max-width:1000px) { .work-project-preview { flex-basis:360px; } }
+@media(max-width:760px) {
+  .work-project-preview { position:fixed; inset:104px 0 0 auto; width:min(400px,100%); height:auto; z-index:40; box-shadow:-8px 0 24px #0002; }
+}
+
+.work-roadmap-name { transform:none; }

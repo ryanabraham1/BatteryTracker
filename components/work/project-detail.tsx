@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteWorkUpdate, editWorkUpdate } from "@/app/work-actions";
 import { useWork } from "./work-provider";
-import { dateLabel, today, done, filterIssues, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkFilter, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
+import { activeWorkItems, dateLabel, today, done, filterIssues, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkFilter, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
 import { Avatar, LabelPicker, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
 import { CommitInput, EntitySelect, Field, Modal } from "./editor";
@@ -31,7 +31,8 @@ function ProjectEmblemPicker({ icon, color, disabled, onChange }: { icon?: strin
 function healthLabel(health: string) { return ({offTrack:"Off track", atRisk:"At risk", onTrack:"On track"} as Record<string,string>)[health] || health; }
 
 type Tab = "Overview" | "Activity" | "Issues" | "Updates";
-export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions, issueActions }: {
+export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions, issueActions, preview = false }: {
+  preview?: boolean;
   milestoneActions: MilestoneActions;
   issueActions: IssueActions;
   item: WorkItem; items: WorkItem[]; events: WorkEvent[]; pending: boolean;
@@ -61,14 +62,14 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   const [milestone, setMilestone] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [showProperties, setShowProperties] = useState(true);
-  const live = items.filter(i => !i.archived && !i.deleted_at);
+  const live = activeWorkItems(items);
   const issues = live.filter(i => i.kind === "issue" && i.data.project === item.id);
   const milestones = live.filter(i => i.kind === "milestone" && i.data.project === item.id).sort((a,b) => (a.data.due || "9999").localeCompare(b.data.due || "9999"));
   const history = events.filter(e => e.item_id === item.id).sort((a,b) => b.created_at.localeCompare(a.created_at));
   const updates = history.filter(e => e.type === "update");
   const documents = live.filter(i => i.kind === "document" && i.data.project === item.id);
   const pct = progress(issues);
-  const filtered = filterIssues(issues, filter).filter(i => !milestone || i.data.milestone === milestone);
+  const filtered = filterIssues(items, { ...filter, project: item.id }).filter(i => !milestone || i.data.milestone === milestone);
   const activeCount = Object.entries(filter).filter(([k, v]) => v && k !== "query").length + (milestone ? 1 : 0);
   const groupMap = new Map<string, [string, WorkItem[]]>();
   for (const i of filtered) { const label = i.data.status || "Backlog"; const entry = groupMap.get(label.toLowerCase()); if (entry) entry[1].push(i); else groupMap.set(label.toLowerCase(), [label, [i]]); }
@@ -93,23 +94,23 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
     return milestones.map(m => {
       const status = milestoneProgress(m, issues);
       const overdue = !status.complete && !!m.data.due && m.data.due < today();
-      return <div key={m.id} className="work-milestone-entry" onContextMenu={e => milestoneMenu.show(m, e)}><button className="work-milestone-row" onClick={() => { setMilestone(m.id); setTab("Issues"); }} title={`${m.title}: ${status.completed}/${status.total} completed. Click to view issues.`}>
+      return <div key={m.id} className="work-milestone-entry" onContextMenu={e => milestoneMenu.show(m, e)}><button className="work-milestone-row" onClick={() => { if (preview) onOpen(m); else { setMilestone(m.id); setTab("Issues"); } }} title={`${m.title}: ${status.completed}/${status.total} completed. Click to view issues.`}>
         <MilestoneIcon percent={status.percent} complete={status.complete} overdue={overdue} />
         <span className="work-milestone-name"><b>{m.title}</b><small>{status.percent}%</small></span>
         <span className="work-milestone-date" data-overdue={overdue}>{dateLabel(m.data.due)}</span>
       </button><button className="work-icon-button" aria-label={`Milestone actions for ${m.title}`} aria-haspopup="menu" onClick={e => milestoneMenu.show(m, e)}><Icon name="menu" size={13}/></button></div>;
     });
   }
-  return <div className="work-project-detail">
-    <nav className="work-project-tabs" aria-label="Project views">
+  return <div className="work-project-detail" data-preview={preview}>
+    {!preview && <nav className="work-project-tabs" aria-label="Project views">
       {(["Overview", "Activity", "Issues", "Updates"] as Tab[]).map(t => <button key={t} aria-current={tab === t ? "page" : undefined} data-active={tab === t} onClick={() => setTab(t)}>{t}{t === "Issues" && <span>{issues.length}</span>}</button>)}
       <div className="work-project-tab-actions">
         <button className="work-text-button" disabled={pending} onClick={() => setComposer(true)}><Icon name="updates" size={15} /> Write update</button>
         <button className="work-icon-button" aria-label="Toggle project details" aria-pressed={showProperties} onClick={() => setShowProperties(v => !v)}><Icon name="board" size={17} /></button>
       </div>
-    </nav>
+    </nav>}
     <div className="work-project-columns" data-sidebar={showProperties}>
-      <main className="work-project-content" data-tab={tab}>
+      {!preview && <main className="work-project-content" data-tab={tab}>
         {tab === "Overview" && <>
           <div className="work-project-heading"><ProjectEmblemPicker icon={item.data.icon} color={item.data.color} disabled={pending} onChange={onPatch} /><button className="work-text-button" onClick={onEdit}>Edit project</button></div>
           <InlineEdit label="Project name" value={item.title} disabled={pending} onSave={title => milestoneActions.onSave(item, { title })}><h1>{item.title}</h1></InlineEdit>
@@ -156,7 +157,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
         </>}
         {tab === "Updates" && <><div className="work-section-title"><h2>Project updates</h2><button className="work-text-button" onClick={() => setComposer(true)} disabled={pending}>Write update</button></div>{updates.map(updateCard)}{!updates.length && <Empty title="No updates yet" description="Share a progress update with your team." />}</>}
         {tab === "Activity" && <><div className="work-section-title"><h2>Activity</h2></div>{history.map(e => ["update", "comment"].includes(e.type) ? updateCard(e) : <div className="work-project-event" key={e.id}><Avatar small name={e.actor}/><span><b>{e.actor}</b> {e.type === "status" ? `changed status to ${e.body}` : `${e.type} this project`}</span><time>{dateLabel(e.created_at)}</time></div>)}{!history.length && <Empty title="No activity yet" description="Project changes will appear here." />}</>}
-      </main>
+      </main>}
       {showProperties && <aside className="work-project-sidebar">
         <section className="work-project-property-card"><h2>Properties</h2>
           <Field label="Status"><PropertyPicker label="Status" value={item.data.status || "Planned"} disabled={pending} onChange={status => onPatch({ status })} options={uniqueStatuses([item.data.status || "Planned", "Planned", "In progress", "Done", "Canceled"]).map(s => ({ value: s, label: s, icon: <StatusIcon status={s}/> }))}/></Field>

@@ -156,8 +156,14 @@ function matchesDue(item: WorkItem, due?: string) {
   const limit = end.toLocaleDateString("en-CA");
   return due === "week" ? d >= now && d <= limit : true;
 }
+/** Active issues also require an active project, when one is assigned. */
+export function activeWorkItems(items: WorkItem[]) {
+  const projects = new Set(items.filter(i => i.kind === "project" && !i.archived && !i.deleted_at).map(i => i.id));
+  return items.filter(i => !i.archived && !i.deleted_at &&
+    (i.kind !== "issue" || !i.data.project || projects.has(i.data.project)));
+}
 export function filterIssues(items: WorkItem[], filter: WorkFilter) {
-  return items.filter(
+  return activeWorkItems(items).filter(
     (i) =>
       i.kind === "issue" &&
       !i.archived &&

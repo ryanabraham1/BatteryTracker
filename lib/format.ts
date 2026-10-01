@@ -26,7 +26,9 @@ export function daysSince(iso: string, now = Date.now()): number {
 
 export function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
+  // Calendar dates are local dates; parsing them as UTC shifts them back a day
+  // in time zones west of UTC. Timestamps still represent an exact instant.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 

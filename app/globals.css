@@ -362,3 +362,36 @@ select.cell:hover, select.cell:focus {
 .sheet-table tbody tr:hover td { background: var(--paper); }
 .sheet-table .pin { position: sticky; z-index: 1; background: var(--surface); }
 .sheet-table tbody tr:hover .pin { background: var(--paper); }
+
+/* Phone controls stay legible and reachable, including when the keyboard opens. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 3px;
+}
+@media (max-width: 639px) {
+  .tile-chip { min-height: 44px; }
+  .tabbar-item { min-width: 0; min-height: 56px; font-size: 9px; letter-spacing: .04em; }
+  .tabbar-item[data-active="true"] { background: var(--purple-soft); }
+  .tracker-job-card > div:first-child { flex-direction: column; }
+  .tracker-job-card > div:first-child > span { width: 100%; }
+  .tracker-job-card > div:first-child select { width: 100%; }
+  .tracker-job-card .pill { min-height: 44px; font-size: 16px; letter-spacing: 0; padding-inline: 8px; }
+  .tracker-job-card .chip { white-space: normal; overflow-wrap: anywhere; }
+  .tracker-job-card a { min-height: 36px; display: inline-flex; align-items: center; }
+  .tracker-job-card > div:first-child > button { min-height: 44px; }
+  .cell { min-height: 44px; font-size: 16px; }
+  .input { min-width: 0; }
+}
+@media (max-width: 379px) {
+  .battery-state-tabs .tile-chip { font-size: 12px; gap: 5px; padding-inline: 6px; letter-spacing: 0; }
+  /* Long form labels and three numeric fields need the full phone width. */
+  form .grid-cols-2, form .grid-cols-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 639px) {
+  .parts-plan .tile-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+  .plan-attention-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 8px; padding-block: 10px; border-bottom: 1px solid var(--line); }
+  .plan-attention-row > .pill { align-self: start; }
+  .plan-attention-row > a { min-width: 0; overflow-wrap: anywhere; }
+  .plan-attention-row > span:last-child { grid-column: 1 / -1; overflow-wrap: anywhere; }
+}

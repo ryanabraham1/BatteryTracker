@@ -289,7 +289,7 @@ function PartCard({ p, units, onOpen }: { p: BoardPart; units: Units; onOpen: ()
       )}
       <span className="min-w-0 flex-1 flex flex-col gap-1">
         <span className="flex items-start justify-between gap-2">
-          <span className="font-medium leading-tight break-words">
+          <span className="min-w-0 flex-1 font-medium leading-tight break-words">
             {p.priority !== null && (
               <span className="mono mr-1" style={{ color: p.priority === 0 ? "var(--bad)" : "var(--muted)" }}>
                 {priorityLabel(p.priority)}

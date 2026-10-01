@@ -18,12 +18,14 @@ import { describeEvent as describeBatteryEvent, EVENT_TONE } from "@/components/
 import { getParts } from "@/lib/parts-data";
 import { trackerOf } from "@/lib/parts";
 import { isDone, priorityLabel, TRACKER_LABEL } from "@/lib/tracker";
+import { getWorkHome } from "@/lib/work-data";
+import { activeWorkItems, done, issueCode } from "@/lib/work";
 
 export const dynamic = "force-dynamic";
 
 /** 3256 Tools home: one glance at every tool, then a tap into the one you need. */
 export default async function Home() {
-  const [board, batteryEvents, materials, pieces, orders, locations, { kits, items: kitItems }, fabEvents, units, parts] = await Promise.all([
+  const [board, batteryEvents, materials, pieces, orders, locations, { kits, items: kitItems }, fabEvents, units, parts, work] = await Promise.all([
     getBoardData(),
     getAllEvents({ limit: 8 }),
     getMaterials(),
@@ -35,7 +37,19 @@ export default async function Home() {
     getUnits(),
     // null until the tracker tables are set up, so the dashboard still loads
     getParts().catch(() => null),
+    getWorkHome(),
   ]);
+
+  const workIssues = activeWorkItems(work.items).filter((i) => i.kind === "issue" && !done(i));
+  const myIssues = workIssues.filter((i) => i.data.assignee === work.memberId);
+  const inProgress = workIssues.filter((i) => i.data.status?.toLowerCase() === "in progress");
+  const workProjects = work.items.filter((i) => i.kind === "project" && !done(i));
+  const nextIssues = [...(myIssues.length ? myIssues : workIssues)].sort((a, b) =>
+    (a.data.priority || 5) - (b.data.priority || 5) ||
+    (a.data.due || "9999").localeCompare(b.data.due || "9999") ||
+    b.updated_at.localeCompare(a.updated_at),
+  );
+  const nextIssue = nextIssues[0];
 
   // ── Batteries ──
   const live = board.items.filter((i) => i.battery.status !== "retired");
@@ -107,8 +121,51 @@ export default async function Home() {
 
       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
         <ToolCard href="/work" name="Work" tagline="Issues and project planning" icon={<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M4 5h16M4 12h16M4 19h16" /></svg>} links={[["/work/issues", "Issues"], ["/work/projects", "Projects"], ["/work/initiatives", "Initiatives"]]} open="Open workspace">
-          <div className="rounded-lg p-4" style={{ background: "var(--purple-soft)" }}><p className="text-base" style={{ color: "var(--purple-dark)" }}>Issues, projects, initiatives, and cycles.</p></div>
-          <div className="flex gap-2 flex-wrap"><Link href="/work/triage" className="pill">Triage</Link><Link href="/work/cycles" className="pill">Cycles</Link><Link href="/work/documents" className="pill">Documents</Link></div>
+          <div className="rounded-lg p-4" style={{ background: "var(--purple-soft)" }}>
+            <p className="eyebrow" style={{ color: "var(--purple-dark)" }}>
+              {work.state === "ready" ? "Pick up next" : "Your workspace"}
+            </p>
+            {nextIssue ? (
+              <Link href={`/work/issues/${nextIssue.id}`} className="block mt-1 hover:underline">
+                <span className="mono text-xs" style={{ color: "var(--purple-dark)" }}>{issueCode(nextIssue, work.items)}</span>
+                <span className="block text-xl font-semibold leading-snug mt-1 break-words">{nextIssue.title}</span>
+              </Link>
+            ) : (
+              <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+                {work.state === "signed-out" ? "Sign in to see your assigned issues and what needs attention." :
+                  work.state === "error" ? "The work summary is unavailable. Open the workspace to try again." :
+                  "No open issues. Open the workspace to plan what’s next."}
+              </p>
+            )}
+          </div>
+          {work.state === "ready" && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <Link href="/work/my-issues" className="rounded-lg hover:bg-[var(--paper)]"><Stat label="My open issues" value={myIssues.length} tone={myIssues.length ? "info" : undefined} /></Link>
+              <Link href="/work/issues" className="rounded-lg hover:bg-[var(--paper)]"><Stat label="Open issues" value={workIssues.length} /></Link>
+              <Link href="/work/issues" className="rounded-lg hover:bg-[var(--paper)]"><Stat label="In progress" value={inProgress.length} tone={inProgress.length ? "info" : undefined} /></Link>
+              <Link href="/work/projects" className="rounded-lg hover:bg-[var(--paper)]"><Stat label="Projects" value={workProjects.length} /></Link>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["/work/my-issues", "My work", "Assigned to you"],
+              ["/work/inbox", "Inbox", "Updates & mentions"],
+              ["/work/documents", "Documents", "Team notes & plans"],
+            ].map(([href, label, description]) => (
+              <Link key={href} href={href} className="rounded-lg p-3 min-w-0 hover:bg-[var(--paper)]" style={{ border: "1px solid var(--line)" }}>
+                <span className="flex items-center justify-between gap-1 text-sm font-semibold">{label}<span aria-hidden className="hidden sm:inline">→</span></span>
+                <span className="block text-xs mt-1" style={{ color: "var(--muted)" }}>{description}</span>
+              </Link>
+            ))}
+          </div>
+          {nextIssues.length > 1 && (
+            <AlertList
+              empty="No open issues."
+              rows={nextIssues.slice(1, 3).map((i) => ({ key: i.id, strong: issueCode(i, work.items), text: i.title, bad: i.data.priority === 1, href: `/work/issues/${i.id}` }))}
+              more={nextIssues.length - 3}
+              moreHref={myIssues.length ? "/work/my-issues" : "/work/issues"}
+            />
+          )}
         </ToolCard>
         {/* Batteries */}
         <ToolCard

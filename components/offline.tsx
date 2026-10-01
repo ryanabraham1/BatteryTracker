@@ -101,7 +101,9 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
           };
         }
         if (!r.ok) setReplayError(`${e.name} for a queued change was rejected: ${r.error}`);
-        list = list.slice(1);
+        // Another change may have been queued while the request was in flight.
+        // Remove only the completed entry from the latest persisted queue.
+        list = readOutbox().filter((entry) => entry.id !== e.id);
         writeOutbox(list);
         setOutbox(list);
       }
@@ -171,7 +173,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   const run = useCallback(
     async <N extends ActionName>(name: N, batteryId: string, fd: FormData): Promise<RunResult<N>> => {
       const queued = { ok: true as const, queued: true as const };
-      if (offline || (typeof navigator !== "undefined" && !navigator.onLine)) {
+      if (offline || draining.current || readOutbox().length > 0 || (typeof navigator !== "undefined" && !navigator.onLine)) {
         enqueue(name, batteryId, fd);
         return queued;
       }
@@ -235,7 +237,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="sticky top-[calc(56px+env(safe-area-inset-top))] z-20 px-4 py-2 text-sm flex items-center gap-3 border-b"
+      className="sticky top-[var(--app-header-height,56px)] z-20 px-4 py-2 text-sm flex items-center gap-3 border-b"
       style={{
         background: `var(--${tone}-soft)`,
         color: `var(--${tone})`,

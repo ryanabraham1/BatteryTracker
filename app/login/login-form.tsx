@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { safeReturnPath } from "@/lib/navigation";
 
 export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
@@ -24,7 +25,7 @@ export function LoginForm({ next }: { next: string }) {
         setError(j.error ?? "Something went wrong");
         return;
       }
-      router.replace(next.startsWith("/") ? next : "/");
+      router.replace(safeReturnPath(next));
       router.refresh();
     } catch {
       setError("Network error — try again");

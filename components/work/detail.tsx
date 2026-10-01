@@ -3,6 +3,7 @@ import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  activeWorkItems,
   dateLabel,
   issueCode,
   milestoneProgress,
@@ -69,11 +70,12 @@ export function ItemDetail({
     "blocks" | "blocked by" | "related" | "duplicate of"
   >("related");
   const issue = item.kind === "issue";
-  const projects = items.filter(
+  const live = activeWorkItems(items);
+  const projects = live.filter(
     (i) =>
       i.kind === "project" && i.data.initiative === item.id && !i.deleted_at,
   );
-  const children = items.filter(
+  const children = live.filter(
     (i) =>
       !i.deleted_at &&
       !i.archived &&

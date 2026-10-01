@@ -35,7 +35,9 @@ function parseNumber(s: string): number | null {
 export function parseLength(raw: string, fallback: Units): number | null {
   const mm = parseLengthRaw(raw, fallback);
   // round off float noise from the inch ↔ mm round trip (609.5999… → 609.6)
-  return mm === null ? null : Math.round(mm * 1000) / 1000;
+  if (mm === null || !Number.isFinite(mm) || mm <= 0) return null;
+  const rounded = Math.round(mm * 1000) / 1000;
+  return Number.isFinite(rounded) && rounded > 0 ? rounded : null;
 }
 
 function parseLengthRaw(raw: string, fallback: Units): number | null {
