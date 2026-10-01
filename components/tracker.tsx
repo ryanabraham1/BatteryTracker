@@ -457,7 +457,7 @@ function DropCell({
       className="cell"
       data-empty={!shown}
       data-error={!!a.error}
-      title={a.error ?? (shown || undefined)}
+      title={a.error ?? ((labels?.[shown] ?? shown) || undefined)}
       style={{ opacity: a.pending ? 0.5 : 1, color: field === "priority" && shown === "#0" ? "var(--bad)" : undefined }}
       onChange={(e) => {
         const v = e.target.value;
