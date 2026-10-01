@@ -1,12 +1,13 @@
 "use client";
 import { useRef, useState } from "react";
-import { dateLabel, today, done, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
+import { dateLabel, today, done, filterIssues, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkFilter, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
 import { Avatar, LabelPicker, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
 import { CommitInput, EntitySelect, Field, Modal } from "./editor";
 import { Icon, MilestoneIcon, PROJECT_ICONS, StatusIcon } from "./icons";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
 import { InlineEdit, PropertyPicker } from "./property-picker";
+import { IssueFilterFields } from "./filter-fields";
 
 const STATUS_ORDER = ["backlog", "todo", "planned", "in progress", "in review", "done", "completed", "canceled", "cancelled", "duplicate"];
 const statusRank = (s: string) => { const r = STATUS_ORDER.indexOf(s.toLowerCase()); return r < 0 ? 5 : r; };
@@ -38,7 +39,8 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   const milestoneMenu = useMilestoneMenu(milestoneActions);
   const [composer, setComposer] = useState(false);
   const [body, setBody] = useState("");
-  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<WorkFilter>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [milestone, setMilestone] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [showProperties, setShowProperties] = useState(true);
@@ -49,7 +51,8 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   const updates = history.filter(e => e.type === "update");
   const documents = live.filter(i => i.kind === "document" && i.data.project === item.id);
   const pct = progress(issues);
-  const filtered = issues.filter(i => (!milestone || i.data.milestone === milestone) && `${i.title} ${issueCode(i, items)}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = filterIssues(issues, filter).filter(i => !milestone || i.data.milestone === milestone);
+  const activeCount = Object.entries(filter).filter(([k, v]) => v && k !== "query").length + (milestone ? 1 : 0);
   const groupMap = new Map<string, [string, WorkItem[]]>();
   for (const i of filtered) { const label = i.data.status || "Backlog"; const entry = groupMap.get(label.toLowerCase()); if (entry) entry[1].push(i); else groupMap.set(label.toLowerCase(), [label, [i]]); }
   const statusGroups = [...groupMap.entries()].map(([key, [label, rows]]) => [key, label, rows] as [string, string, WorkItem[]]).sort((a, b) => statusRank(a[0]) - statusRank(b[0]));
@@ -80,7 +83,7 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
       </div>
     </nav>
     <div className="work-project-columns" data-sidebar={showProperties}>
-      <main className="work-project-content">
+      <main className="work-project-content" data-tab={tab}>
         {tab === "Overview" && <>
           <div className="work-project-heading"><ProjectEmblemPicker icon={item.data.icon} color={item.data.color} disabled={pending} onChange={onPatch} /><button className="work-text-button" onClick={onEdit}>Edit project</button></div>
           <InlineEdit label="Project name" value={item.title} disabled={pending} onSave={title => milestoneActions.onSave(item, { title })}><h1>{item.title}</h1></InlineEdit>
@@ -101,7 +104,16 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
         </>}
         {tab === "Issues" && <>
           <div className="work-section-title"><h2>Issues <span>{filtered.length}</span></h2><button className="work-text-button" disabled={pending} onClick={() => onCreate("issue", { project: item.id, team: item.data.team, ...(milestone ? { milestone } : {}) })}><Icon name="plus" size={14}/> Add issue</button></div>
-          <div className="work-project-issue-tools"><input className="input" aria-label="Search project issues" placeholder="Search issues…" value={search} onChange={e => setSearch(e.target.value)} /><PropertyPicker label="Milestone filter" value={milestone} onChange={setMilestone} options={[{ value: "", label: "All milestones" }, ...milestones.map(m => ({value: m.id, label: m.title}))]} />{milestone && <button className="work-text-button" onClick={() => setMilestone("")}>Clear filter</button>}</div>
+          <div className="work-project-issue-tools">
+            <input className="input" aria-label="Search project issues" placeholder="Search issues…" value={filter.query ?? ""} onChange={e => setFilter(f => ({ ...f, query: e.target.value }))} />
+            <button className="work-control" data-active={filtersOpen || activeCount > 0} aria-expanded={filtersOpen} onClick={() => setFiltersOpen(v => !v)}><Icon name="filter" size={15} />Filter{activeCount > 0 && <span className="work-filter-count">{activeCount}</span>}</button>
+            {(activeCount > 0 || filter.query) && <button className="work-text-button" onClick={() => { setFilter({}); setMilestone(""); }}>Clear</button>}
+          </div>
+          {filtersOpen && <div className="work-filter-panel work-project-filter-panel">
+            <IssueFilterFields items={items} filter={filter} onChange={patch => setFilter(f => ({ ...f, ...patch }))} hide={["team", "project"]} />
+            <Field label="Milestone"><PropertyPicker label="Milestone filter" value={milestone} onChange={setMilestone} icon={<Icon name="timeline" size={15} />} options={[{ value: "", label: "All milestones" }, ...milestones.map(m => ({ value: m.id, label: m.title }))]} /></Field>
+          </div>}
+          {!filtered.length && <p className="work-muted">{issues.length ? "No issues match these filters." : "No issues in this project yet."}</p>}
           {statusGroups.map(([key, label, rows]) => {
             const closed = collapsed.includes(key);
             return <section className="work-project-issue-group" key={key}>

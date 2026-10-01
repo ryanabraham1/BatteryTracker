@@ -10,7 +10,6 @@ import {
   KIND_NAMES,
   PRIORITIES,
   progress,
-  STATUSES,
   type WorkData,
   type WorkFilter,
   type WorkItem,
@@ -25,10 +24,11 @@ import {
   Timeline,
 } from "./collections";
 import { ItemDetail, RichText } from "./detail";
-import { EntitySelect, Field, ItemEditor, Modal } from "./editor";
-import { Icon, StatusIcon } from "./icons";
+import { Field, ItemEditor, Modal } from "./editor";
+import { Icon } from "./icons";
 import { AccessPanel } from "./access";
 import { GettingStarted, HelpGuide } from "./help";
+import { IssueFilterFields } from "./filter-fields";
 
 import "./work.css";
 import { PropertyPicker } from "./property-picker";
@@ -145,7 +145,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState<"view" | "import" | "help" | null>(null);
-  const [quickTitle, setQuickTitle] = useState("");
   const [viewName, setViewName] = useState("");
   const [importText, setImportText] = useState("");
   const [settingsTab, setSettingsTab] = useState<WorkKind | "access">(
@@ -236,21 +235,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     setEditor({
       kind,
       preset: { ...(kind === "issue" ? soleTeamPreset : {}), ...preset },
-    });
-  }
-  function quickAdd(preset: WorkData) {
-    const title = quickTitle.trim();
-    if (!title) return;
-    if (readOnly) {
-      setError("Your account has view-only access.");
-      return;
-    }
-    startTransition(async () => {
-      const result = await change(
-        [{ kind: "issue", title, data: { status: "Todo", ...soleTeamPreset, ...preset } }],
-        "Issue added",
-      );
-      if (result) setQuickTitle("");
     });
   }
   function open(item: WorkItem) {
@@ -585,7 +569,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                       Import
                     </button>
                   )}
-                  {info.kind && section !== "views" && (
+                  {info.kind && info.kind !== "issue" && section !== "views" && (
                     <button
                       className="btn btn-primary"
                       onClick={() => create()}
@@ -677,88 +661,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                 </div>
                 {filterOpen && (
                   <div className="work-filter-panel">
-                    <Field label="Team">
-                      <EntitySelect
-                        items={items}
-                        kind="team"
-                        value={activeFilter.team}
-                        onChange={(v) => updateFilter({ team: v })}
-                        empty="All teams"
-                      />
-                    </Field>
-                    <Field label="Assignee">
-                      <PropertyPicker
-                        label="Assignee"
-                        value={activeFilter.assignee ?? ""}
-                        onChange={(v) => updateFilter({ assignee: v })}
-                        icon={<Icon name="member" size={15} />}
-                        options={[
-                          { value: "", label: "Everyone" },
-                          { value: "unassigned", label: "Unassigned" },
-                          ...items
-                            .filter((i) => i.kind === "member" && !i.archived && !i.deleted_at)
-                            .map((m) => ({ value: m.id, label: m.title })),
-                        ]}
-                      />
-                    </Field>
-                    <Field label="Status">
-                      <PropertyPicker
-                        label="Status"
-                        value={activeFilter.status ?? ""}
-                        onChange={(v) => updateFilter({ status: v })}
-                        icon={<Icon name="my-issues" size={15} />}
-                        options={[
-                          { value: "", label: "All statuses" },
-                          { value: "open", label: "Open" },
-                          ...STATUSES.map((st) => ({ value: st, label: st, icon: <StatusIcon status={st} /> })),
-                        ]}
-                      />
-                    </Field>
-                    <Field label="Due date">
-                      <PropertyPicker
-                        label="Due date"
-                        value={activeFilter.due ?? ""}
-                        onChange={(v) => updateFilter({ due: v })}
-                        icon={<Icon name="timeline" size={15} />}
-                        options={[
-                          { value: "", label: "Any time" },
-                          { value: "overdue", label: "Overdue" },
-                          { value: "week", label: "Due in the next 7 days" },
-                          { value: "any", label: "Has a due date" },
-                          { value: "none", label: "No due date" },
-                        ]}
-                      />
-                    </Field>
-                    <Field label="Project">
-                      <EntitySelect
-                        items={items}
-                        kind="project"
-                        value={activeFilter.project}
-                        onChange={(v) => updateFilter({ project: v })}
-                        empty="All projects"
-                      />
-                    </Field>
-                    <Field label="Label">
-                      <EntitySelect
-                        items={items}
-                        kind="label"
-                        value={activeFilter.label}
-                        onChange={(v) => updateFilter({ label: v })}
-                        empty="All labels"
-                      />
-                    </Field>
-                    <Field label="Priority">
-                      <PropertyPicker
-                        label="Priority"
-                        value={activeFilter.priority ?? ""}
-                        onChange={(v) => updateFilter({ priority: v })}
-                        icon={<Icon name="filter" size={15} />}
-                        options={[
-                          { value: "", label: "All priorities" },
-                          ...PRIORITIES.map((p, n) => ({ value: String(n), label: p })),
-                        ]}
-                      />
-                    </Field>
+                    <IssueFilterFields items={items} filter={activeFilter} onChange={updateFilter} />
                     <button
                       className="work-text-button"
                       onClick={() => {
@@ -811,33 +714,6 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                       Clear selection
                     </button>
                   </div>
-                )}
-                {!readOnly && !current && (
-                  <form
-                    className="work-quick-add"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      quickAdd({
-                        ...(section === "my-issues" ? { assignee: actor } : {}),
-                        ...(activeFilter.project ? { project: activeFilter.project } : {}),
-                        ...(activeFilter.team ? { team: activeFilter.team } : {}),
-                      });
-                    }}
-                  >
-                    <Icon name="plus" size={16} />
-                    <input
-                      aria-label="Quick add an issue"
-                      placeholder="Add an issue — type a title and press Enter"
-                      maxLength={300}
-                      value={quickTitle}
-                      onChange={(e) => setQuickTitle(e.target.value)}
-                    />
-                    {quickTitle.trim() && (
-                      <button className="btn btn-primary" disabled={pending}>
-                        Add
-                      </button>
-                    )}
-                  </form>
                 )}
                 {!current && <GettingStarted onHelp={() => setDialog("help")} />}
                 {!issues.length ? (

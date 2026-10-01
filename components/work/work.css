@@ -2342,11 +2342,6 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 
 /* ---- Beginner-friendly pass: quick add, tips, help guide, mobile polish ---- */
 .work-compose-estimate input { width: 64px; }
-.work-quick-add { display: flex; align-items: center; gap: 10px; padding: 8px 22px; border-bottom: 1px solid var(--line); color: var(--muted); background: var(--surface); }
-.work-quick-add:focus-within { background: var(--purple-soft); color: var(--purple-dark); }
-.work-quick-add input { flex: 1; min-width: 0; min-height: 36px; border: 0; outline: none; background: transparent; font-size: 14.5px; color: var(--ink); }
-.work-quick-add input::placeholder { color: var(--muted); }
-.work-quick-add .btn { min-height: 30px; padding: 4px 14px; }
 .work-tips { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 14px 22px 4px; padding: 14px 16px; border: 1px solid var(--purple-soft); background: var(--purple-soft); border-radius: 10px; font-size: 14px; line-height: 1.55; }
 .work-tips ul { margin: 8px 0 0; padding-left: 18px; list-style: disc; display: grid; gap: 4px; }
 .work-tips .work-text-button { display: inline; padding: 0; text-decoration: underline; }
@@ -2364,8 +2359,7 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
   .work-page-heading h1 { font-size: 24px; letter-spacing: -.8px; }
   .work-page-heading div > p:last-child { margin-top: 4px; max-width: none; font-size: 13px; }
   .work-heading-actions .btn-primary { display: none; }
-  .work-quick-add { padding: 6px 16px; }
-  .work-tips { margin: 12px 16px 4px; }
+    .work-tips { margin: 12px 16px 4px; }
   .work-help dl > div { grid-template-columns: 1fr; gap: 2px; }
   .work-toolbar { gap: 6px 10px; }
   .work-toolbar-right { margin-left: 0; width: 100%; justify-content: flex-start; flex-wrap: nowrap; gap: 2px; }
@@ -2392,3 +2386,26 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 .work-filter-count:empty { display: none; }
 .work-filter-panel .work-field { min-width: 0; }
 .work-filter-panel > .work-text-button { align-self: end; justify-self: start; }
+
+/* Project > Issues tab: tighter top, tidy search + milestone row */
+.work-project-content[data-tab="Issues"] { padding-top: 28px; }
+.work-project-content[data-tab="Issues"] > .work-section-title { margin-bottom: 14px; }
+.work-project-issue-tools { gap: 8px; margin-bottom: 14px; align-items: stretch; }
+.work-project-issue-tools input { flex: 1 1 200px; max-width: 320px; min-height: 38px; }
+.work-project-issue-tools .work-picker { flex: 0 0 auto; }
+.work-project-issue-tools .work-property-button { width: auto; min-height: 38px; padding: 6px 12px; border: 1px solid var(--line); background: var(--surface); }
+.work-project-issue-tools .work-property-button:hover { background: var(--paper); }
+.work-project-issue-tools .work-picker-chevron { opacity: 1; }
+.work-project-issue-tools > .work-text-button { align-self: center; }
+@media (max-width: 760px) {
+  .work-project-content[data-tab="Issues"] { padding-top: 18px; }
+  .work-project-issue-tools input { max-width: none; flex-basis: 100%; }
+}
+.work-project-filter-panel { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); padding: 14px 16px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 10px; }
+.work-project-issue-tools .work-control { min-height: 38px; border: 1px solid var(--line); }
+/* Project pages: a later desktop rule was beating the phone one-column layout, squeezing content to nothing. */
+@media (max-width: 760px) {
+  .work-project-columns, .work-project-columns[data-sidebar] { grid-template-columns: minmax(0, 1fr); }
+  .work-project-content { padding: 20px 16px; }
+  .work-project-sidebar { padding: 0 16px 20px; }
+}
