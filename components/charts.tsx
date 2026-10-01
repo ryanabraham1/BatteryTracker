@@ -75,6 +75,8 @@ function Panel({
                 labelFormatter={(t) => new Date(Number(t)).toLocaleString()}
                 formatter={(v) => [`${Number(v).toFixed(2)} ${unit}`, title]}
                 contentStyle={{
+                  background: "var(--surface)",
+                  color: "var(--ink)",
                   borderRadius: 8,
                   border: "1px solid var(--line)",
                   fontFamily: mono ? "var(--font-mono)" : undefined,
@@ -155,6 +157,8 @@ function DropPanel({ data }: { data: { label: string; drop: number; t: number }[
                 labelFormatter={(l, p) => `${l} · ${new Date(Number(p?.[0]?.payload?.t)).toLocaleDateString()}`}
                 formatter={(v) => [`−${Number(v).toFixed(2)} V`, "drop"]}
                 contentStyle={{
+                  background: "var(--surface)",
+                  color: "var(--ink)",
                   borderRadius: 8,
                   border: "1px solid var(--line)",
                   fontFamily: "var(--font-mono)",

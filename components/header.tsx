@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCompMode } from "./comp-mode";
+import { ThemeToggle } from "./theme-toggle";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -354,6 +355,7 @@ export function Header() {
               </button>
             )}
             {batteryApp && compPill}
+            <ThemeToggle />
           </div>
         </div>
         {canSearch && searchOpen && (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getWorkUser } from "@/lib/work-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in to Work · 3256 Tools" };
 export default async function WorkLogin({
@@ -13,9 +14,12 @@ export default async function WorkLogin({
   return (
     <main className="min-h-dvh flex items-center justify-center p-5">
       <div className="card w-full max-w-sm p-7">
+        <div className="flex items-center justify-between">
         <span className="eyebrow" style={{ color: "var(--purple)" }}>
           3256 Tools
         </span>
+        <ThemeToggle />
+        </div>
         <h1 className="text-3xl tracking-tight font-medium mt-5 mb-6">
           Sign in to Work
         </h1>
