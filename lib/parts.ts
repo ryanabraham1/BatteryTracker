@@ -140,6 +140,8 @@ export interface FabPart {
   cots_status: CotsStatus;
   vendor: string;
   url: string;
+  /** per unit, dollars */
+  unit_price: number | null;
   /** Onshape standard content (bolts, nuts, washers) */
   hardware: boolean;
   quantity: number;

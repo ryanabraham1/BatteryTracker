@@ -22,6 +22,7 @@ export default async function BomPage() {
         bot: p.bot || d?.bot || "",
         vendor: p.vendor,
         url: p.url,
+        unit_price: p.unit_price,
         status: p.cots_status,
         hardware: p.hardware,
         material: p.material_text,

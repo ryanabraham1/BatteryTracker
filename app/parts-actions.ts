@@ -330,6 +330,8 @@ async function sync(designId: string): Promise<string> {
       const url = [findProp(props, "Product URL"), findProp(props, "URL"), findProp(props, "Link"), findProp(props, "Vendor URL")].find((u) => /^https?:\/\//i.test(u));
       if (vendor) row.vendor = vendor;
       if (url) row.url = url;
+      const price = Number((findProp(props, "Price") || findProp(props, "Unit price") || findProp(props, "Cost")).replace(/[$,\s]/g, ""));
+      if (price > 0) row.unit_price = Math.round(price * 100) / 100;
     }
     let partId: string;
     if (old) {
@@ -516,6 +518,13 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
     if (fd.has("notes")) patch.notes = str(fd, "notes");
     if (fd.has("vendor")) patch.vendor = str(fd, "vendor");
     if (fd.has("url")) patch.url = str(fd, "url");
+    if (fd.has("part_number")) patch.part_number = str(fd, "part_number");
+    if (fd.has("unit_price")) {
+      const v = str(fd, "unit_price").replace(/[$,\s]/g, "");
+      const n = v ? Number(v) : null;
+      if (n !== null && !(Number.isFinite(n) && n >= 0)) throw new Error("Price should be a number, like 13.99");
+      patch.unit_price = n === null ? null : Math.round(n * 100) / 100;
+    }
     if (["material_text", "stock_dims", "length_text", "kind"].some((k) => k in patch && patch[k] !== part[k as keyof FabPart])) await fillFromText(patch, part);
     const changed = Object.keys(patch).filter((k) => {
       const before = part[k as keyof FabPart];
