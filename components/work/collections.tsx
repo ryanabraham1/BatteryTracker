@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   dateLabel,
   today as todayKey,
@@ -16,7 +16,7 @@ import {
 } from "@/lib/work";
 import { useIssueMenu, type IssueActions } from "./issue-menu";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
-import { clusterMilestones } from "@/lib/work-timeline";
+import { laneMilestones } from "@/lib/work-timeline";
 import { MultiPicker, PropertyPicker } from "./property-picker";
 import { Icon, MilestoneIcon, StatusIcon } from "./icons";
 export function Labels({ item, items }: { item: WorkItem; items: WorkItem[] }) {
@@ -432,24 +432,27 @@ export function Timeline({ projects, items, onOpen, milestoneActions }: { projec
         const projectDates = [p.data.start, p.data.due, ...stages.map(m => m.data.due)].filter((d): d is string => !!d).map(d => Date.parse(d));
         const start = p.data.start ? Date.parse(p.data.start) : projectDates.length ? Math.min(...projectDates) : null;
         const end = p.data.due ? Date.parse(p.data.due) : projectDates.length ? Math.max(...projectDates) : null;
-        const positioned = clusterMilestones(stages, min, max, width - 190).map(group => ({m:group[0],group}));
+        const positioned = laneMilestones(stages, min, max, width - 190);
+        const laneCount = positioned.reduce((n,p) => Math.max(n,p.lane+1), 1);
+        const laneHeight = 40;
+        const undatedTop = 70 + laneCount * laneHeight;
         const undated = stages.filter(m => !m.data.due);
-        return <div className="work-roadmap-row" key={p.id} style={{minHeight:undated.length ? 145 : 102}}>
+        return <div className="work-roadmap-row" key={p.id} style={{minHeight:undated.length ? undatedTop + 40 : Math.max(102, undatedTop + 10)}}>
           <button className="work-roadmap-project" onClick={() => onOpen(p)}><Icon name={p.data.icon || "projects"} style={{color:p.data.color || "var(--purple)"}}/><span>{p.title}<small>{p.data.status || "Planned"}</small></span><Avatar small name={items.find(i => i.id === p.data.assignee)?.title}/></button>
           <div className="work-roadmap-track">{ticks.map(t => <span className="work-roadmap-guide" key={t} style={{left:`${x(t)}%`}}/>)}<span className="work-roadmap-today" style={{left:`${x(today)}%`}}><small>Today</small></span>
             {start !== null && end !== null && end >= min && start <= max ? <button className="work-roadmap-bar" style={{left:`${Math.max(0,x(start))}%`,width:`${Math.max(.5,Math.min(100,x(end))-Math.max(0,x(start)))}%`}} onClick={() => onOpen(p)} title={`${p.title}: ${dateLabel(p.data.start)} – ${dateLabel(p.data.due)}`}><span>{p.title}</span></button> : <span className="work-roadmap-no-date">Set project dates to plan your timeline</span>}
-            {positioned.map(({m,group}) => {
+            {positioned.map(({m,lane}) => {
               const status = milestoneProgress(m, items);
               const left = x(Date.parse(m.data.due!));
-              if (left < 0 || left > 100) return null;
-              const labelWidth = 170;
-              const complete = group.every(v => milestoneProgress(v,items).complete);
-              const label = <><span className="work-roadmap-label"><span>{m.title}</span>{group.length > 1 && <b>+{group.length-1}</b>}</span><small>{dateLabel(m.data.due)} · {status.percent}%{complete ? " · ✓" : ""}</small></>;
+              const complete = status.complete;
               const diamond = <MilestoneIcon percent={status.percent} complete={complete} overdue={!complete && m.data.due! < now} />;
-              if (group.length > 1) return <div key={m.id} id={`cluster-${m.id}`} className="work-roadmap-milestone work-roadmap-cluster" style={{left:`${left}%`,top:34,width:labelWidth}}><PropertyPicker label={`${group.length} milestones`} value={m.id} display={label} icon={diamond} options={group.map(v => { const state = milestoneProgress(v,items); return {value:v.id,icon:<MilestoneIcon percent={state.percent} complete={state.complete} overdue={!state.complete && v.data.due! < now} />,label:`${v.title} · ${dateLabel(v.data.due)} · ${state.percent}%${state.complete ? " · Completed" : ""}`}; })} onChange={id => { const target = group.find(v => v.id === id); if(target) milestoneMenu.showBelow(target, document.getElementById(`cluster-${m.id}`)); }}/></div>;
-              return <button key={m.id} className="work-roadmap-milestone" style={{left:`${left}%`,top:34,width:labelWidth}} onClick={() => onOpen(m)} onContextMenu={e => milestoneMenu.show(m, e)} title={`${m.title} · ${dateLabel(m.data.due)} · ${status.percent}% · ${status.completed}/${status.total} done${status.complete ? " · Completed" : ""}`}>{diamond}<span>{label}</span></button>;
+              const title = `${m.title} · ${dateLabel(m.data.due)} · ${status.percent}% · ${status.completed}/${status.total} done${complete ? " · Completed" : ""}`;
+              return <Fragment key={m.id}>
+                <button className="work-roadmap-milestone work-roadmap-marker" style={{left:`${left}%`,top:34}} onClick={() => onOpen(m)} onContextMenu={e => milestoneMenu.show(m, e)} title={title} aria-label={title}>{diamond}</button>
+                <button className="work-roadmap-milestone" style={{left:`${left}%`,top:34 + lane * laneHeight,width:170}} onClick={() => onOpen(m)} onContextMenu={e => milestoneMenu.show(m, e)} title={title}><span><span className="work-roadmap-label"><span>{m.title}</span></span><small>{dateLabel(m.data.due)} · {status.percent}%{complete ? " · ✓" : ""}</small></span></button>
+              </Fragment>;
             })}
-            {!!undated.length && <div className="work-roadmap-undated" style={{top:105}}>{undated.map(m => <button key={m.id} onClick={() => onOpen(m)} onContextMenu={e => milestoneMenu.show(m, e)}>{m.title} · No date · {milestoneProgress(m,items).percent}%</button>)}</div>}
+            {!!undated.length && <div className="work-roadmap-undated" style={{top:undatedTop}}>{undated.map(m => <button key={m.id} onClick={() => onOpen(m)} onContextMenu={e => milestoneMenu.show(m, e)}>{m.title} · No date · {milestoneProgress(m,items).percent}%</button>)}</div>}
           </div>
         </div>;
       })}
