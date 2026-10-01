@@ -2412,3 +2412,10 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 .work-update-actions { margin-left:auto; display:inline-flex; align-items:center; gap:10px; }
 .work-text-button.danger { color:var(--danger, #c0392b); }
 .work-picker-options > button > .work-color-dot, .work-context-menu .work-color-dot { flex:none; }
+/* Let the project timeline fill the pane: rows share the spare height and the grid lines run to the bottom. */
+.work-roadmap { display:flex; flex-direction:column; min-height:calc(100dvh - 160px); }
+.work-roadmap-scroll { flex:1; display:flex; flex-direction:column; min-height:0; }
+.work-roadmap-grid { flex:1; display:flex; flex-direction:column; }
+.work-roadmap-head { flex:none; }
+.work-roadmap-row { flex:1 1 auto; }
+@media(max-width:760px) { .work-roadmap { min-height:0; } }
