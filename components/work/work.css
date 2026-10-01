@@ -2409,3 +2409,5 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
   .work-project-content { padding: 20px 16px; }
   .work-project-sidebar { padding: 0 16px 20px; }
 }
+.work-update-actions { margin-left:auto; display:inline-flex; align-items:center; gap:10px; }
+.work-text-button.danger { color:var(--danger, #c0392b); }

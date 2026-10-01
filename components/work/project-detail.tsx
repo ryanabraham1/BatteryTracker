@@ -1,5 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { deleteWorkUpdate, editWorkUpdate } from "@/app/work-actions";
+import { useWork } from "./work-provider";
 import { dateLabel, today, done, filterIssues, issueCode, milestoneProgress, uniqueStatuses, PRIORITIES, progress, type WorkData, type WorkFilter, type WorkEvent, type WorkItem, type WorkKind } from "@/lib/work";
 import { Avatar, LabelPicker, Labels, Empty } from "./collections";
 import { RichText } from "./detail";
@@ -38,6 +41,17 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   const [tab, setTab] = useState<Tab>("Overview");
   const milestoneMenu = useMilestoneMenu(milestoneActions);
   const [composer, setComposer] = useState(false);
+  const { user } = useWork();
+  const router = useRouter();
+  const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState("");
+  async function runUpdate(fn: () => Promise<{ ok: boolean; error?: string }>) {
+    setUpdateError("");
+    const r = await fn();
+    if (!r.ok) { setUpdateError(r.error ?? "Couldn't save. Please try again."); return; }
+    setEditing(null); setDeleting(null); router.refresh();
+  }
   const [body, setBody] = useState("");
   const [filter, setFilter] = useState<WorkFilter>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -57,10 +71,19 @@ export function ProjectDetail({ item, items, events, pending, onEdit, onPatch, o
   for (const i of filtered) { const label = i.data.status || "Backlog"; const entry = groupMap.get(label.toLowerCase()); if (entry) entry[1].push(i); else groupMap.set(label.toLowerCase(), [label, [i]]); }
   const statusGroups = [...groupMap.entries()].map(([key, [label, rows]]) => [key, label, rows] as [string, string, WorkItem[]]).sort((a, b) => statusRank(a[0]) - statusRank(b[0]));
   function updateCard(e: WorkEvent) {
+    const canManage = e.type === "update" && user.role !== "viewer" && (user.role === "admin" || e.actor_id === user.memberId);
+    const isEditing = editing?.id === e.id;
     return <article className="work-project-update" key={e.id}>
-      <div className="work-project-update-meta"><Avatar small name={e.actor} /><b>{e.actor}</b><span>{dateLabel(e.created_at)}</span></div>
+      <div className="work-project-update-meta"><Avatar small name={e.actor} /><b>{e.actor}</b><span>{dateLabel(e.created_at)}</span>
+        {canManage && !isEditing && (deleting === e.id
+          ? <span className="work-update-actions"><span className="work-muted">Delete this update?</span><button type="button" className="work-text-button" onClick={() => setDeleting(null)}>Keep</button><button type="button" className="work-text-button danger" disabled={pending} onClick={() => runUpdate(() => deleteWorkUpdate(e.id))}>Delete</button></span>
+          : <span className="work-update-actions"><button type="button" className="work-text-button" onClick={() => { setUpdateError(""); setEditing({ id: e.id, body: e.body }); }}>Edit</button><button type="button" className="work-text-button" onClick={() => setDeleting(e.id)}>Delete</button></span>)}
+      </div>
       {typeof e.data.health === "string" && <span className="work-health" data-health={healthLabel(e.data.health)}>{healthLabel(e.data.health)}</span>}
-      <RichText text={e.body} />
+      {isEditing
+        ? <form className="work-update-composer" onSubmit={ev => { ev.preventDefault(); runUpdate(() => editWorkUpdate(e.id, editing.body)); }}><textarea autoFocus className="input" aria-label="Edit update" rows={6} required value={editing.body} onChange={ev => setEditing({ id: e.id, body: ev.target.value })} /><div><button type="button" className="work-text-button" onClick={() => setEditing(null)}>Cancel</button><button className="btn btn-primary" disabled={!editing.body.trim()}>Save</button></div></form>
+        : <RichText text={e.body} />}
+      {updateError && (isEditing || deleting === e.id) && <p className="work-error" role="alert">{updateError}</p>}
     </article>;
   }
   function milestoneRows() {

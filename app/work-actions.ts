@@ -219,6 +219,49 @@ export async function addWorkComment(
     return { ok: false, error: message(e) };
   }
 }
+async function ownUpdate(eventId: string) {
+  const user = await guard();
+  const { data: event } = await supabaseAdmin()
+    .from("work_events")
+    .select("id,actor_id,type")
+    .eq("id", eventId)
+    .single();
+  if (!event || event.type !== "update")
+    throw new Error("Update is no longer available.");
+  if (user.role !== "admin" && event.actor_id !== user.memberId)
+    throw new Error("Only the author or an admin can change this update.");
+  return event;
+}
+export async function editWorkUpdate(eventId: string, body: string) {
+  try {
+    if (typeof body !== "string" || !body.trim() || body.length > 20000)
+      throw new Error("Enter an update of 1–20,000 characters.");
+    await ownUpdate(eventId);
+    const { error } = await supabaseAdmin()
+      .from("work_events")
+      .update({ body: body.trim() })
+      .eq("id", eventId);
+    if (error) throw error;
+    revalidatePath("/work", "layout");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: message(e) };
+  }
+}
+export async function deleteWorkUpdate(eventId: string) {
+  try {
+    await ownUpdate(eventId);
+    const { error } = await supabaseAdmin()
+      .from("work_events")
+      .delete()
+      .eq("id", eventId);
+    if (error) throw error;
+    revalidatePath("/work", "layout");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: message(e) };
+  }
+}
 // Best-effort: mirrors project updates to Discord; never fails the save.
 async function postDiscordUpdate(title: string, actor: string, body: string) {
   const url = process.env.DISCORD_WEBHOOK_URL;
