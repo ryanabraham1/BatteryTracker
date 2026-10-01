@@ -58,6 +58,7 @@ export function ItemDetail({
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const [copyState, setCopyState] = useState<"" | "copied" | "failed">("");
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [comment, setComment] = useState("");
   const [relationId, setRelationId] = useState("");
@@ -126,11 +127,15 @@ export function ItemDetail({
             <button
               className="work-icon-button"
               aria-label="Copy link"
+              title={copyState === "copied" ? "Link copied" : copyState === "failed" ? "Couldn't copy — copy the address bar instead" : "Copy link"}
               onClick={() =>
-                navigator.clipboard.writeText(window.location.href)
+                navigator.clipboard.writeText(window.location.href).then(
+                  () => { setCopyState("copied"); setTimeout(() => setCopyState(""), 1800); },
+                  () => { setCopyState("failed"); setTimeout(() => setCopyState(""), 3000); },
+                )
               }
             >
-              <Icon name="link" />
+              <Icon name={copyState === "copied" ? "check" : copyState === "failed" ? "close" : "link"} />
             </button>
             <button className="btn btn-ghost" onClick={onEdit}>
               Edit
