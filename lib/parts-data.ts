@@ -29,6 +29,7 @@ export function toPart(r: Record<string, unknown>): FabPart {
     size_w_mm: N(r.size_w_mm),
     size_t_mm: N(r.size_t_mm),
     unit_price: N(r.unit_price),
+    pack_size: N(r.pack_size),
     assignees: (r.assignees as string[]) ?? [],
     properties: (r.properties as Record<string, string>) ?? {},
   };

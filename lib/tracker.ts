@@ -112,7 +112,6 @@ export const TEXT_FIELDS = [
   "dri",
   "file",
   "notes",
-  "linear_url",
 ] as const;
 export type TextField = (typeof TEXT_FIELDS)[number];
 
@@ -130,7 +129,6 @@ export const SHEET_TO_PART: Record<Exclude<TextField, "dri">, string> = {
   designer: "designer",
   file: "file",
   notes: "notes",
-  linear_url: "linear_url",
 };
 
 /** "Ana, Ben & Cy" → ["Ana", "Ben", "Cy"] */
@@ -140,11 +138,6 @@ export const splitPeople = (s: string) =>
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, 8);
-
-/** `WB-407` out of a Linear issue URL. */
-export function linearKey(url: string): string | null {
-  return url.match(/\/issue\/([A-Z]+-\d+)/i)?.[1]?.toUpperCase() ?? null;
-}
 
 export const isUrl = (s: string) => /^https?:\/\//i.test(s.trim());
 
@@ -190,8 +183,8 @@ type Col = TextField | "status" | "priority" | "qty" | "spare_qty";
 function headerField(h: string): Col | null {
   const s = h.toLowerCase().replace(/\s+/g, " ").trim();
   if (!s) return null;
-  if (/^linear (id|key)|synced|sync|^_/.test(s)) return null;
-  if (/^linear/.test(s)) return "linear_url";
+  // Linear columns from the old sheet are ignored — issues live in the issue tracker now
+  if (/^linear|synced|sync|^_/.test(s)) return null;
   if (/^status/.test(s)) return "status";
   if (/^bot/.test(s)) return "bot";
   if (/^subsys/.test(s)) return "subsystem";

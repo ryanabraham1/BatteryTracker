@@ -37,6 +37,7 @@ import {
 import { toPartGeometry } from "@/lib/dfm";
 import { isJobStatus, jobKey, readSheet, SHEET_TO_PART, splitPeople, TEXT_FIELDS, type ImportRow, type JobStatus } from "@/lib/tracker";
 import { checkPart } from "@/lib/dfm";
+import { findVendorLink } from "@/lib/vendors";
 import { isSheet } from "@/lib/fab";
 import { nestSheets, nestSticks, placementZones, zoneToNest, type Placement } from "@/lib/nest";
 import { readDxf, scaleGeom, writeDxf } from "@/lib/geom";
@@ -376,8 +377,16 @@ async function sync(designId: string): Promise<string> {
     failures.length && `${failures.length} Part Studio read${failures.length > 1 ? "s" : ""} failed: ${failures[0]}`,
   ].filter(Boolean);
   const note = parts.join(" · ");
-  await db().from("fab_designs").update({ last_synced_at: new Date().toISOString(), sync_note: note }).eq("id", designId);
-  return note;
+  // where to buy the COTS lines (never fails the sync)
+  let links = "";
+  try {
+    links = await fillCotsLinks(designId);
+  } catch {
+    links = "";
+  }
+  const fullNote = links && !links.startsWith("Every") ? `${note} · ${links}` : note;
+  await db().from("fab_designs").update({ last_synced_at: new Date().toISOString(), sync_note: fullNote }).eq("id", designId);
+  return fullNote;
 }
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
@@ -519,6 +528,10 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
     if (fd.has("vendor")) patch.vendor = str(fd, "vendor");
     if (fd.has("url")) patch.url = str(fd, "url");
     if (fd.has("part_number")) patch.part_number = str(fd, "part_number");
+    if (fd.has("pack_size")) {
+      const n = num(fd, "pack_size");
+      patch.pack_size = n && n > 1 ? Math.round(n) : null;
+    }
     if (fd.has("unit_price")) {
       const v = str(fd, "unit_price").replace(/[$,\s]/g, "");
       const n = v ? Number(v) : null;
@@ -538,6 +551,62 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
     if (other.length) await logPart(part.id, "edit", { fields: other.join(", ") });
     return patch.status ? stockForStatus({ ...part, ...(patch as Partial<FabPart>), status: part.status }, patch.status as JobStatus) : "";
   });
+}
+
+/**
+ * Fill in where to buy each COTS line and what it costs, from its vendor +
+ * part number (lib/vendors.ts). Only blanks are filled — a link or price
+ * someone typed is kept. "-Mirrored" copies share their original's.
+ */
+export async function findCotsLinks(fd: FormData): Promise<FabResult<string>> {
+  return run(() => fillCotsLinks(str(fd, "design_id") || null));
+}
+
+async function fillCotsLinks(designId: string | null): Promise<string> {
+  let q = db().from("fab_parts").select("*").eq("kind", "cots").eq("missing", false);
+  if (designId) q = q.eq("design_id", designId);
+  const { data, error } = await q;
+  if (error) throw error;
+  const lines = (data ?? []).map(toPart);
+  const todo = lines.filter((p) => !p.url || p.unit_price === null);
+  let found = 0;
+  let priced = 0;
+  let misses = 0;
+  const failed = new Set<string>();
+  await pool(todo, 4, async (p) => {
+    let hit: Awaited<ReturnType<typeof findVendorLink>> = null;
+    const base = p.name.replace(/[\s-]*mirrored$/i, "");
+    const twin = base !== p.name ? lines.find((o) => o.name === base) : undefined;
+    try {
+      hit = await findVendorLink(twin && !p.part_number ? twin : p);
+    } catch (e) {
+      failed.add(e instanceof Error ? e.message : String(e));
+    }
+    if (!hit && twin?.url) hit = { url: twin.url, price: twin.unit_price, pack: twin.pack_size, vendor: twin.vendor, title: twin.name };
+    if (!hit) {
+      misses++;
+      return;
+    }
+    const patch: Record<string, unknown> = {};
+    if (!p.url && hit.url) {
+      patch.url = hit.url;
+      found++;
+    }
+    if (p.unit_price === null && hit.price !== null) {
+      patch.unit_price = hit.price;
+      priced++;
+    }
+    if (p.pack_size === null && hit.pack) patch.pack_size = hit.pack;
+    if (!p.vendor && hit.vendor) patch.vendor = hit.vendor;
+    if (Object.keys(patch).length) {
+      const { error: e } = await db().from("fab_parts").update(patch).eq("id", p.id);
+      if (e) throw e;
+    }
+  });
+  const parts = [`${found} link${found === 1 ? "" : "s"}`, `${priced} price${priced === 1 ? "" : "s"} found`];
+  if (misses) parts.push(`${misses} with no part number to look up — add a link by hand`);
+  if (failed.size) parts.push(`a store didn't answer: ${[...failed][0]}`);
+  return todo.length ? parts.join(" · ") : "Every line already has a link and price.";
 }
 
 /** A COTS line's buying status: need to buy → ordered → have it. */

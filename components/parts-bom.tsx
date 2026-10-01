@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { setCotsStatus, updatePart } from "@/app/parts-actions";
+import { findCotsLinks, setCotsStatus, updatePart } from "@/app/parts-actions";
 import { COTS_LABEL, COTS_STATUSES, COTS_TONE, KIND_LABEL, PART_KINDS, type CotsStatus } from "@/lib/parts";
 import { Empty } from "./ui";
 import { Sheet } from "./sheet";
 import { ErrorText, Field, SubmitButton, useFabAction } from "./fab-ui";
+
+/** How many to order: packs when it's sold in packs. */
+const buyQty = (l: Pick<BomLine, "need" | "pack_size">) => (l.pack_size ? Math.ceil(l.need / l.pack_size) : l.need);
 
 const money = (n: number | null) => (n === null ? "" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
@@ -16,7 +19,10 @@ function sheetRows(sections: [string, BomLine[]][]): string[][] {
   for (const [, rows] of sections) {
     if (!rows.length) continue;
     if (out.length) out.push(["", "", "", "", "", ""]); // a blank row between parts and hardware, like the sheet
-    for (const l of rows) out.push([l.name, l.url, l.part_number, String(l.need), money(l.unit_price), l.unit_price === null ? "" : money(l.unit_price * l.need)]);
+    for (const l of rows) {
+      const name = l.pack_size ? `${l.name} (${l.pack_size}-pack)` : l.name;
+      out.push([name, l.url, l.part_number, String(buyQty(l)), money(l.unit_price), l.unit_price === null ? "" : money(l.unit_price * buyQty(l))]);
+    }
   }
   return out;
 }
@@ -36,6 +42,7 @@ export interface BomLine {
   vendor: string;
   url: string;
   unit_price: number | null;
+  pack_size: number | null;
   status: CotsStatus;
   hardware: boolean;
   material: string;
@@ -50,6 +57,9 @@ export function PartsBom({ lines }: { lines: BomLine[] }) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState<string | null>(null);
   const [editing, setEditing] = useState<BomLine | null>(null);
+  const [findNote, setFindNote] = useState<string | null>(null);
+  const find = useFabAction(findCotsLinks, (n) => setFindNote(n ?? null));
+  const missing = lines.filter((l) => !l.url || l.unit_price === null).length;
   const bulk = useFabAction(setCotsStatus, () => setPicked(new Set()));
   const bots = useMemo(() => [...new Set(lines.map((l) => l.bot).filter(Boolean))].sort(), [lines]);
 
@@ -72,7 +82,7 @@ export function PartsBom({ lines }: { lines: BomLine[] }) {
   function copyList() {
     const need = base.filter((l) => l.status === "needed");
     const text = need
-      .map((l) => `${l.need} × ${l.name}${l.part_number ? ` (${l.part_number})` : ""}${l.vendor ? ` — ${l.vendor}` : ""}${l.url ? ` ${l.url}` : ""}`)
+      .map((l) => `${buyQty(l)} × ${l.name}${l.pack_size ? ` (${l.pack_size}-pack)` : ""}${l.part_number ? ` (${l.part_number})` : ""}${l.vendor ? ` — ${l.vendor}` : ""}${l.url ? ` ${l.url}` : ""}`)
       .join("\n");
     navigator.clipboard?.writeText(text).then(() => flash("list"));
   }
@@ -89,7 +99,7 @@ export function PartsBom({ lines }: { lines: BomLine[] }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  const total = shown.reduce((s, l) => s + (l.unit_price ?? 0) * l.need, 0);
+  const total = shown.reduce((s, l) => s + (l.unit_price ?? 0) * buyQty(l), 0);
   const unpriced = shown.filter((l) => l.unit_price === null).length;
 
   if (!lines.length) {
@@ -141,7 +151,15 @@ export function PartsBom({ lines }: { lines: BomLine[] }) {
           <b className="mono">{money(total)}</b> for what&apos;s shown
           {unpriced > 0 && <span style={{ color: "var(--muted)" }}> · {unpriced} without a price</span>}
         </span>
-        <span className="ml-auto flex gap-2">
+        {(findNote || find.error) && (
+          <p className="w-full text-sm" style={{ color: find.error ? "var(--bad)" : "var(--muted)" }} role="status">
+            {find.error ?? findNote}
+          </p>
+        )}
+        <span className="ml-auto flex gap-2 flex-wrap">
+          <button type="button" className="btn btn-ghost text-sm" onClick={() => find.call({})} disabled={find.pending || !missing} title="Looks up each part number at its vendor (WCP, AndyMark, SDS, CTRE, ThriftyBot, McMaster…)">
+            {find.pending ? "Looking up…" : `Find links & prices${missing ? ` (${missing})` : ""}`}
+          </button>
           <button type="button" className="btn btn-primary text-sm" onClick={copySheet} disabled={!shown.length} title="Name, Link, Part #, Qty, Unit price, Total — paste into Google Sheets">
             {copied === "sheet" ? "Copied — paste in Sheets ✓" : "Copy for Sheets"}
           </button>
@@ -218,10 +236,13 @@ function EditLine({ l, onDone }: { l: BomLine; onDone: () => void }) {
         <Field label="Part #">
           <input name="part_number" className="input mono" defaultValue={l.part_number} placeholder="WCP-1634" />
         </Field>
-        <Field label="Unit price">
+        <Field label="Unit price" hint="Per pack, if it comes in packs">
           <input name="unit_price" className="input mono" defaultValue={l.unit_price ?? ""} placeholder="13.99" inputMode="decimal" />
         </Field>
       </div>
+      <Field label="Sold in packs of" hint={`Blank = sold each. ${l.need} needed.`}>
+        <input name="pack_size" className="input mono" defaultValue={l.pack_size ?? ""} placeholder="5" inputMode="numeric" />
+      </Field>
       <Field label="Vendor">
         <input name="vendor" className="input" defaultValue={l.vendor} placeholder="WCP, AndyMark, REV…" />
       </Field>
@@ -239,7 +260,9 @@ function Row({ l, picked, onPick, onEdit }: { l: BomLine; picked: boolean; onPic
   return (
     <li className="p-3 flex flex-wrap items-start gap-3" style={{ borderColor: "var(--line)", opacity: cur === "have" ? 0.65 : 1 }}>
       <input type="checkbox" className="mt-1.5" checked={picked} onChange={onPick} aria-label={`Pick ${l.name}`} />
-      <span className="mono text-lg font-semibold w-10 text-right shrink-0">{l.need}×</span>
+      <span className="mono text-lg font-semibold w-10 text-right shrink-0" title={l.pack_size ? `${l.need} needed, sold ${l.pack_size} to a pack` : undefined}>
+        {buyQty(l)}×
+      </span>
       <div className="min-w-0 flex-1">
         <button type="button" className="font-medium break-words text-left hover:underline" onClick={onEdit}>
           {l.name}
@@ -251,7 +274,13 @@ function Row({ l, picked, onPick, onEdit }: { l: BomLine; picked: boolean; onPic
             </button>
           ) : (
             <>
-              {money(l.unit_price)} ea · <b>{money(l.unit_price * l.need)}</b>
+              {money(l.unit_price)} {l.pack_size ? `per ${l.pack_size}-pack` : "ea"} · <b>{money(l.unit_price * buyQty(l))}</b>
+              {l.pack_size && (
+                <span style={{ color: "var(--muted)" }}>
+                  {" "}
+                  · {l.need} needed
+                </span>
+              )}
             </>
           )}
         </p>

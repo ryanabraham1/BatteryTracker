@@ -7,7 +7,6 @@ import { isStockKind, KIND_LABEL, needed, PART_KINDS, type FabPart, type PartKin
 import {
   isDone,
   isUrl,
-  linearKey,
   priorityLabel,
   PRIORITIES,
   readSheet,
@@ -90,10 +89,19 @@ export function TrackerTable({
         (!bot || j.bot.toLowerCase() === bot.toLowerCase()) &&
         (!subsystem || j.subsystem.toLowerCase() === subsystem.toLowerCase()) &&
         (!machine || col(j, machineKey).toLowerCase() === machine.toLowerCase()) &&
-        (!needle || [j.name, j.notes, j.material_text, j.file, j.assignees.join(" "), j.designer, j.part_number, linearKey(j.linear_url) ?? ""].some((v) => v.toLowerCase().includes(needle))),
+        (!needle || [j.name, j.notes, j.material_text, j.file, j.assignees.join(" "), j.designer, j.part_number].some((v) => v.toLowerCase().includes(needle))),
     );
   }, [jobs, bot, subsystem, machine, machineKey, q]);
   const need = (j: FabPart) => needed(j, j.design_id ? (copies[j.design_id] ?? 1) : 1);
+  const lists = {
+    bot: options(SUGGEST.bot, jobs, "bot"),
+    subsystem: options(SUGGEST.subsystem, jobs, "subsystem"),
+    material: options(print ? SUGGEST.filament : SUGGEST.material, jobs, "material"),
+    stock_dims: options(SUGGEST.stock_dims, jobs, "stock_dims"),
+    machine: options(SUGGEST.machine, jobs, "machine"),
+    tapped: options(SUGGEST.tapped, jobs, "tapped"),
+    people: [...new Set(jobs.flatMap((j) => j.assignees).concat(person ? [person] : []))].sort(),
+  };
 
   const counts = useMemo(() => {
     const c = new Map<StatusFilter, number>([
@@ -131,6 +139,15 @@ export function TrackerTable({
 
   return (
     <>
+      {/* the sheet's dropdown lists, for every editable cell (and the edit form) */}
+      {Object.entries(lists).map(([k, opts]) => (
+        <datalist key={k} id={`tr-${k}`}>
+          {opts.map((o) => (
+            <option key={o} value={o} />
+          ))}
+        </datalist>
+      ))}
+
       {/* progress + actions */}
       <div className="card p-4 mb-3 flex flex-wrap items-center gap-4">
         <div className="min-w-0 flex-1">
@@ -174,7 +191,7 @@ export function TrackerTable({
         <FilterSelect label="Bot" value={bot} onChange={setBot} options={bots} />
         <FilterSelect label="Subsystem" value={subsystem} onChange={setSubsystem} options={subsystems} />
         <FilterSelect label={print ? "Material" : "Machine"} value={machine} onChange={setMachine} options={machines} />
-        <input className="input" placeholder="Search parts, notes, WB-…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the tracker" />
+        <input className="input" placeholder="Search parts, notes, people…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the tracker" />
       </div>
 
       {total === 0 ? (
@@ -224,94 +241,116 @@ export function TrackerTable({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left eyebrow" style={{ color: "var(--muted)" }}>
-                      <th className="px-3 py-2 font-medium">Status</th>
-                      <th className="px-2 py-2 font-medium">Pri</th>
-                      <th className="px-3 py-2 font-medium">Part</th>
-                      <th className="px-3 py-2 font-medium">Bot</th>
-                      <th className="px-2 py-2 font-medium text-right">Qty</th>
+                      <th className="px-2 py-2 font-medium">Status</th>
+                      <th className="px-1 py-2 font-medium">Pri</th>
+                      <th className="px-2 py-2 font-medium">Part</th>
+                      <th className="px-1 py-2 font-medium">Bot</th>
+                      <th className="px-1 py-2 font-medium">Qty</th>
+                      <th className="px-1 py-2 font-medium">Spare</th>
                       {print ? (
                         <>
-                          <th className="px-3 py-2 font-medium">Material</th>
-                          <th className="px-3 py-2 font-medium">Infill</th>
-                          <th className="px-3 py-2 font-medium">Designer · DRI</th>
+                          <th className="px-1 py-2 font-medium">Material</th>
+                          <th className="px-1 py-2 font-medium">Infill</th>
+                          <th className="px-1 py-2 font-medium">Designer</th>
                         </>
                       ) : (
                         <>
-                          <th className="px-3 py-2 font-medium">Kind</th>
-                          <th className="px-3 py-2 font-medium">Stock</th>
-                          <th className="px-3 py-2 font-medium">Length</th>
-                          <th className="px-3 py-2 font-medium">Tapped</th>
-                          <th className="px-3 py-2 font-medium">Machine</th>
+                          <th className="px-1 py-2 font-medium">Kind</th>
+                          <th className="px-1 py-2 font-medium">Stock material / type</th>
+                          <th className="px-1 py-2 font-medium">Stock dims</th>
+                          <th className="px-1 py-2 font-medium">Length</th>
+                          <th className="px-1 py-2 font-medium">Tapped</th>
+                          <th className="px-1 py-2 font-medium">Machine</th>
                         </>
                       )}
-                      <th className="px-3 py-2 font-medium">File</th>
+                      <th className="px-1 py-2 font-medium">DRI</th>
+                      <th className="px-1 py-2 font-medium">File</th>
+                      <th className="px-1 py-2 font-medium">Notes</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((j) => (
-                      <tr
-                        key={j.id}
-                        className="border-t cursor-pointer align-top hover:bg-[var(--paper)]"
-                        style={{ borderColor: "var(--line)", opacity: isDone(j.status) ? 0.6 : 1 }}
-                        onClick={() => setEdit(j)}
-                      >
-                        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <tr key={j.id} className="border-t align-top hover:bg-[var(--paper)]" style={{ borderColor: "var(--line)", opacity: isDone(j.status) ? 0.6 : 1 }}>
+                        <td className="px-2 py-1.5">
                           <StatusSelect key={`${j.id}-${j.status}`} job={j} person={person} />
                         </td>
-                        <td className="px-2 py-2 mono font-semibold" style={{ color: j.priority === 0 ? "var(--bad)" : undefined }}>
-                          {priorityLabel(j.priority)}
+                        <td className="px-1 py-1.5">
+                          <SelectCell part={j} field="priority" value={j.priority === null ? "" : String(j.priority)} options={[["", "—"], ...PRIORITIES.map((p) => [String(p), `#${p}`] as [string, string])]} mono bad={j.priority === 0} />
                         </td>
-                        <td className="px-3 py-2 min-w-[200px]">
-                          <Link href={`/tracker/${j.id}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
-                            {j.name}
-                          </Link>
-                          {j.linear_url && <LinearLink url={j.linear_url} />}
-                          {j.assignees.length > 0 && (
-                            <span className="block text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                              DRI {j.assignees.join(", ")}
-                            </span>
-                          )}
-                          {j.notes && (
-                            <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--muted)" }}>
-                              {j.notes}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">{j.bot}</td>
-                        <td className="px-2 py-2 mono text-right whitespace-nowrap" title={need(j) !== j.quantity + j.spare_qty ? `${need(j)} across all robots` : undefined}>
-                          {j.quantity}
-                          {j.spare_qty > 0 && <span style={{ color: "var(--muted)" }}> +{j.spare_qty}</span>}
+                        <td className="px-2 py-1.5 min-w-[220px]">
+                          <span className="flex items-start gap-1">
+                            <Link href={`/tracker/${j.id}`} className="font-medium hover:underline pt-1">
+                              {j.name}
+                            </Link>
+                            <button type="button" className="text-xs px-1 pt-1.5 shrink-0" style={{ color: "var(--muted)" }} onClick={() => setEdit(j)} aria-label={`Edit everything for ${j.name}`} title="All fields">
+                              ✎
+                            </button>
+                          </span>
                           {j.cut_qty > 0 && isStockKind(j.kind) && j.cut_qty < need(j) && (
                             <span className="block text-[11px]" style={{ color: "var(--muted)" }}>
                               cut {j.cut_qty}/{need(j)}
                             </span>
                           )}
                         </td>
+                        <td className="px-1 py-1.5">
+                          <Cell part={j} field="bot" value={j.bot} list="tr-bot" w="w-24" />
+                        </td>
+                        <td className="px-1 py-1.5" title={need(j) !== j.quantity + j.spare_qty ? `${need(j)} across all robots` : undefined}>
+                          <Cell part={j} field="quantity" value={String(j.quantity)} mono w="w-12" numeric />
+                        </td>
+                        <td className="px-1 py-1.5">
+                          <Cell part={j} field="spare_qty" value={j.spare_qty ? String(j.spare_qty) : ""} mono w="w-12" numeric placeholder="0" />
+                        </td>
                         {print ? (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap">{j.material_text}</td>
-                            <td className="px-3 py-2">{j.infill}</td>
-                            <td className="px-3 py-2">{[j.designer, j.assignees.join(", ")].filter(Boolean).join(" · ")}</td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="material" value={j.material_text} list="tr-material" w="w-40" />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="infill" value={j.infill} w="w-16" placeholder="40%" />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="designer" value={j.designer} w="w-28" />
+                            </td>
                           </>
                         ) : (
                           <>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs">{KIND_LABEL[j.kind]}</td>
-                            <td className="px-3 py-2 min-w-[160px]">
-                              {j.material_text}
-                              {j.stock_dims && (
-                                <span className="block text-xs mono" style={{ color: "var(--muted)" }}>
-                                  {j.stock_dims}
-                                </span>
-                              )}
+                            <td className="px-1 py-1.5">
+                              <SelectCell part={j} field="kind" value={j.kind} options={PART_KINDS.filter((k) => k !== "print").map((k) => [k, KIND_LABEL[k]] as [string, string])} />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="material" value={j.material_text} list="tr-material" w="w-56" />
                               <StockNote job={j} stock={stock} />
                             </td>
-                            <td className="px-3 py-2 mono whitespace-nowrap">{j.length_text}</td>
-                            <td className="px-3 py-2">{j.tapped}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{j.machine}</td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="stock_dims" value={j.stock_dims} list="tr-stock_dims" w="w-32" mono />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="length" value={j.length_text} w="w-20" mono placeholder='18.5"' />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="tapped" value={j.tapped} list="tr-tapped" w="w-24" />
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <Cell part={j} field="machine" value={j.machine} list="tr-machine" w="w-36" />
+                            </td>
                           </>
                         )}
-                        <td className="px-3 py-2 max-w-[220px]" onClick={(e) => isUrl(j.file) && e.stopPropagation()}>
-                          <FileCell file={j.file} />
+                        <td className="px-1 py-1.5">
+                          <Cell part={j} field="dri" value={j.assignees.join(", ")} list="tr-people" w="w-28" />
+                        </td>
+                        <td className="px-1 py-1.5">
+                          <span className="flex items-center gap-1">
+                            <Cell part={j} field="file" value={j.file} w="w-32" placeholder="name or link" />
+                            {isUrl(j.file) && (
+                              <a href={j.file} target="_blank" rel="noreferrer" className="text-xs shrink-0" style={{ color: "var(--purple)" }} aria-label="Open file link">
+                                ↗
+                              </a>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-1 py-1.5">
+                          <Cell part={j} field="notes" value={j.notes} w="w-56" />
                         </td>
                       </tr>
                     ))}
@@ -329,7 +368,6 @@ export function TrackerTable({
             key={edit === "new" ? "new" : edit.id}
             tracker={tracker}
             job={edit === "new" ? null : edit}
-            jobs={jobs}
             stock={stock}
             person={person}
             defaults={{ bot, subsystem }}
@@ -341,6 +379,80 @@ export function TrackerTable({
         {importing && <ImportForm tracker={tracker} onDone={() => setImporting(false)} />}
       </Sheet>
     </>
+  );
+}
+
+/**
+ * A spreadsheet cell: looks like text, edits in place, saves when you leave it
+ * (Enter saves, Esc puts it back). `list` gives it the sheet's dropdown.
+ */
+function Cell({
+  part,
+  field,
+  value,
+  list,
+  w = "w-28",
+  mono,
+  numeric,
+  placeholder,
+}: {
+  part: FabPart;
+  field: string;
+  value: string;
+  list?: string;
+  w?: string;
+  mono?: boolean;
+  numeric?: boolean;
+  placeholder?: string;
+}) {
+  const a = useFabAction(updatePart);
+  return (
+    <span className="block">
+      <input
+        key={value}
+        defaultValue={value}
+        list={list}
+        placeholder={placeholder}
+        inputMode={numeric ? "numeric" : undefined}
+        aria-label={`${field.replace("_", " ")} for ${part.name}`}
+        className={`${w} ${mono ? "mono" : ""} text-sm bg-transparent rounded px-1.5 py-1 border border-transparent hover:border-[var(--line)] focus:border-[var(--purple)] focus:bg-[var(--surface)] outline-none`}
+        style={{ opacity: a.pending ? 0.5 : 1, borderColor: a.error ? "var(--bad)" : undefined }}
+        title={a.error ?? undefined}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            e.currentTarget.value = value;
+            e.currentTarget.blur();
+          }
+        }}
+        onBlur={(e) => {
+          const v = e.currentTarget.value.trim();
+          if (v !== value.trim()) a.call({ id: part.id, [field]: v });
+        }}
+      />
+    </span>
+  );
+}
+
+/** A cell with a fixed list (kind, priority): a plain dropdown that saves on change. */
+function SelectCell({ part, field, value, options, mono, bad }: { part: FabPart; field: string; value: string; options: [string, string][]; mono?: boolean; bad?: boolean }) {
+  const a = useFabAction(updatePart);
+  return (
+    <select
+      key={value}
+      defaultValue={value}
+      aria-label={`${field} for ${part.name}`}
+      className={`${mono ? "mono font-semibold" : ""} text-sm bg-transparent rounded px-1 py-1 border border-transparent hover:border-[var(--line)] focus:border-[var(--purple)] outline-none cursor-pointer`}
+      style={{ opacity: a.pending ? 0.5 : 1, color: bad ? "var(--bad)" : undefined, borderColor: a.error ? "var(--bad)" : undefined }}
+      title={a.error ?? undefined}
+      onChange={(e) => a.call({ id: part.id, [field]: e.target.value })}
+    >
+      {options.map(([v, label]) => (
+        <option key={v} value={v}>
+          {label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -441,7 +553,6 @@ function JobCard({ job: j, print, stock, need, person, onOpen }: { job: FabJob; 
       {!print && <StockNote job={j} stock={stock} />}
       <div className="flex items-center gap-2 text-xs min-w-0">
         <FileCell file={j.file} />
-        {j.linear_url && <LinearLink url={j.linear_url} />}
         <Link href={`/tracker/${j.id}`} className="ml-auto underline shrink-0" style={{ color: "var(--purple)" }}>
           Files &amp; checks →
         </Link>
@@ -482,21 +593,6 @@ function FileCell({ file }: { file: string }) {
   );
 }
 
-function LinearLink({ url }: { url: string }) {
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="ml-1.5 mono text-xs underline whitespace-nowrap"
-      style={{ color: "var(--purple)" }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {linearKey(url) ?? "Linear"} ↗
-    </a>
-  );
-}
-
 function TextField({ name, label, value, list, placeholder }: { name: string; label: string; value: string; list?: string; placeholder?: string }) {
   return (
     <Field label={label}>
@@ -508,7 +604,6 @@ function TextField({ name, label, value, list, placeholder }: { name: string; la
 function JobForm({
   tracker,
   job,
-  jobs,
   stock,
   person,
   defaults,
@@ -516,7 +611,6 @@ function JobForm({
 }: {
   tracker: Tracker;
   job: FabJob | null;
-  jobs: FabJob[];
   stock: Stock;
   person: string;
   defaults: { bot: string; subsystem: string };
@@ -534,26 +628,11 @@ function JobForm({
   const print = tracker === "print";
   const j = job;
   const v = (k: string) => (j ? col(j, k) : "");
-  const lists = {
-    bot: options(SUGGEST.bot, jobs, "bot"),
-    subsystem: options(SUGGEST.subsystem, jobs, "subsystem"),
-    material: options(print ? SUGGEST.filament : SUGGEST.material, jobs, "material"),
-    stock_dims: options(SUGGEST.stock_dims, jobs, "stock_dims"),
-    machine: options(SUGGEST.machine, jobs, "machine"),
-    tapped: options(SUGGEST.tapped, jobs, "tapped"),
-  };
   const stockList = Object.entries(stock).sort(([, x], [, y]) => x.name.localeCompare(y.name));
 
   return (
     <div className="flex flex-col gap-5">
       <form onSubmit={a.submit} className="flex flex-col gap-3">
-        {Object.entries(lists).map(([k, opts]) => (
-          <datalist key={k} id={`tr-${k}`}>
-            {opts.map((o) => (
-              <option key={o} value={o} />
-            ))}
-          </datalist>
-        ))}
         {j && <input type="hidden" name="id" value={j.id} />}
         <input type="hidden" name="tracker" value={tracker} />
         <input type="hidden" name="by" value={person} />
@@ -629,7 +708,6 @@ function JobForm({
           </>
         )}
         <TextField name="file" label={print ? "STL file" : "Drawing / CAM file (STEP)"} value={v("file")} placeholder="File name or a Drive / Onshape link" />
-        <TextField name="linear_url" label="Linear issue" value={v("linear_url")} placeholder="https://linear.app/warriorborgs/issue/WB-…" />
         <Field label="Notes">
           <textarea name="notes" className="input" rows={2} defaultValue={v("notes")} />
         </Field>

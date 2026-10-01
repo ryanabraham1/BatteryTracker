@@ -142,6 +142,8 @@ export interface FabPart {
   url: string;
   /** per unit, dollars */
   unit_price: number | null;
+  /** units per pack it's sold in (null = sold each) */
+  pack_size: number | null;
   /** Onshape standard content (bolts, nuts, washers) */
   hardware: boolean;
   quantity: number;

@@ -23,6 +23,7 @@ export default async function BomPage() {
         vendor: p.vendor,
         url: p.url,
         unit_price: p.unit_price,
+        pack_size: p.pack_size,
         status: p.cots_status,
         hardware: p.hardware,
         material: p.material_text,

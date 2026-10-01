@@ -533,7 +533,6 @@ function EditSheet({ open, onClose, part: p, units, need }: { open: boolean; onC
           </div>
         )}
         <T name="file" label={print ? "STL file" : "Drawing / CAM file"} value={p.file} placeholder="File name or a Drive / Onshape link" />
-        <T name="linear_url" label="Linear issue" value={p.linear_url} />
         <Field label="Already cut" hint={`Of ${need}. Counted automatically when stock comes off the rack.`}>
           <input name="cut_qty" type="number" min={0} className="input mono" defaultValue={p.cut_qty} />
         </Field>
