@@ -43,8 +43,9 @@ const onLetter = (x, y) => segments.some((segment) => onSegment(x, y, segment)) 
   (x >= 70 && Math.abs(Math.hypot(x - 70, y - 41.5) - 8.5) <= 3.3) ||
   (x >= 72 && Math.abs(Math.hypot(x - 72, y - 58.5) - 8.5) <= 3.3);
 
-function render(size) {
-  const px = Buffer.alloc(size * size * 3);
+function render(size, rgba = false) {
+  const channels = rgba ? 4 : 3;
+  const px = Buffer.alloc(size * size * channels);
   const samples = 4;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -56,19 +57,20 @@ function render(size) {
         }
       }
       const alpha = coverage / (samples * samples);
-      const i = (y * size + x) * 3;
+      const i = (y * size + x) * channels;
       for (let c = 0; c < 3; c++) px[i + c] = Math.round(BG[c] + (FG[c] - BG[c]) * alpha);
+      if (rgba) px[i + 3] = 255;
     }
   }
-  const raw = Buffer.alloc((size * 3 + 1) * size);
+  const raw = Buffer.alloc((size * channels + 1) * size);
   for (let y = 0; y < size; y++) {
-    raw[y * (size * 3 + 1)] = 0;
-    px.copy(raw, y * (size * 3 + 1) + 1, y * size * 3, (y + 1) * size * 3);
+    raw[y * (size * channels + 1)] = 0;
+    px.copy(raw, y * (size * channels + 1) + 1, y * size * channels, (y + 1) * size * channels);
   }
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  ihdr[8] = 8; ihdr[9] = rgba ? 6 : 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
@@ -78,9 +80,9 @@ function render(size) {
 }
 
 for (const s of [192, 512]) writeFileSync(`public/icon-${s}.png`, render(s));
-// ICO stores a PNG at each common browser-tab size.
+// Next.js requires RGBA PNGs inside the ICO container.
 const sizes = [16, 32, 48];
-const images = sizes.map(render);
+const images = sizes.map((size) => render(size, true));
 const header = Buffer.alloc(6 + sizes.length * 16);
 header.writeUInt16LE(1, 2);
 header.writeUInt16LE(sizes.length, 4);
