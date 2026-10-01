@@ -1042,6 +1042,15 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                             >
                               Edit
                             </button>
+                            {["label", "template", "milestone"].includes(i.kind) && (
+                              <button
+                                className="work-text-button"
+                                disabled={pending || readOnly}
+                                onClick={() => trashItem(i)}
+                              >
+                                Delete
+                              </button>
+                            )}
                           </div>
                         ))}
                     </div>
