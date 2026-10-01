@@ -3,6 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "./supabase";
+import { WORK_COOKIE_OPTIONS } from "./work-cookie";
 export type WorkRole = "admin" | "member" | "viewer";
 export type WorkUser = {
   email: string;
@@ -24,12 +25,7 @@ export async function workAuthClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookieOptions: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-      },
+      cookieOptions: WORK_COOKIE_OPTIONS,
       cookies: {
         getAll: () => jar.getAll(),
         setAll: (values) => {
