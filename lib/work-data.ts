@@ -2,6 +2,7 @@ import "server-only";
 import { requireWorkUser } from "./work-auth";
 import { supabaseAdmin } from "./supabase";
 import type { WorkSnapshot } from "./work";
+import { compactWorkSnapshot } from "./work-snapshot";
 async function collect<T>(
   page: (
     from: number,
@@ -23,7 +24,7 @@ async function collect<T>(
   }
   return all;
 }
-export async function getWork(): Promise<WorkSnapshot> {
+export async function getWork(full = false): Promise<WorkSnapshot> {
   const user = await requireWorkUser();
   try {
     const db = supabaseAdmin();
@@ -52,12 +53,8 @@ export async function getWork(): Promise<WorkSnapshot> {
           .range(from, to),
       ),
     ]);
-    return {
-      now: new Date().toISOString(),
-      items,
-      events,
-      receipts,
-    };
+    const snapshot = { now: new Date().toISOString(), items, events, receipts };
+    return full ? snapshot : compactWorkSnapshot(snapshot);
   } catch (e) {
     const message =
       e && typeof e === "object" && "message" in e

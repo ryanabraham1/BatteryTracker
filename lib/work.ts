@@ -71,6 +71,7 @@ export type WorkData = {
   due?: string;
   start?: string;
   color?: string;
+  icon?: string;
   identifier?: string;
   health?: string;
   url?: string;
@@ -131,8 +132,11 @@ export type WorkSnapshot = {
   }[];
   error?: string;
 };
+export function uniqueStatuses(statuses: string[]) {
+  return statuses.filter((s, index) => statuses.findIndex(v => v.toLowerCase() === s.toLowerCase()) === index);
+}
 export function done(item: WorkItem) {
-  return ["Done", "Canceled", "Duplicate"].includes(item.data.status ?? "");
+  return ["done", "completed", "canceled", "cancelled", "duplicate"].includes((item.data.status ?? "").toLowerCase());
 }
 export function issueCode(item: WorkItem, items: WorkItem[]) {
   if (item.data.source?.identifier) return item.data.source.identifier;
@@ -164,6 +168,14 @@ export function progress(items: WorkItem[]) {
   return items.length
     ? Math.round((100 * items.filter(done).length) / items.length)
     : 0;
+}
+/** Milestones include started work at quarter credit, as in Linear's progress view. */
+export function milestoneProgress(milestone: WorkItem, items: WorkItem[]) {
+  const issues = items.filter(i => i.kind === "issue" && !i.archived && !i.deleted_at && i.data.milestone === milestone.id && (!milestone.data.project || i.data.project === milestone.data.project));
+  const completed = issues.filter(done).length;
+  const started = issues.filter(i => ["In progress", "In Progress", "In review", "In Review"].includes(i.data.status ?? "")).length;
+  const percent = issues.length ? Math.round(100 * (completed + started / 4) / issues.length) : done(milestone) ? 100 : 0;
+  return { total: issues.length, completed, percent, complete: done(milestone) || (issues.length > 0 && completed === issues.length) };
 }
 export function dateLabel(date?: string) {
   return date
@@ -216,6 +228,7 @@ export function validateWorkInput(
     "identifier",
     "health",
     "color",
+    "icon",
     "url",
     "group",
     "layout",
@@ -229,6 +242,8 @@ export function validateWorkInput(
       data[k] = d[k];
     }
   }
+  if (d.icon && !/^[a-z][a-z0-9-]{0,30}$/.test(String(d.icon)))
+    throw new Error("Choose a valid icon.");
   if (d.color && !/^#[0-9a-f]{6}$/i.test(String(d.color)))
     throw new Error("Choose a valid color.");
   if (d.url && !/^https?:\/\//i.test(String(d.url)))

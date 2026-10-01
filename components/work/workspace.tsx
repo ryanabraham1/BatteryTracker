@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import { addWorkComment, markWorkRead, mutateWork } from "@/app/work-actions";
 import {
   dateLabel,
@@ -14,7 +14,6 @@ import {
   type WorkFilter,
   type WorkItem,
   type WorkKind,
-  type WorkSnapshot,
 } from "@/lib/work";
 import {
   Avatar,
@@ -28,8 +27,10 @@ import { ItemDetail, RichText } from "./detail";
 import { EntitySelect, Field, ItemEditor, Modal } from "./editor";
 import { Icon } from "./icons";
 import { AccessPanel } from "./access";
-import type { WorkUser, WorkAccess } from "@/lib/work-auth";
+
 import "./work.css";
+import { PropertyPicker } from "./property-picker";
+import { useWork } from "./work-provider";
 const NAV = [
   {
     heading: "",
@@ -135,21 +136,10 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
   },
 };
 function route(item: WorkItem) {
-  return `/work/${({ issue: "issues", project: "projects", initiative: "initiatives", cycle: "cycles", document: "documents", view: "views", customer: "requests", release: "releases" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
+  return `/work/${({ issue: "issues", project: "projects", milestone: "projects", initiative: "initiatives", cycle: "cycles", document: "documents", view: "views", customer: "requests", release: "releases" } as Record<string, string>)[item.kind] ?? "settings"}/${item.id}`;
 }
-export function WorkWorkspace({
-  snapshot,
-  section,
-  entityId,
-  user,
-  access,
-}: {
-  snapshot: WorkSnapshot;
-  user: WorkUser;
-  access: WorkAccess[];
-  section: string;
-  entityId?: string;
-}) {
+export function WorkWorkspace({ section, entityId }: { section: string; entityId?: string; }) {
+  const {snapshot, user, access} = useWork();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const actor = user.memberId;
@@ -177,8 +167,26 @@ export function WorkWorkspace({
     user.role === "admin" ? "access" : "label",
   );
   const [archiveTab, setArchiveTab] = useState("archive");
-  const items = snapshot.items;
-  const live = items.filter((i) => !i.archived && !i.deleted_at);
+  // Show edits instantly; the server action's revalidation swaps in the saved rows.
+  const [items, applyOptimistic] = useOptimistic(
+    snapshot.items,
+    (current, changes: { id: string; title?: string; data?: WorkData; archived?: boolean; deleted?: boolean }[]) =>
+      current.map((i) => {
+        const c = changes.find((x) => x.id === i.id);
+        return c
+          ? {
+              ...i,
+              ...(c.title !== undefined ? { title: c.title } : {}),
+              data: { ...i.data, ...c.data },
+              ...(c.deleted ? { deleted_at: snapshot.now } : {}),
+              ...(c.archived !== undefined ? { archived: c.archived } : {}),
+            }
+          : i;
+      }),
+  );
+  const live = useMemo(() => items.filter((i) => !i.archived && !i.deleted_at), [items]);
+  const byId = useMemo(() => new Map(live.map(i => [i.id, i])), [live]);
+  const receiptByEvent = useMemo(() => new Map(snapshot.receipts.map(r => [r.event_id, r])), [snapshot.receipts]);
   const member = live.find((i) => i.id === actor && i.kind === "member");
   const current = entityId
     ? items.find((i) => i.id === entityId && !i.deleted_at)
@@ -260,14 +268,27 @@ export function WorkWorkspace({
       return null;
     }
     setToast(success);
-    router.refresh();
     return result.items;
   }
   function patch(item: WorkItem, data: WorkData) {
     startTransition(async () => {
+      applyOptimistic([{ id: item.id, data }]);
       await change([{ id: item.id, revision: item.revision, data }]);
     });
   }
+  function saveItem(item: WorkItem, changes: { title?: string; data?: WorkData }) {
+    startTransition(async () => {
+      applyOptimistic([{ id: item.id, ...changes }]);
+      await change([{ id: item.id, revision: item.revision, ...changes }]);
+    });
+  }
+  function trashItem(item: WorkItem) {
+    startTransition(async () => {
+      applyOptimistic([{ id: item.id, deleted: true }]);
+      await change([{ id: item.id, revision: item.revision, deleted: true }], "Moved to trash");
+    });
+  }
+  const milestoneActions = { onSave: saveItem, onTrash: trashItem, onOpen: open, disabled: pending || readOnly };
   const activeFilter =
     current?.kind === "view" ? { ...current.data.filter, ...filter } : filter;
   let issues = filterIssues(items, activeFilter);
@@ -286,10 +307,8 @@ export function WorkWorkspace({
   );
   const inbox = member
     ? snapshot.events.filter((e) => {
-        const item = live.find((i) => i.id === e.item_id);
-        const receipt = snapshot.receipts.find(
-          (r) => r.event_id === e.id && r.member_id === actor,
-        );
+        const item = byId.get(e.item_id);
+        const receipt = receiptByEvent.get(e.id);
         return (
           item &&
           e.actor_id !== actor &&
@@ -310,6 +329,7 @@ export function WorkWorkspace({
   function bulk(data?: WorkData, archived?: boolean) {
     startTransition(async () => {
       const chosen = items.filter((i) => selected.includes(i.id));
+      applyOptimistic(chosen.map((i) => ({ id: i.id, data, archived })));
       if (
         await change(
           chosen.map((i) => ({
@@ -325,28 +345,12 @@ export function WorkWorkspace({
     });
   }
   function exportData() {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            version: 1,
-            exportedAt: new Date().toISOString(),
-            items,
-            events: snapshot.events,
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    );
-    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
+    link.href = "/api/work/export";
     link.download = "warriorborgs-work.json";
     link.click();
-    URL.revokeObjectURL(url);
   }
+
   return (
     <div className="work-shell">
       <aside
@@ -479,6 +483,7 @@ export function WorkWorkspace({
             </>
           )}
           <div className="work-topbar-right">
+            {!current && section === "projects" && layout === "timeline" && <button className="work-text-button" onClick={() => create("project")} disabled={pending || readOnly}><Icon name="plus" size={15}/> New project</button>}
             <button
               className="work-icon-button"
               aria-label="Open command menu"
@@ -619,34 +624,8 @@ export function WorkWorkspace({
                     {issues.length} issues
                   </span>
                   <div className="work-toolbar-right">
-                    <select
-                      aria-label="Sort issues"
-                      className="work-control"
-                      value={sort}
-                      onChange={(e) => setSort(e.target.value)}
-                    >
-                      <option value="priority">Priority</option>
-                      <option value="created">Newest</option>
-                      <option value="due">Due date</option>
-                      <option value="title">Title</option>
-                    </select>
-                    <select
-                      aria-label="Group issues"
-                      className="work-control"
-                      value={group}
-                      onChange={(e) => setGroup(e.target.value)}
-                    >
-                      <option value="status">Group by status</option>
-                      <option value="project">Group by project</option>
-                      <option value="none">No grouping</option>
-                    </select>
-                    <button
-                      className="work-control"
-                      onClick={() => setDialog("view")}
-                      title="Save this view"
-                    >
-                      <Icon name="star" size={15} />
-                    </button>
+                    <PropertyPicker label="Sort issues" value={sort} onChange={setSort} icon={<Icon name="filter" size={14}/>} options={[{value:"priority",label:"Priority"},{value:"created",label:"Newest"},{value:"due",label:"Due date"},{value:"title",label:"Title"}]}/>
+                    <PropertyPicker label="Group issues" value={group} onChange={setGroup} options={[{value:"status",label:"Status"},{value:"project",label:"Project"},{value:"none",label:"No grouping"}]}/>
                     <div className="work-layout-toggle">
                       <button
                         aria-label="List layout"
@@ -839,6 +818,7 @@ export function WorkWorkspace({
               </>
             ) : current ? (
               <ItemDetail
+                key={current.id}
                 item={current}
                 items={items}
                 events={snapshot.events}
@@ -851,6 +831,7 @@ export function WorkWorkspace({
                   setEditor({ kind: current.kind, item: current });
                 }}
                 onPatch={(data) => patch(current, data)}
+                milestoneActions={milestoneActions}
                 onComment={(body, type) =>
                   new Promise((resolve) =>
                     startTransition(async () => {
@@ -930,8 +911,10 @@ export function WorkWorkspace({
                 </div>
                 {layout === "timeline" ? (
                   <Timeline
+                    items={items}
                     projects={live.filter((i) => i.kind === "project")}
                     onOpen={open}
+                    milestoneActions={milestoneActions}
                   />
                 ) : (
                   <Collection

@@ -79,3 +79,44 @@ test("empty progress stays finite and finished work rolls up", () => {
     50,
   );
 });
+
+test("milestones count only live issues in their project, with quarter credit for started work", async () => {
+  const { milestoneProgress } = await import("../lib/work.ts");
+  const m = { ...issue("m"), kind: "milestone", data: { project: "p" } };
+  const linked = (id, status, extra = {}) => issue(id, { project: "p", milestone: "m", status }, extra);
+  const items = [linked("a", "Done"), linked("b", "In Progress"), linked("c", "Todo"), linked("d", "Done", { archived: true }), linked("e", "Done", { deleted_at: "2026-09-30" }), issue("f", { project: "other", milestone: "m", status: "Done" })];
+  assert.deepEqual(milestoneProgress(m, items), { total: 3, completed: 1, percent: 42, complete: false });
+  assert.deepEqual(milestoneProgress(m, [linked("a", "Done")]), { total: 1, completed: 1, percent: 100, complete: true });
+  assert.equal(milestoneProgress(m, []).complete, false);
+  assert.equal(milestoneProgress({ ...m, data: { status: "Completed" } }, []).percent, 100);
+});
+
+test("compact snapshots preserve visible history and provenance without mutating full exports", async () => {
+  const { compactWorkSnapshot } = await import("../lib/work-snapshot.ts");
+  const item = issue("a", { source: { system: "linear", identifier: "WB-1", raw: { secretImportField: "large data" } } });
+  const event = { id: "e", item_id: "a", body: "Update body", data: { before: { data: { status: "Todo", description: "long description" } }, after: { data: { status: "Done" } }, source: { id: "linear-e", raw: { anything: "large data" } } } };
+  const snapshot = { items: [item], events: [event], receipts: [], now: "2026-09-30" };
+  const compact = compactWorkSnapshot(snapshot);
+  assert.equal(compact.items[0].data.source.raw, undefined);
+  assert.equal(compact.items[0].data.source.identifier, "WB-1");
+  assert.equal(compact.events[0].body, "Update body");
+  assert.deepEqual(compact.events[0].data.before, { data: { status: "Todo" } });
+  assert.equal(compact.events[0].data.source.raw, undefined);
+  assert.equal(snapshot.items[0].data.source.raw.secretImportField, "large data");
+  assert.equal(snapshot.events[0].data.before.data.description, "long description");
+});
+
+test("timeline clusters crowded dates without losing milestones or squeezing labels", async () => {
+  const { clusterMilestones } = await import("../lib/work-timeline.ts");
+  const m = (id, due) => ({ ...issue(id), kind: "milestone", data: { due } });
+  const min = Date.parse("2026-09-01"), max = Date.parse("2026-10-01");
+  const milestones = [m("a","2026-09-02"),m("b","2026-09-03"),m("c","2026-09-03"),m("d","2026-09-20"),m("old","2026-08-20"),m("undated",undefined)];
+  const groups = clusterMilestones(milestones,min,max,1000);
+  assert.deepEqual(groups.map(g => g.map(m => m.id)), [["a","b","c"],["d"]]);
+  assert.deepEqual(clusterMilestones(milestones,min,max,6000).map(g => g.map(m => m.id)), [["a"],["b","c"],["d"]]);
+});
+
+test("status choices deduplicate imported capitalization while preserving the selected value", async () => {
+  const { uniqueStatuses } = await import("../lib/work.ts");
+  assert.deepEqual(uniqueStatuses(["In Progress", "Backlog", "In progress", "Done", "done"]), ["In Progress", "Backlog", "Done"]);
+});

@@ -4,11 +4,13 @@ import {
   KIND_NAMES,
   PRIORITIES,
   STATUSES,
+  uniqueStatuses,
   type WorkData,
   type WorkItem,
   type WorkKind,
 } from "@/lib/work";
 import { Icon } from "./icons";
+import { PropertyPicker } from "./property-picker";
 export function Modal({
   title,
   children,
@@ -62,10 +64,10 @@ export function Field({
   wide?: boolean;
 }) {
   return (
-    <label className={`work-field ${wide ? "work-field-wide" : ""}`}>
+    <div role="group" aria-label={label} className={`work-field ${wide ? "work-field-wide" : ""}`}>
       <span>{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 export function EntitySelect({
@@ -75,6 +77,7 @@ export function EntitySelect({
   onChange,
   empty = "None",
   exclude,
+  disabled = false,
 }: {
   items: WorkItem[];
   kind: WorkKind;
@@ -82,26 +85,11 @@ export function EntitySelect({
   onChange: (v: string) => void;
   empty?: string;
   exclude?: string;
+  disabled?: boolean;
 }) {
-  return (
-    <select
-      className="input"
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">{empty}</option>
-      {items
-        .filter(
-          (i) =>
-            i.kind === kind && !i.deleted_at && !i.archived && i.id !== exclude,
-        )
-        .map((i) => (
-          <option key={i.id} value={i.id}>
-            {i.title}
-          </option>
-        ))}
-    </select>
-  );
+  return <PropertyPicker disabled={disabled} value={value ?? ""} label={KIND_NAMES[kind]} onChange={onChange}
+    icon={<Icon name={kind === "project" ? "projects" : kind} size={15} />}
+    options={[{ value: "", label: empty }, ...items.filter(i => i.kind === kind && !i.deleted_at && !i.archived && i.id !== exclude).map(i => ({ value: i.id, label: i.title }))]} />;
 }
 function IssueComposer({
   preset,
@@ -331,6 +319,7 @@ function IssueComposer({
           <div className="work-form-grid">
             <Field label="Cycle">
               <EntitySelect
+                disabled={pending}
                 items={items}
                 kind="cycle"
                 value={data.cycle}
@@ -339,6 +328,7 @@ function IssueComposer({
             </Field>
             <Field label="Milestone">
               <EntitySelect
+                disabled={pending}
                 items={items.filter(
                   (i) =>
                     !data.project ||
@@ -352,6 +342,7 @@ function IssueComposer({
             </Field>
             <Field label="Parent issue">
               <EntitySelect
+                disabled={pending}
                 items={items}
                 kind="issue"
                 value={data.parent}
@@ -368,6 +359,7 @@ function IssueComposer({
             </Field>
             <Field label="Requester / customer">
               <EntitySelect
+                disabled={pending}
                 items={items}
                 kind="customer"
                 value={data.customer}
@@ -376,6 +368,7 @@ function IssueComposer({
             </Field>
             <Field label="Release">
               <EntitySelect
+                disabled={pending}
                 items={items}
                 kind="release"
                 value={data.release}
@@ -466,7 +459,7 @@ export function ItemEditor({
     plan = ["project", "initiative", "cycle", "milestone", "release"].includes(
       kind,
     );
-  const statuses = issue
+  const defaultStatuses = issue
     ? [
         ...new Set([
           ...STATUSES,
@@ -476,6 +469,7 @@ export function ItemEditor({
         ]),
       ]
     : ["Planned", "In progress", "Done", "Canceled"];
+  const statuses = uniqueStatuses([data.status ?? (issue ? "Backlog" : "Planned"), ...defaultStatuses]);
   if (issue && !item)
     return (
       <IssueComposer
@@ -556,28 +550,10 @@ export function ItemEditor({
             {(issue || plan) && (
               <>
                 <Field label="Status">
-                  <select
-                    className="input"
-                    value={data.status ?? (issue ? "Backlog" : "Planned")}
-                    onChange={(e) => patch("status", e.target.value)}
-                  >
-                    {statuses.map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
+                  <PropertyPicker label="Status" value={data.status ?? (issue ? "Backlog" : "Planned")} disabled={pending} onChange={status => patch("status",status)} options={statuses.map(s => ({value:s,label:s}))}/>
                 </Field>
                 <Field label="Priority">
-                  <select
-                    className="input"
-                    value={data.priority ?? 0}
-                    onChange={(e) => patch("priority", Number(e.target.value))}
-                  >
-                    {PRIORITIES.map((s, i) => (
-                      <option key={s} value={i}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                  <PropertyPicker label="Priority" value={String(data.priority ?? 0)} disabled={pending} onChange={v => patch("priority",Number(v))} options={PRIORITIES.map((p,n) => ({value:String(n),label:p}))}/>
                 </Field>
               </>
             )}
@@ -586,6 +562,7 @@ export function ItemEditor({
             ) && (
               <Field label="Team">
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="team"
                   value={data.team}
@@ -597,6 +574,7 @@ export function ItemEditor({
             {(issue || plan) && (
               <Field label={issue ? "Assignee" : "Lead"}>
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="member"
                   value={data.assignee}
@@ -608,6 +586,7 @@ export function ItemEditor({
             {["issue", "document", "milestone", "release"].includes(kind) && (
               <Field label="Project">
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="project"
                   value={data.project}
@@ -618,6 +597,7 @@ export function ItemEditor({
             {kind === "initiative" && (
               <Field label="Parent initiative">
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="initiative"
                   value={data.parentInitiative}
@@ -629,6 +609,7 @@ export function ItemEditor({
             {kind === "team" && (
               <Field label="Parent team">
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="team"
                   value={data.parentTeam}
@@ -640,6 +621,7 @@ export function ItemEditor({
             {kind === "project" && (
               <Field label="Initiative">
                 <EntitySelect
+                disabled={pending}
                   items={items}
                   kind="initiative"
                   value={data.initiative}
@@ -653,6 +635,7 @@ export function ItemEditor({
                 <div className="work-form-grid">
                   <Field label="Cycle">
                     <EntitySelect
+                disabled={pending}
                       items={items}
                       kind="cycle"
                       value={data.cycle}
@@ -661,6 +644,7 @@ export function ItemEditor({
                   </Field>
                   <Field label="Milestone">
                     <EntitySelect
+                disabled={pending}
                       items={items.filter(
                         (i) =>
                           !data.project ||
@@ -674,6 +658,7 @@ export function ItemEditor({
                   </Field>
                   <Field label="Parent issue">
                     <EntitySelect
+                disabled={pending}
                       items={items}
                       kind="issue"
                       value={data.parent}
@@ -695,6 +680,7 @@ export function ItemEditor({
                   </Field>
                   <Field label="Requester / customer">
                     <EntitySelect
+                disabled={pending}
                       items={items}
                       kind="customer"
                       value={data.customer}
@@ -703,6 +689,7 @@ export function ItemEditor({
                   </Field>
                   <Field label="Release">
                     <EntitySelect
+                disabled={pending}
                       items={items}
                       kind="release"
                       value={data.release}

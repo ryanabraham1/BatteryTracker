@@ -5,10 +5,12 @@ import remarkGfm from "remark-gfm";
 import {
   dateLabel,
   issueCode,
+  milestoneProgress,
   KIND_NAMES,
   PRIORITIES,
   progress,
   STATUSES,
+  uniqueStatuses,
   type WorkData,
   type WorkEvent,
   type WorkItem,
@@ -17,6 +19,9 @@ import {
 import { Avatar, Labels } from "./collections";
 import { EntitySelect, Field } from "./editor";
 import { Icon, StatusIcon } from "./icons";
+import type { MilestoneActions } from "./milestone-menu";
+import { ProjectDetail } from "./project-detail";
+import { PropertyPicker } from "./property-picker";
 export function RichText({ text }: { text: string }) {
   return (
     <div className="work-rich-text">
@@ -37,7 +42,9 @@ export function ItemDetail({
   onCreate,
   onArchive,
   onDelete,
+  milestoneActions,
 }: {
+  milestoneActions: MilestoneActions;
   item: WorkItem;
   items: WorkItem[];
   events: WorkEvent[];
@@ -51,6 +58,7 @@ export function ItemDetail({
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [comment, setComment] = useState("");
   const [relationId, setRelationId] = useState("");
   const [relationType, setRelationType] = useState<
@@ -97,8 +105,9 @@ export function ItemDetail({
   const history = events
     .filter((e) => e.item_id === item.id)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  if (item.kind === "project") return <ProjectDetail key={item.id} {...{item, items, events, pending, onEdit, onPatch, onComment, onOpen, onCreate, onArchive, onDelete, milestoneActions}} />;
   return (
-    <div className="work-detail">
+    <div className="work-detail" data-kind={item.kind}>
       <div className="work-detail-main">
         <div className="work-detail-kicker">
           <span className="work-code">
@@ -135,7 +144,8 @@ export function ItemDetail({
           </div>
         </div>
         <h1>{item.title}</h1>
-        <Labels item={item} items={items} />
+        {issue && item.data.parent && <button className="work-issue-parent" onClick={() => { const parent = items.find(i => i.id === item.data.parent); if (parent) onOpen(parent); }}><span>Sub-issue of</span><StatusIcon status={items.find(i => i.id === item.data.parent)?.data.status}/>{items.find(i => i.id === item.data.parent)?.title}</button>}
+        {!issue && <Labels item={item} items={items} />}
         {item.data.description ? (
           <RichText text={item.data.description} />
         ) : (
@@ -249,40 +259,6 @@ export function ItemDetail({
             )}
           </section>
         )}
-        {item.kind === "project" && (
-          <section className="work-detail-section">
-            <div className="work-section-title">
-              <h2>Milestones & documents</h2>
-              <button
-                className="work-text-button"
-                onClick={() => onCreate("milestone", { project: item.id })}
-              >
-                Add milestone
-              </button>
-              <button
-                className="work-text-button"
-                onClick={() => onCreate("document", { project: item.id })}
-              >
-                Add document
-              </button>
-            </div>
-            {children
-              .filter((i) => ["milestone", "document"].includes(i.kind))
-              .map((i) => (
-                <button
-                  key={i.id}
-                  className="work-child"
-                  onClick={() => onOpen(i)}
-                >
-                  <Icon
-                    name={i.kind === "document" ? "documents" : "milestone"}
-                  />
-                  <span>{i.title}</span>
-                  <span className="work-muted">{dateLabel(i.data.due)}</span>
-                </button>
-              ))}
-          </section>
-        )}
         <section className="work-detail-section">
           <div className="work-section-title">
             <h2>Activity</h2>
@@ -304,7 +280,8 @@ export function ItemDetail({
             </button>
           </div>
           <div className="work-activity">
-            {history.map((e) => (
+            {history.length > 12 && <button className="work-text-button" onClick={() => setShowAllHistory(v => !v)}>{showAllHistory ? "Show recent activity" : `Show ${history.length - 12} earlier events`}</button>}
+            {(showAllHistory ? history : history.slice(-12)).map((e) => (
               <div
                 className={`work-activity-item ${["comment", "update"].includes(e.type) ? "work-comment" : ""}`}
                 key={e.id}
@@ -394,40 +371,15 @@ export function ItemDetail({
       <aside className="work-properties">
         <h2>Properties</h2>
         <Field label="Status">
-          <select
-            className="input"
-            disabled={pending}
-            value={item.data.status ?? "Planned"}
-            onChange={(e) => onPatch({ status: e.target.value })}
-          >
-            {[
-              ...new Set([
-                ...(issue
-                  ? STATUSES
-                  : ["Planned", "In progress", "Done", "Canceled"]),
-                item.data.status ?? "Planned",
-              ]),
-            ].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+          <PropertyPicker label="Status" value={item.data.status ?? "Planned"} disabled={pending} onChange={status => onPatch({status})}
+            options={uniqueStatuses([item.data.status ?? "Planned", ...(issue ? STATUSES : ["Planned", "In progress", "Done", "Canceled"])]).map(s => ({value:s,label:s,icon:<StatusIcon status={s}/>}))}/>
         </Field>
         <Field label="Priority">
-          <select
-            className="input"
-            disabled={pending}
-            value={item.data.priority ?? 0}
-            onChange={(e) => onPatch({ priority: Number(e.target.value) })}
-          >
-            {PRIORITIES.map((p, n) => (
-              <option key={p} value={n}>
-                {p}
-              </option>
-            ))}
-          </select>
+          <PropertyPicker label="Priority" value={String(item.data.priority ?? 0)} disabled={pending} onChange={v => onPatch({priority:Number(v)})} icon={<Icon name="insights" size={15}/>} options={PRIORITIES.map((p,n) => ({value:String(n),label:p}))}/>
         </Field>
         <Field label={issue ? "Assignee" : "Lead"}>
           <EntitySelect
+                disabled={pending}
             kind="member"
             items={items}
             value={item.data.assignee}
@@ -435,18 +387,24 @@ export function ItemDetail({
             empty="Unassigned"
           />
         </Field>
+        {issue && <section className="work-detail-labels"><h2>Labels</h2><Labels item={item} items={items}/><button className="work-text-button" onClick={onEdit} disabled={pending}><Icon name="plus" size={14}/> Add label</button></section>}
         {issue && (
           <>
             <Field label="Project">
               <EntitySelect
+                disabled={pending}
                 kind="project"
                 items={items}
                 value={item.data.project}
-                onChange={(v) => onPatch({ project: v })}
+                onChange={(v) => onPatch({ project: v, milestone: "" })}
               />
+            </Field>
+            <Field label="Milestone">
+              <EntitySelect disabled={pending} kind="milestone" items={items.filter(i => i.kind !== "milestone" || i.data.project === item.data.project)} value={item.data.milestone} onChange={milestone => onPatch({milestone})}/>
             </Field>
             <Field label="Cycle">
               <EntitySelect
+                disabled={pending}
                 kind="cycle"
                 items={items}
                 value={item.data.cycle}
@@ -473,23 +431,24 @@ export function ItemDetail({
             </Field>
           </>
         )}
+        {item.kind === "milestone" && <><Field label="Project"><EntitySelect disabled={pending} kind="project" items={items} value={item.data.project} onChange={project => onPatch({project})}/></Field><Field label="Target date"><input className="input" type="date" aria-label="Milestone target date" disabled={pending} value={item.data.due || ""} onChange={e => onPatch({due:e.target.value})}/></Field></>}
         {!["issue", "document"].includes(item.kind) && (
           <div className="work-detail-progress">
             <div className="work-progress">
               <span
                 style={{
-                  width: `${progress(children.filter((i) => i.kind === "issue"))}%`,
+                  width: `${item.kind === "milestone" ? milestoneProgress(item, items).percent : progress(children.filter((i) => i.kind === "issue"))}%`,
                 }}
               />
             </div>
             <p>
-              {progress(children.filter((i) => i.kind === "issue"))}% completed
+              {item.kind === "milestone" ? milestoneProgress(item, items).percent : progress(children.filter((i) => i.kind === "issue"))}% progress
             </p>
           </div>
         )}
-        {(issue || item.kind === "project") && (
-          <div className="work-detail-section">
-            <h2>Relationships</h2>
+        {issue && (
+          <details className="work-detail-section work-issue-relations">
+            <summary>Relationships</summary>
             {(item.data.relations ?? []).map((r, n) => {
               const other = items.find((i) => i.id === r.id);
               return (
@@ -544,6 +503,7 @@ export function ItemDetail({
               ))}
             </select>
             <EntitySelect
+                disabled={pending}
               kind={issue ? "issue" : "project"}
               items={items}
               value={relationId}
@@ -569,7 +529,7 @@ export function ItemDetail({
             >
               Add relationship
             </button>
-          </div>
+          </details>
         )}
         <div className="work-detail-section work-danger-zone">
           <button

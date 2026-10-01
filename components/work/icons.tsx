@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+export const PROJECT_ICONS = ["projects","rocket","bolt","gear","wrench","target","flag","cube","battery","bot","star","heart","flame","trophy","timeline","insights"];
 const paths: Record<string, string> = {
   issues: "M4 5h16M4 12h16M4 19h16",
   inbox: "M4 4h16v16H4zM4 13h5l2 3h2l2-3h5",
@@ -33,6 +34,20 @@ const paths: Record<string, string> = {
   download: "M12 3v12M7 10l5 5 5-5M4 16v5h16v-5",
   menu: "M4 6h16M4 12h16M4 18h16",
   link: "M10 14l4-4M8 16l-2 2a4 4 0 0 1-6-6l4-4M16 8l2-2a4 4 0 0 1 6 6l-4 4",
+  rocket: "M12 3c4 2 6 6 5 11l-5 4-5-4c-1-5 1-9 5-11zM12 10h.01M8 17l-3 4M16 17l3 4",
+  bolt: "M13 3L5 14h6l-1 7 8-11h-6z",
+  gear: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2",
+  wrench: "M14 6a4 4 0 0 0 5 5l-9 9a2.5 2.5 0 0 1-4-4l9-9a4 4 0 0 0-1-1zM15 5l-2 2",
+  target: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 12h.01",
+  flag: "M5 3v18M5 4h13l-2 4 2 4H5",
+  cube: "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
+  battery: "M3 8h16v8H3zM19 11h2v2h-2zM6 11v2M9 11v2",
+  bot: "M5 8h14v11H5zM12 4v4M9 13h.01M15 13h.01M9 17h6",
+  heart: "M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2 4.5 4.5 0 0 1 8 2c0 6-8 11-8 11z",
+  flame: "M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z",
+  trophy: "M7 4h10v6a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 15v4M8 21h8",
+  edit: "M4 20h4L19 9l-4-4L4 16zM13 7l4 4",
+  trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6",
   bell: "M5 17h14l-2-3V9a5 5 0 0 0-10 0v5zM10 21h4",
 };
 export function Icon({
@@ -63,12 +78,28 @@ export function Icon({
 }
 export function StatusIcon({ status = "Backlog" }: { status?: string }) {
   return (
-    <span className="work-status" data-status={status} title={status}>
-      {status === "Done"
+    <span className="work-status" data-status={status === "In Progress" ? "In progress" : status === "In Review" ? "In review" : status === "Completed" ? "Done" : status} title={status}>
+      {(status === "Done" || status === "Completed")
         ? "✓"
         : status === "Canceled" || status === "Duplicate"
           ? "×"
           : ""}
+    </span>
+  );
+}
+
+/** Diamond that fills from the bottom up with milestone progress (Linear-style). */
+export function MilestoneIcon({ percent = 0, complete = false, overdue = false, size = 15 }: { percent?: number; complete?: boolean; overdue?: boolean; size?: number }) {
+  const pct = complete ? 100 : Math.max(0, Math.min(100, percent));
+  const id = `ms-${Math.round(pct)}-${size}`;
+  const color = complete ? "var(--purple)" : overdue ? "#cf5959" : "var(--muted)";
+  return (
+    <span className="work-milestone-diamond" data-complete={complete} data-overdue={overdue} title={`${pct}%`} style={{ color }}>
+      <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
+        <defs><clipPath id={id}><rect x="0" y={16 - (pct / 100) * 16} width="16" height="16" /></clipPath></defs>
+        <path d="M8 1.5 14.5 8 8 14.5 1.5 8Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+        {pct > 0 && <path d="M8 1.5 14.5 8 8 14.5 1.5 8Z" fill="currentColor" clipPath={`url(#${id})`} />}
+      </svg>
     </span>
   );
 }
