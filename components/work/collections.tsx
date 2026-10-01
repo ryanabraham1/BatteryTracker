@@ -14,6 +14,7 @@ import {
   type WorkItem,
   type WorkKind,
 } from "@/lib/work";
+import { useIssueMenu, type IssueActions } from "./issue-menu";
 import { useMilestoneMenu, type MilestoneActions } from "./milestone-menu";
 import { clusterMilestones } from "@/lib/work-timeline";
 import { MultiPicker, PropertyPicker } from "./property-picker";
@@ -115,6 +116,7 @@ export function IssueList({
   onOpen,
   onStatus,
   onPatch,
+  issueActions,
   pending,
   group,
 }: {
@@ -125,9 +127,11 @@ export function IssueList({
   onOpen: (item: WorkItem) => void;
   onStatus: (item: WorkItem, status: string) => void;
   onPatch: (item: WorkItem, data: WorkData) => void;
+  issueActions: IssueActions;
   pending: boolean;
   group: string;
 }) {
+  const issueMenu = useIssueMenu(items, issueActions);
   const groups =
     group === "status"
       ? uniqueStatuses([...STATUSES, ...rows.map(i => i.data.status ?? "Backlog")]).map((s) => ({
@@ -144,6 +148,7 @@ export function IssueList({
         : [{ key: "all", title: "All issues", rows }];
   return (
     <div className="work-list">
+      {issueMenu.element}
       {groups
         .filter((g) => g.rows.length)
         .map((g) => (
@@ -159,6 +164,7 @@ export function IssueList({
                 className="work-issue-row"
                 key={item.id}
                 data-selected={selected.includes(item.id)}
+                onContextMenu={(e) => issueMenu.show(item, e)}
               >
                 <input
                   type="checkbox"
@@ -197,6 +203,7 @@ export function IssueBoard({
   onOpen,
   onStatus,
   onCreate,
+  issueActions,
   pending,
 }: {
   rows: WorkItem[];
@@ -204,11 +211,14 @@ export function IssueBoard({
   onOpen: (i: WorkItem) => void;
   onStatus: (i: WorkItem, status: string) => void;
   onCreate: (status: string) => void;
+  issueActions: IssueActions;
   pending: boolean;
 }) {
+  const issueMenu = useIssueMenu(items, issueActions);
   const statuses = uniqueStatuses(["Backlog", "Todo", "In progress", "In review", "Done", ...rows.map(i => i.data.status ?? "Backlog")]);
   return (
     <div className="work-board">
+      {issueMenu.element}
       {statuses.map((status) => {
         const list = rows.filter(
           (i) => (i.data.status ?? "Backlog").toLowerCase() === status.toLowerCase(),
@@ -248,6 +258,7 @@ export function IssueBoard({
                     e.dataTransfer.setData("text/plain", item.id)
                   }
                   onClick={() => onOpen(item)}
+                  onContextMenu={(e) => issueMenu.show(item, e)}
                 >
                   <span className="work-code">{issueCode(item, items)}</span>
                   <h3>{item.title}</h3>

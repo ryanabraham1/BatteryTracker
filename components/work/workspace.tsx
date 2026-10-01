@@ -287,6 +287,13 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
       await change([{ id: item.id, revision: latest(item).revision, deleted: true }], "Moved to trash");
     });
   }
+  function archiveItem(item: WorkItem) {
+    startTransition(async () => {
+      applyOptimistic([{ id: item.id, archived: true }]);
+      await change([{ id: item.id, revision: latest(item).revision, archived: true }], "Issue archived");
+    });
+  }
+  const issueActions = { onPatch: patch, onArchive: archiveItem, onTrash: trashItem, onOpen: open, disabled: pending || readOnly };
   const milestoneActions = { onSave: saveItem, onTrash: trashItem, onOpen: open, disabled: pending || readOnly };
   const activeFilter =
     current?.kind === "view" ? { ...current.data.filter, ...filter } : filter;
@@ -736,6 +743,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     items={items}
                     onOpen={open}
                     onStatus={(i, status) => patch(i, { status })}
+                    issueActions={issueActions}
                     onCreate={(status) =>
                       create("issue", {
                         status,
@@ -758,6 +766,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     onOpen={open}
                     onStatus={(i, status) => patch(i, { status })}
                     onPatch={patch}
+                    issueActions={issueActions}
                     pending={pending || readOnly}
                     group={group}
                   />

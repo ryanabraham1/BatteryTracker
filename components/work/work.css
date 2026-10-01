@@ -2058,7 +2058,7 @@
 .work-picker-menu > input { width:100%; padding:9px 10px; border:0; border-bottom:1px solid var(--line); background:transparent; outline:none; font-size:14.5px; }
 .work-picker-options { padding-top:4px; }
 .work-picker-options > button { display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:0; background:transparent; padding:8px 9px; border-radius:6px; color:inherit; cursor:pointer; }
-.work-picker-options > button > span:not(.work-status) { flex:1; }
+.work-picker-options > button > span:not(.work-status):not(.work-color-dot) { flex:1; min-width:0; }
 .work-picker-options > button:hover, .work-picker-options > button:focus-visible { background:var(--paper); outline:2px solid var(--purple); outline-offset:-2px; }
 .work-picker-options > button[aria-pressed=true] { color:var(--purple); background:var(--purple-soft); }
 .work-picker-options > p { padding:10px; color:var(--muted); }
@@ -2411,3 +2411,4 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 }
 .work-update-actions { margin-left:auto; display:inline-flex; align-items:center; gap:10px; }
 .work-text-button.danger { color:var(--danger, #c0392b); }
+.work-picker-options > button > .work-color-dot, .work-context-menu .work-color-dot { flex:none; }
