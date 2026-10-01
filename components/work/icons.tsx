@@ -17,6 +17,7 @@ const paths: Record<string, string> = {
   archive: "M3 3h18v5H3zM5 8v13h14V8M9 12h6",
   settings: "M4 7h16M4 17h16M8 4v6M16 14v6",
   triage: "M12 3l10 18H2zM12 9v5M12 17v1",
+  help: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.2",
   plus: "M12 5v14M5 12h14",
   search: "M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14M15 15l6 6",
   close: "M6 6l12 12M18 6L6 18",

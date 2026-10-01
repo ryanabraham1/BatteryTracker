@@ -27,6 +27,7 @@ import { ItemDetail, RichText } from "./detail";
 import { EntitySelect, Field, ItemEditor, Modal } from "./editor";
 import { Icon } from "./icons";
 import { AccessPanel } from "./access";
+import { GettingStarted, HelpGuide } from "./help";
 
 import "./work.css";
 import { PropertyPicker } from "./property-picker";
@@ -70,43 +71,51 @@ const PAGE_GROUPS = [
     ],
   },
 ];
-const SECTIONS: Record<string, { title: string; kind?: WorkKind }> = {
+const SECTIONS: Record<string, { title: string; kind?: WorkKind; blurb?: string }> = {
   issues: {
     title: "Issues",
     kind: "issue",
+    blurb: "Every task the team is working on. Click one to open it.",
   },
   "my-issues": {
     title: "My work",
     kind: "issue",
+    blurb: "Issues assigned to you.",
   },
   projects: {
     title: "Projects",
     kind: "project",
+    blurb: "Bigger goals made of many issues.",
   },
   initiatives: {
     title: "Initiatives",
     kind: "initiative",
+    blurb: "Season-long goals that group projects together.",
   },
   views: {
     title: "Views",
     kind: "view",
+    blurb: "Saved filters you can reuse.",
   },
   documents: {
     title: "Team",
     kind: "document",
   },
-  inbox: { title: "Inbox" },
+  inbox: { title: "Inbox", blurb: "Mentions and changes on things you follow." },
   updates: {
     title: "Team",
+    blurb: "Progress updates posted by the team.",
   },
   insights: {
     title: "Team",
   },
   archive: {
     title: "Archive & trash",
+    blurb: "Restore anything that was archived or deleted.",
   },
   settings: {
     title: "Workspace settings",
+    blurb: "People, labels, templates and exports.",
   },
 };
 function route(item: WorkItem) {
@@ -134,7 +143,8 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
   const [commandQuery, setCommandQuery] = useState("");
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
-  const [dialog, setDialog] = useState<"view" | "import" | null>(null);
+  const [dialog, setDialog] = useState<"view" | "import" | "help" | null>(null);
+  const [quickTitle, setQuickTitle] = useState("");
   const [viewName, setViewName] = useState("");
   const [importText, setImportText] = useState("");
   const [settingsTab, setSettingsTab] = useState<WorkKind | "access">(
@@ -200,6 +210,17 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
         e.preventDefault();
         if (readOnly) setError("Your account has view-only access.");
         else setEditor({ kind: "issue", preset: soleTeamPreset });
+      } else if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && !editor && !command && !document.querySelector("dialog[open]")) {
+        if (e.key === "/") {
+          const box = document.querySelector<HTMLInputElement>(".work-inline-search");
+          if (box) {
+            e.preventDefault();
+            box.focus();
+          }
+        } else if (e.key === "?") {
+          e.preventDefault();
+          setDialog("help");
+        }
       }
     }
     window.addEventListener("keydown", keys);
@@ -214,6 +235,21 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
     setEditor({
       kind,
       preset: { ...(kind === "issue" ? soleTeamPreset : {}), ...preset },
+    });
+  }
+  function quickAdd(preset: WorkData) {
+    const title = quickTitle.trim();
+    if (!title) return;
+    if (readOnly) {
+      setError("Your account has view-only access.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await change(
+        [{ kind: "issue", title, data: { status: "Todo", ...soleTeamPreset, ...preset } }],
+        "Issue added",
+      );
+      if (result) setQuickTitle("");
     });
   }
   function open(item: WorkItem) {
@@ -406,6 +442,10 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
           )}
         </nav>
         <div className="work-sidebar-bottom">
+          <button className="work-nav-link" onClick={() => setDialog("help")}>
+            <Icon name="help" />
+            <span>Help & shortcuts</span>
+          </button>
           <Link
             className="work-nav-link"
             href="/work/settings"
@@ -532,6 +572,7 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
               <div className="work-page-heading">
                 <div>
                   <h1>{info.title}</h1>
+                  {info.blurb && <p>{info.blurb}</p>}
                 </div>
                 <div className="work-heading-actions">
                   {section === "issues" && (
@@ -594,12 +635,23 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     value={filter.query ?? ""}
                     onChange={(e) => updateFilter({ query: e.target.value })}
                   />
+                  {filtersActive && (
+                    <button
+                      className="work-text-button"
+                      onClick={() => {
+                        setFilter({});
+                        if (current?.kind === "view") navigate("issues");
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
                   <span className="work-toolbar-count">
-                    {issues.length} issues
+                    {issues.length} {issues.length === 1 ? "issue" : "issues"}
                   </span>
                   <div className="work-toolbar-right">
-                    <PropertyPicker label="Sort issues" value={sort} onChange={setSort} icon={<Icon name="filter" size={14}/>} options={[{value:"priority",label:"Priority"},{value:"created",label:"Newest"},{value:"due",label:"Due date"},{value:"title",label:"Title"}]}/>
-                    <PropertyPicker label="Group issues" value={group} onChange={setGroup} options={[{value:"status",label:"Status"},{value:"project",label:"Project"},{value:"none",label:"No grouping"}]}/>
+                    <PropertyPicker label="Sort by" value={sort} onChange={setSort} icon={<Icon name="filter" size={14}/>} display={<>Sort: {({priority:"Priority",created:"Newest",due:"Due date",title:"Title"} as Record<string,string>)[sort]}</>} options={[{value:"priority",label:"Priority"},{value:"created",label:"Newest"},{value:"due",label:"Due date"},{value:"title",label:"Title"}]}/>
+                    <PropertyPicker label="Group by" value={group} onChange={setGroup} display={<>Group: {({status:"Status",project:"Project",none:"None"} as Record<string,string>)[group]}</>} options={[{value:"status",label:"Status"},{value:"project",label:"Project"},{value:"none",label:"No grouping"}]}/>
                     <div className="work-layout-toggle">
                       <button
                         aria-label="List layout"
@@ -725,6 +777,34 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                     </button>
                   </div>
                 )}
+                {!readOnly && !current && (
+                  <form
+                    className="work-quick-add"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      quickAdd({
+                        ...(section === "my-issues" ? { assignee: actor } : {}),
+                        ...(activeFilter.project ? { project: activeFilter.project } : {}),
+                        ...(activeFilter.team ? { team: activeFilter.team } : {}),
+                      });
+                    }}
+                  >
+                    <Icon name="plus" size={16} />
+                    <input
+                      aria-label="Quick add an issue"
+                      placeholder="Add an issue — type a title and press Enter"
+                      maxLength={300}
+                      value={quickTitle}
+                      onChange={(e) => setQuickTitle(e.target.value)}
+                    />
+                    {quickTitle.trim() && (
+                      <button className="btn btn-primary" disabled={pending}>
+                        Add
+                      </button>
+                    )}
+                  </form>
+                )}
+                {!current && <GettingStarted onHelp={() => setDialog("help")} />}
                 {!issues.length ? (
                   <Empty
                     title={
@@ -1247,6 +1327,17 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
                   Create issue<kbd>C</kbd>
                 </button>
               )}
+              {!commandQuery && (
+                <button
+                  onClick={() => {
+                    setCommand(false);
+                    setDialog("help");
+                  }}
+                >
+                  <Icon name="help" />
+                  Guide & shortcuts<kbd>?</kbd>
+                </button>
+              )}
               {NAV.flatMap((n) => n.links)
                 .filter(([, title]) =>
                   title.toLowerCase().includes(commandQuery.toLowerCase()),
@@ -1288,6 +1379,11 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
               ⌘ / Ctrl K to search · C to create an issue · Esc to close
             </p>
           </div>
+        </Modal>
+      )}
+      {dialog === "help" && (
+        <Modal title="Guide & shortcuts" onClose={() => setDialog(null)}>
+          <HelpGuide />
         </Modal>
       )}
       {dialog === "view" && (
@@ -1394,6 +1490,12 @@ export function WorkWorkspace({ section, entityId }: { section: string; entityId
             </button>
           </form>
         </Modal>
+      )}
+      {!readOnly && !editor && !command && !dialog && !current && info?.kind && ["issue", "project", "initiative", "document"].includes(info.kind) && (
+        <button className="work-fab" onClick={() => create()}>
+          <Icon name="plus" size={20} />
+          <span>New {KIND_NAMES[info.kind].toLowerCase()}</span>
+        </button>
       )}
       {toast && (
         <div className="work-toast" role="status">

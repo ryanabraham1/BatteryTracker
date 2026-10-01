@@ -319,13 +319,13 @@ function IssueComposer({
           {choice("Assignee", "member", "member", "assignee", "Assignee")}
           {choice("Project", "projects", "project", "project", "Project")}
           <label className="work-compose-chip work-compose-estimate">
-            <Icon name="triage" size={15} />
+            <Icon name="insights" size={15} />
             <input
               aria-label="Estimate (points)"
               type="number"
               min={0}
               max={100}
-              placeholder="Estimate"
+              placeholder="Points"
               value={data.estimate ?? ""}
               onChange={(e) =>
                 patch(
