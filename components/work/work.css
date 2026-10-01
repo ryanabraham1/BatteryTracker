@@ -2421,3 +2421,5 @@ button.work-project-emblem:hover { background:var(--purple-soft); }
 @media(max-width:760px) { .work-roadmap { min-height:0; } }
 .work-roadmap-marker { width:16px; padding:0; z-index:3; }
 .work-roadmap-marker > .work-milestone-diamond { display:block; }
+.work-roadmap-name { transform:translateX(-8px); padding-left:0; }
+.work-roadmap-name > span { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding-top:0; width:100%; }

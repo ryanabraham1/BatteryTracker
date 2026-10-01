@@ -106,13 +106,15 @@ test("compact snapshots preserve visible history and provenance without mutating
   assert.equal(snapshot.events[0].data.before.data.description, "long description");
 });
 
-test("timeline lays crowded milestones into lanes without losing any", async () => {
-  const { laneMilestones } = await import("../lib/work-timeline.ts");
+test("timeline keeps every marker and only drops labels that have no room", async () => {
+  const { labelSlots } = await import("../lib/work-timeline.ts");
   const m = (id, due) => ({ ...issue(id), kind: "milestone", data: { due } });
   const min = Date.parse("2026-09-01"), max = Date.parse("2026-10-01");
   const milestones = [m("a","2026-09-02"),m("b","2026-09-03"),m("c","2026-09-03"),m("d","2026-09-20"),m("old","2026-08-20"),m("undated",undefined)];
-  assert.deepEqual(laneMilestones(milestones,min,max,1000).map(p => [p.m.id,p.lane]), [["a",0],["b",1],["c",2],["d",0]]);
-  assert.deepEqual(laneMilestones(milestones,min,max,6000).map(p => [p.m.id,p.lane]), [["a",0],["b",0],["c",1],["d",0]]);
+  const slots = labelSlots(milestones,min,max,1000);
+  assert.deepEqual(slots.map(s => s.m.id), ["a","b","c","d"]);
+  assert.deepEqual(slots.map(s => s.width > 0), [false,false,true,true]);
+  assert.equal(labelSlots(milestones,min,max,6000)[0].width, 170);
 });
 
 test("status choices deduplicate imported capitalization while preserving the selected value", async () => {
