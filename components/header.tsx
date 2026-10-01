@@ -280,6 +280,7 @@ export function Header() {
                   ["/battery", "Batteries", "Batteries", batteryApp],
                   ["/stock", "Fab stock", "Stock", stockApp],
                   ["/tracker", "Tracker", "Track", trackerApp],
+                  ["/work", "Work", "Work", workApp],
                 ] as const
               ).map(([href, label, short, on]) => (
                 <Link

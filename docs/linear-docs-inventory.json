@@ -1,0 +1,2601 @@
+[
+  {
+    "url": "https://linear.app/docs/start-guide",
+    "headings": [
+      "Start Guide",
+      "Overview and demo\u2060",
+      "Create a workspace\u2060",
+      "Getting the most out of Linear\u2060",
+      "Video resources\u2060",
+      "Learn from real examples\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/conceptual-model",
+    "headings": [
+      "Concepts",
+      "Basic concepts\u2060",
+      "Issues\u2060",
+      "Teams\u2060",
+      "Workspace\u2060",
+      "Organizing work\u2060",
+      "Projects\u2060",
+      "Initiatives\u2060",
+      "Cycles\u2060",
+      "Views\u2060",
+      "How these concepts fit together\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/get-the-app",
+    "headings": [
+      "Download Linear",
+      "Overview\u2060",
+      "Desktop Clients \u2060",
+      "Browsers\u2060",
+      "iOS and Android\u2060",
+      "Home\u2060",
+      "Inbox\u2060",
+      "Create issues\u2060",
+      "Search\u2060",
+      "Settings\u2060",
+      "Having Trouble?\u2060",
+      "Real time sync and offline\u2060",
+      "Network requests to localhost\u2060",
+      "Automatic app updates\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/account-preferences",
+    "headings": [
+      "Preferences",
+      "General\u2060",
+      "Default home view\u2060",
+      "Display full names\u2060",
+      "First day of the week\u2060",
+      "Convert text emoticons into emojis\u2060",
+      "Convert comment on\u2026\u2060",
+      "Interface and theme\u2060",
+      "Desktop application\u2060",
+      "Automations and workflows\u2060",
+      "Auto-assign to self\u2060",
+      "On move to started status, assign to yourself\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/profile",
+    "headings": [
+      "Profile",
+      "Overview\u2060",
+      "Set your profile picture\u2060",
+      "Name and username\u2060",
+      "Email address\u2060",
+      "Change your email address\u2060",
+      "Connected Accounts\u2060",
+      "Leave your workspace\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/notifications",
+    "headings": [
+      "Notifications",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Notification timing\u2060",
+      "Email notifications\u2060",
+      "Subscribing to an issue\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/code-and-reviews",
+    "headings": [
+      "Code & reviews",
+      "Setup\u2060",
+      "Enable code reviews\u2060",
+      "Pull request preferences\u2060",
+      "Auto-convert draft pull requests\u2060",
+      "Merge strategy\u2060",
+      "Code theme\u2060",
+      "Review notifications\u2060",
+      "Signed commits\u2060",
+      "External tools\u2060",
+      "Configure coding tools\u2060",
+      "Git attachment format\u2060",
+      "Move issue to started status\u2060",
+      "Open GitHub pull requests in\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/security-and-access",
+    "headings": [
+      "Security & Access",
+      "Overview \u2060",
+      "Sessions\u2060",
+      "Passkeys\u2060",
+      "Personal API keys\u2060",
+      "Authorized applications\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/workspaces",
+    "headings": [
+      "Workspaces",
+      "Overview\u2060",
+      "Workspace Settings\u2060",
+      "Delete workspace\u2060",
+      "Delete account\u2060",
+      "Multiple workspaces\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/login-methods",
+    "headings": [
+      "Login methods",
+      "Overview\u2060",
+      "Login methods\u2060",
+      "Google authentication\u2060",
+      "Email login\u2060",
+      "Passkey\u2060",
+      "SAML\u2060",
+      "Restrict login methods\u2060",
+      "IP restrictions\u2060",
+      "Switch accounts and workspaces\u2060",
+      "Logging out\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/invite-members",
+    "headings": [
+      "Invite members",
+      "Send an invitation\u2060",
+      "Email Options by Plan\u2060",
+      "Approved email domains\u2060",
+      "Invite links\u2060",
+      "Invite & Assign\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/members-roles",
+    "headings": [
+      "Members and roles",
+      "Overview\u2060",
+      "Managing user roles\u2060",
+      "Changing a member\u2019s role\u2060",
+      "Suspend a member\u2060",
+      "Viewing workspace admins\u2060",
+      "Role types\u2060",
+      "Workspace owner\u2060",
+      "Admin\u2060",
+      "Team owner\u2060",
+      "Member\u2060",
+      "Guest\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/security",
+    "headings": [
+      "Security",
+      "Overview\u2060",
+      "Shared responsibility\u2060",
+      "Certifications\u2060",
+      "Data regions\u2060",
+      "Report a vulnerability\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/saml-and-access-control",
+    "headings": [
+      "SAML",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Multi-SAML Setup\u2060",
+      "Just-in-Time Provisioning\u2060",
+      "Domain Management\u2060",
+      "Allowed domains\u2060",
+      "Other auth methods for other domains\u2060",
+      "Disable new workspace creation\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/scim",
+    "headings": [
+      "SCIM",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Enable and test\u2060",
+      "IdP-specific configuration notes\u2060",
+      "Group push\u2060",
+      "Link by importing teams\u2060",
+      "Link by name matching\u2060",
+      "Provisioning Roles\u2060",
+      "SCIM Sync\u2060",
+      "Disabling SCIM\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/api-and-webhooks",
+    "headings": [
+      "API and Webhooks",
+      "Overview\u2060",
+      "Basics\u2060",
+      "API\u2060",
+      "API Keys\u2060",
+      "Webhooks\u2060",
+      "Create a webhook\u2060",
+      "Third-party apps\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/third-party-application-approvals",
+    "headings": [
+      "Third-Party App Approvals",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Requesting approval\u2060",
+      "Notifications\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/billing-and-plans",
+    "headings": [
+      "Billing and plans",
+      "How our plans and billing works\u2060",
+      "Plans\u2060",
+      "Billing\u2060",
+      "AI credits (optional)\u2060",
+      "Manage your billing\u2060",
+      "Change or Cancel a subscription\u2060",
+      "Add a VAT number\u2060",
+      "Sales tax\u2060",
+      "Special pricing programs\u2060",
+      "Education program\u2060",
+      "Non-profit program\u2060",
+      "Linear for Startups program\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/ai-credits",
+    "headings": [
+      "AI Credits",
+      "How AI credits work\u2060",
+      "How AI credits are used\u2060",
+      "Choosing a coding session model\u2060",
+      "Adding credits to your balance\u2060",
+      "Ad-hoc credits\u2060",
+      "Automatic Reload\u2060",
+      "Payment methods\u2060",
+      "Currency and tax\u2060",
+      "Expiration\u2060",
+      "Order of use\u2060",
+      "Running out of credits\u2060",
+      "View and manage your usage\u2060",
+      "Spend Limits\u2060",
+      "Different types of limits\u2060",
+      "Limit overrides per user and per loop\u2060",
+      "Manage reset cadence\u2060",
+      "Manage reset schedule\u2060",
+      "When a limit is reached\u2060",
+      "Adjustments\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/audit-log",
+    "headings": [
+      "Audit log",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Access via API\u2060",
+      "Webhook and SIEM support\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/exporting-data",
+    "headings": [
+      "Exporting Data",
+      "Overview\u2060",
+      "Workspace CSV exports\u2060",
+      "Member list CSV exports\u2060",
+      "Issue view CSV exports\u2060",
+      "Copy issues as markdown for LLMs\u2060",
+      "Export individual issues as PDFs\u2060",
+      "Project and Initiative list CSV exports\u2060",
+      "Customer request CSV exports\u2060",
+      "Integrations\u2060",
+      "API\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-agent",
+    "headings": [
+      "Linear Agent",
+      "Overview\u2060",
+      "Setup\u2060",
+      "Linear Agent\u2060",
+      "Linear Agent chat\u2060",
+      "Linear Agent in comments\u2060",
+      "Linear Agent for Slack\u2060",
+      "Skills\u2060",
+      "Loops\u2060",
+      "Coding sessions\u2060",
+      "Connect MCP Servers\u2060",
+      "Guidance\u2060",
+      "Preferences\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/loops",
+    "headings": [
+      "Loops",
+      "Overview\u2060",
+      "Example loops\u2060",
+      "Investigate and delegate bug reports\u2060",
+      "Create follow-up issues from resolved incidents\u2060",
+      "Create platform specific versions of incoming requests\u2060",
+      "Create user-facing messaging after issues close\u2060",
+      "Create loops with Linear Agent\u2060",
+      "Create loops manually\u2060",
+      "Update loops\u2060",
+      "Review a loop\u2019s runs\u2060",
+      "Restoring a previous version\u2060",
+      "Use Slack with Loops\u2060",
+      "What Loops can do in Slack\u2060",
+      "Slack access and limitations\u2060",
+      "MCP Connectors\u2060",
+      "Managing available Connectors\u2060",
+      "Setup\u2060",
+      "Permissions\u2060",
+      "Team access\u2060",
+      "Web access\u2060",
+      "Code Intelligence\u2060",
+      "Coding sessions\u2060",
+      "Externally synced issues and comments\u2060",
+      "External sources\u2060",
+      "Allow changes outside of triggering entity\u2060",
+      "AI credits\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/agents-in-linear",
+    "headings": [
+      "AI Agents",
+      "Overview\u2060",
+      "Adding Agents\u2060",
+      "Using Agents in Linear\u2060",
+      "Guiding Agents\u2060",
+      "Viewing Agent Activity\u2060",
+      "Building Your Own Agent\u2060",
+      "FAQs\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/assigning-issues",
+    "headings": [
+      "Assign and delegate issues",
+      "Overview\u2060",
+      "Assigning issues\u2060",
+      "Delegating to agents\u2060",
+      "Managing assigned issues\u2060",
+      "Automation\u2060",
+      "Open issues in coding tools\u2060",
+      "Share issues outside a team\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/triage-intelligence",
+    "headings": [
+      "Triage Intelligence",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Issue property suggestions\u2060",
+      "Issue property suggestion behavior\u2060",
+      "Duplicate and relationship detection\u2060",
+      "Refine suggestion behavior\u2060",
+      "Triggering on issues outside Triage\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/code-intelligence",
+    "headings": [
+      "Code Intelligence",
+      "Setup\u2060",
+      "Repository access\u2060",
+      "Extending access to all members\u2060",
+      "Agent guidance\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/coding-sessions",
+    "headings": [
+      "Coding sessions",
+      "Overview\u2060",
+      "Setup\u2060",
+      "Choose a model\u2060",
+      "Configure coding environments\u2060",
+      "Configure an environment\u2060",
+      "Environment secrets\u2060",
+      "Limitations\u2060",
+      "Start a coding session\u2060",
+      "Review code changes\u2060",
+      "Guidance and skills\u2060",
+      "Writing effective issues\u2060",
+      "Agent automations\u2060",
+      "AI credits\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/mcp",
+    "headings": [
+      "MCP server",
+      "Setup\u2060",
+      "General\u2060",
+      "Claude\u2060",
+      "Claude Code\u2060",
+      "Codex\u2060",
+      "Cursor\u2060",
+      "Jules\u2060",
+      "Visual Studio Code\u2060",
+      "v0 by Vercel\u2060",
+      "Windsurf\u2060",
+      "Zed\u2060",
+      "Others\u2060",
+      "Common use cases\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/coding-sessions",
+    "headings": [
+      "Coding sessions",
+      "Overview\u2060",
+      "Setup\u2060",
+      "Choose a model\u2060",
+      "Configure coding environments\u2060",
+      "Configure an environment\u2060",
+      "Environment secrets\u2060",
+      "Limitations\u2060",
+      "Start a coding session\u2060",
+      "Review code changes\u2060",
+      "Guidance and skills\u2060",
+      "Writing effective issues\u2060",
+      "Agent automations\u2060",
+      "AI credits\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/diffs",
+    "headings": [
+      "Reviews",
+      "Overview\u2060",
+      "Setup\u2060",
+      "Organization setup\u2060",
+      "Personal account setup\u2060",
+      "Display and grouping\u2060",
+      "Code review\u2060",
+      "Review a pull request in Linear\u2060",
+      "Guides\u2060",
+      "Diff view options\u2060",
+      "Open GitHub PR URLs in Linear\u2060",
+      "Organize files with .gitattributes\u2060",
+      "Pull request preview links\u2060",
+      "Notifications\u2060",
+      "Additional settings\u2060",
+      "Auto-convert draft PRs\u2060",
+      "Code theme\u2060",
+      "Move issues to start\u2060",
+      "Review Platform\u2060",
+      "On behalf of attribution\u2060",
+      "Risk score\u2060",
+      "Add data from GitHub\u2060",
+      "Risk score\u2060",
+      "On behalf of\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/github-integration",
+    "headings": [
+      "GitHub",
+      "Getting started",
+      "Overview",
+      "Organization connection",
+      "Account connection",
+      "Linking your work",
+      "Pull request linking",
+      "Commit linking",
+      "Magic words",
+      "Workflow automation",
+      "Issue status automation",
+      "Branch-specific rules",
+      "Assign and move forward",
+      "Reviews",
+      "Configure Diffs",
+      "Code Review PRs",
+      "PR Notifications",
+      "Github Issues Syncing",
+      "Configure Issues Sync",
+      "Github Issues Importer"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/gitlab",
+    "headings": [
+      "GitLab",
+      "Overview\u2060",
+      "Configure the GitLab integration\u2060",
+      "Link Merge Requests\u2060",
+      "Create a new branch\u2060",
+      "Add the issue ID in the MR title\u2060",
+      "Use a magic word\u2060",
+      "Merge Request automation\u2060",
+      "Ready for merge automation\u2060",
+      "Custom merge queues\u2060",
+      "Branch-specific rules\u2060",
+      "Issue linkbacks\u2060",
+      "Auto-assign and update status\u2060",
+      "Auto-linking\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/inbox",
+    "headings": [
+      "Inbox",
+      "Overview\u2060",
+      "View notifications\u2060",
+      "Inbox actions\u2060",
+      "Quick search\u2060",
+      "Display options\u2060",
+      "Snooze\u2060",
+      "Issue Reminders\u2060",
+      "Setting Snooze or Reminders\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/my-issues",
+    "headings": [
+      "My issues",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Curated priority order\u2060",
+      "Created issues\u2060",
+      "Subscribed issues\u2060",
+      "Activity\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/pulse",
+    "headings": [
+      "Pulse",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Enable Pulse\u2060",
+      "View Pulse\u2060",
+      "Inbox notifications\u2060",
+      "Custom feeds\u2060",
+      "Pulse audio\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/diffs",
+    "headings": [
+      "Reviews",
+      "Overview\u2060",
+      "Setup\u2060",
+      "Organization setup\u2060",
+      "Personal account setup\u2060",
+      "Display and grouping\u2060",
+      "Code review\u2060",
+      "Review a pull request in Linear\u2060",
+      "Guides\u2060",
+      "Diff view options\u2060",
+      "Open GitHub PR URLs in Linear\u2060",
+      "Organize files with .gitattributes\u2060",
+      "Pull request preview links\u2060",
+      "Notifications\u2060",
+      "Additional settings\u2060",
+      "Auto-convert draft PRs\u2060",
+      "Code theme\u2060",
+      "Move issues to start\u2060",
+      "Review Platform\u2060",
+      "On behalf of attribution\u2060",
+      "Risk score\u2060",
+      "Add data from GitHub\u2060",
+      "Risk score\u2060",
+      "On behalf of\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/favorites",
+    "headings": [
+      "Favorites",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Applicable views\u2060",
+      "Add favorites\u2060",
+      "Create folders\u2060",
+      "Access favorites\u2060",
+      "Remove favorite\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/teams",
+    "headings": [
+      "Teams",
+      "Overview\u2060",
+      "Your teams\u2060",
+      "Team documents\u2060",
+      "Team settings\u2060",
+      "Working with other teams\u2060",
+      "View other teams\u2060",
+      "Access control\u2060",
+      "Create or join teams\u2060",
+      "Team limits\u2060",
+      "Team creation settings\u2060",
+      "Tips on structuring teams\u2060",
+      "Manage teams\u2060",
+      "Make a team private\u2060",
+      "Join / leave / invite teams\u2060",
+      "Sub-teams\u2060",
+      "Retire a team\u2060",
+      "Delete a team\u2060",
+      "Restore a team\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/private-teams",
+    "headings": [
+      "Private teams",
+      "Overview\u2060",
+      "Visibility\u2060",
+      "Configure\u2060",
+      "Private team members\u2060",
+      "Restricted and private sub-teams\u2060",
+      "Share issues from a private team\u2060",
+      "Managing shared issues\u2060",
+      "Exports\u2060",
+      "API Security Considerations\u2060",
+      "Integrations\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/sub-teams",
+    "headings": [
+      "Sub-teams",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Update an existing team to a sub-team\u2060",
+      "Create a new sub-team\u2060",
+      "Configure a sub-team \u2060",
+      "Private parent and sub-teams\u2060",
+      "Un-nesting a sub-team\u2060",
+      "Multi level sub-teams\u2060",
+      "Parent and sub-team settings\u2060",
+      "Parent team feature settings inherited by sub-teams\u2060",
+      "Parent team feature settings accessible to sub-teams\u2060",
+      "Independent feature settings in sub-teams\u2060",
+      "Notification settings for sub-teams\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/default-team-pages",
+    "headings": [
+      "Team pages",
+      "Overview\u2060",
+      "Team documents\u2060",
+      "Team default pages\u2060",
+      "Issues\u2060",
+      "Active\u2060",
+      "Backlog\u2060",
+      "Archive\u2060",
+      "Cycles\u2060",
+      "Projects\u2060",
+      "Views\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/configuring-workflows",
+    "headings": [
+      "Issue status",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Default status\u2060",
+      "Duplicate issue status\u2060",
+      "Triage\u2060",
+      "Auto-close and auto-archive\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/triage",
+    "headings": [
+      "Triage",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Create issues\u2060",
+      "Take actions\u2060",
+      "Automation\u2060",
+      "Triage rules\u2060",
+      "Triage Intelligence\u2060",
+      "Triage responsibility\u2060",
+      "Integrations\u2060",
+      "Asks\u2060",
+      "Support integrations\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/creating-issues",
+    "headings": [
+      "Create issues",
+      "Overview\u2060",
+      "Creating issues\u2060",
+      "Create an issue via email\u2060",
+      "Team intake email\u2060",
+      "Templated intake email\u2060",
+      "Create recurring issues\u2060",
+      "Convert an existing issue into a recurring issue\u2060",
+      "Create recurring issues from team settings\u2060",
+      "Create a new issue URL\u2060",
+      "Apply pre-set properties\u2060",
+      "Create a URL from a template\u2060",
+      "Copy a URL from an issue\u2060",
+      "Drafts\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/editing-issues",
+    "headings": [
+      "Edit issues",
+      "Overview\u2060",
+      "Edit issue title and description\u2060",
+      "Revert/Restore issue description\u2060",
+      "Move an issue to another team\u2060",
+      "Old Issue IDs and URLS\u2060",
+      "Changes in issue properties\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/assigning-issues",
+    "headings": [
+      "Assign and delegate issues",
+      "Overview\u2060",
+      "Assigning issues\u2060",
+      "Delegating to agents\u2060",
+      "Managing assigned issues\u2060",
+      "Automation\u2060",
+      "Open issues in coding tools\u2060",
+      "Share issues outside a team\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/select-issues",
+    "headings": [
+      "Select issues",
+      "Overview\u2060",
+      "Highlight an issue\u2060",
+      "Select issues\u2060",
+      "Select multiple issues\u2060",
+      "Clear selection\u2060",
+      "Take actions\u2060",
+      "Reorder issues using keyboard shortcuts\u2060",
+      "Update multiple issues\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/parent-and-sub-issues",
+    "headings": [
+      "Parent and sub-issues",
+      "Overview\u2060",
+      "Create a sub-issue\u2060",
+      "Copy properties\u2060",
+      "Status automation\u2060",
+      "Converting issues\u2060",
+      "Turn issues into sub-issues\u2060",
+      "Turn issues into parent issues\u2060",
+      "Turn sub-issues into issues\u2060",
+      "Turn issues into projects\u2060",
+      "Filter sub-issues\u2060",
+      "Display options\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/issue-templates",
+    "headings": [
+      "Issue templates",
+      "Overview\u2060",
+      "Create standard issue templates\u2060",
+      "Create form templates\u2060",
+      "Generic form fields\u2060",
+      "Property form fields\u2060",
+      "Default properties\u2060",
+      "Use issue templates\u2060",
+      "Default templates\u2060",
+      "Templates in integrations\u2060",
+      "Template based Insights\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/comment-on-issues",
+    "headings": [
+      "Comments and reactions",
+      "Overview\u2060",
+      "Post a comment\u2060",
+      "Edit or manage a comment\u2060",
+      "Threads\u2060",
+      "Resolve threads\u2060",
+      "Summaries\u2060",
+      "Resolved comment thread summaries\u2060",
+      "Emoji react to issues and comments\u2060",
+      "Inline comments on descriptions\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/editor",
+    "headings": [
+      "Editor",
+      "Overview\u2060",
+      "Formatting\u2060",
+      "Text styling\u2060",
+      "Lists\u2060",
+      "Other formatting options\u2060",
+      "Attachments\u2060",
+      "Helpful commands\u2060",
+      "Embeds\u2060",
+      "Emoji\u2060",
+      "@ Mentions \u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/documents",
+    "headings": [
+      "Documents",
+      "Overview\u2060",
+      "Create documents\u2060",
+      "Edit documents\u2060",
+      "Version history\u2060",
+      "Show author names\u2060",
+      "Editor slash commands\u2060",
+      "Document templates\u2060",
+      "Document subscriptions\u2060",
+      "Document comments\u2060",
+      "Open documents\u2060",
+      "Reference documents\u2060",
+      "Link to headers\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/delete-archive-issues",
+    "headings": [
+      "Delete and archive issues",
+      "Overview\u2060",
+      "Delete issues\u2060",
+      "Auto-close\u2060",
+      "Auto-archive\u2060",
+      "Issues are not archiving\u2060",
+      "Projects are not archiving\u2060",
+      "The archives\u2060",
+      "Restore issues\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/customer-requests",
+    "headings": [
+      "Customer Requests",
+      "",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Customers\u2060",
+      "Customer pages\u2060",
+      "Open Customer pages\u2060",
+      "Create Customers\u2060",
+      "Customer requests\u2060",
+      "Add requests to issues or projects\u2060",
+      "Integrations\u2060",
+      "Mark as important\u2060",
+      "Synced Attributes\u2060",
+      "Build customer views\u2060",
+      "Notifications \u2060",
+      "Export Customer Requests\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/releases",
+    "headings": [
+      "Releases",
+      "Overview\u2060",
+      "Release pipelines\u2060",
+      "Releases\u2060",
+      "Viewing an issue\u2019s releases\u2060",
+      "Status automations\u2060",
+      "Release notes\u2060",
+      "Changelogs\u2060",
+      "CI setup\u2060",
+      "Example for continuous deployments\u2060",
+      "Release Pipeline changelogs\u2060",
+      "Advanced examples\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/due-dates",
+    "headings": [
+      "Due dates",
+      "Overview\u2060",
+      "Add due date\u2060",
+      "Due date notifications\u2060",
+      "Filter by due date\u2060",
+      "Sort by due date\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/estimates",
+    "headings": [
+      "Estimates",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Scale range options\u2060",
+      "Extended estimate scales\u2060",
+      "Zero estimates\u2060",
+      "Add, edit, or remove estimates\u2060",
+      "Filter for estimates\u2060",
+      "Analytics\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/issue-relations",
+    "headings": [
+      "Issue relations",
+      "Overview \u2060",
+      "Add relationships\u2060",
+      "Related issues\u2060",
+      "Blocked / blocking\u2060",
+      "Duplicate\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/labels",
+    "headings": [
+      "Issue labels",
+      "Overview\u2060",
+      "Labels\u2060",
+      "Label groups\u2060",
+      "Create labels\u2060",
+      "Create a label during add label workflow\u2060",
+      "Apply labels\u2060",
+      "Manage labels\u2060",
+      "Label descriptions\u2060",
+      "Archive labels\u2060",
+      "Delete labels\u2060",
+      "Filtering and views\u2060",
+      "Reserved label names\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/priority",
+    "headings": [
+      "Priority",
+      "Overview\u2060",
+      "Set priority\u2060",
+      "Priority ordering\u2060",
+      "Urgent Notifications\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/sla",
+    "headings": [
+      "SLAs",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Default SLAs\u2060",
+      "Create new SLA rules\u2060",
+      "Business day SLAs\u2060",
+      "Remove SLAs\u2060",
+      "SLA status and filtering\u2060",
+      "SLA notifications\u2060",
+      "Viewing SLA issues\u2060",
+      "Manually apply SLAs\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/projects",
+    "headings": [
+      "Projects",
+      "Overview\u2060",
+      "Create a project\u2060",
+      "Delete a project\u2060",
+      "View your projects\u2060",
+      "Add issues to a project\u2060",
+      "Attach issue views to projects\u2060",
+      "Attach project views to workspace projects page \u2060",
+      "Project details sidebar\u2060",
+      "Multi-team projects\u2060",
+      "Timeframes\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/initiative-and-project-updates",
+    "headings": [
+      "Initiative and Project updates",
+      "Overview\u2060",
+      "Configure Initiative updates\u2060",
+      "Configure Project updates\u2060",
+      "Basics\u2060",
+      "Create Initiative and Project updates\u2060",
+      "View Initiative and Project updates\u2060",
+      "Updates tab\u2060",
+      "Progress reports for Initiatives and Projects\u2060",
+      "Manage notifications\u2060",
+      "Initiative and project update comments\u2060",
+      "Initiative and Project update reminders\u2060",
+      "Project-level update schedule\u2060",
+      "Project staleness\u2060",
+      "Agent assisted updates\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-milestones",
+    "headings": [
+      "Project milestones",
+      "Overview \u2060",
+      "Basics\u2060",
+      "Create milestones\u2060",
+      "Edit and delete milestones\u2060",
+      "Add milestones to issues\u2060",
+      "Filter and group by milestones\u2060",
+      "Reorder milestones\u2060",
+      "Convert milestones to projects\u2060",
+      "Milestones and Initiatives\u2060",
+      "Milestones progress\u2060",
+      "How Linear uses milestones\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-overview",
+    "headings": [
+      "Project overview",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Project properties\u2060",
+      "External links\u2060",
+      "Project documents\u2060",
+      "Detailed description\u2060",
+      "Milestones\u2060",
+      "Project details sidebar\u2060",
+      "Project graph\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/documents",
+    "headings": [
+      "Documents",
+      "Overview\u2060",
+      "Create documents\u2060",
+      "Edit documents\u2060",
+      "Version history\u2060",
+      "Show author names\u2060",
+      "Editor slash commands\u2060",
+      "Document templates\u2060",
+      "Document subscriptions\u2060",
+      "Document comments\u2060",
+      "Open documents\u2060",
+      "Reference documents\u2060",
+      "Link to headers\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-graph",
+    "headings": [
+      "Project graph",
+      "Overview\u2060",
+      "Where to find it\u2060",
+      "How to read it\u2060",
+      "Live predictions\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-status",
+    "headings": [
+      "Project status",
+      "Overview\u2060",
+      "Change a project\u2019s status\u2060",
+      "Create a custom project status\u2060",
+      "When a project\u2019s available statuses change\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-labels",
+    "headings": [
+      "Project labels",
+      "Overview\u2060",
+      "Create a project label or group\u2060",
+      "Using labels across teams\u2060",
+      "Removing teams from projects\u2060",
+      "Privacy\u2060",
+      "Filtering and grouping\u2060",
+      "List project label columns\u2060",
+      "Insights\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-notifications",
+    "headings": [
+      "Project notifications",
+      "Configure\u2060",
+      "Personal notifications\u2060",
+      "Slack channel notifications \u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-priority",
+    "headings": [
+      "Project priority",
+      "Overview\u2060",
+      "Set priority\u2060",
+      "Priority ordering\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-dependencies",
+    "headings": [
+      "Project dependencies",
+      "Overview\u2060",
+      "Create a project dependency\u2060",
+      "Working with dependencies on the timeline\u2060",
+      "View project dependencies\u2060",
+      "Dependency line color\u2060",
+      "Dates used for dependency start/end\u2060",
+      "Filtering for project dependencies\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-templates",
+    "headings": [
+      "Project templates",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Create templates\u2060",
+      "Edit templates\u2060",
+      "Use templates\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/customer-requests",
+    "headings": [
+      "Customer Requests",
+      "",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Customers\u2060",
+      "Customer pages\u2060",
+      "Open Customer pages\u2060",
+      "Create Customers\u2060",
+      "Customer requests\u2060",
+      "Add requests to issues or projects\u2060",
+      "Integrations\u2060",
+      "Mark as important\u2060",
+      "Synced Attributes\u2060",
+      "Build customer views\u2060",
+      "Notifications \u2060",
+      "Export Customer Requests\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/initiatives",
+    "headings": [
+      "Initiatives",
+      "Overview\u2060",
+      "Using initiatives\u2060",
+      "Who can see initiatives\u2060",
+      "Create an initiative\u2060",
+      "Initiative properties\u2060",
+      "Status\u2060",
+      "Priority\u2060",
+      "Labels\u2060",
+      "Owner\u2060",
+      "Lead team\u2060",
+      "Target date\u2060",
+      "Resources\u2060",
+      "Latest update\u2060",
+      "Description\u2060",
+      "Projects\u2060",
+      "Initiative views\u2060",
+      "Initiative health and projects\u2060",
+      "Team initiatives\u2060",
+      "Initiative graph\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/sub-initiatives",
+    "headings": [
+      "Sub-initiatives",
+      "Basics\u2060",
+      "Creating and managing sub-initiatives\u2060",
+      "Viewing sub-initiatives\u2060",
+      "Visibility and filtering\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/initiative-and-project-updates",
+    "headings": [
+      "Initiative and Project updates",
+      "Overview\u2060",
+      "Configure Initiative updates\u2060",
+      "Configure Project updates\u2060",
+      "Basics\u2060",
+      "Create Initiative and Project updates\u2060",
+      "View Initiative and Project updates\u2060",
+      "Updates tab\u2060",
+      "Progress reports for Initiatives and Projects\u2060",
+      "Manage notifications\u2060",
+      "Initiative and project update comments\u2060",
+      "Initiative and Project update reminders\u2060",
+      "Project-level update schedule\u2060",
+      "Project staleness\u2060",
+      "Agent assisted updates\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/use-cycles",
+    "headings": [
+      "Cycles",
+      "Configure\u2060",
+      "Cycle settings\u2060",
+      "Cycle duration\u2060",
+      "Cooldowns after each cycle\u2060",
+      "Starting day of the week\u2060",
+      "Upcoming cycles\u2060",
+      "Disable cycles\u2060",
+      "Adjust cycles\u2060",
+      "Move start and end dates\u2060",
+      "Start a cycle today\u2060",
+      "Cycle automations\u2060",
+      "Issues rollover\u2060",
+      "Auto-add active issues to current cycle\u2060",
+      "Cycle calendars\u2060",
+      "Cycle capacity\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/update-cycles",
+    "headings": [
+      "Update cycles",
+      "Overview\u2060",
+      "Update cycle name and description\u2060",
+      "Change cycle dates\u2060",
+      "Adjusting dates without cycle cooldowns\u2060",
+      "Adjusting dates with cycle cooldowns\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/cycle-graph",
+    "headings": [
+      "Cycle graph",
+      "Overview\u2060",
+      "How to read a cycle graph\u2060",
+      "Understanding scope\u2060",
+      "Assign completed issues to previous cycles\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/board-layout",
+    "headings": [
+      "Board layout",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Feature parity\u2060",
+      "Hide columns\u2060",
+      "Move to top or bottom\u2060",
+      "Navigating columns\u2060",
+      "Swimlanes\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/timeline",
+    "headings": [
+      "Timeline",
+      "Overview\u2060",
+      "Accessing Timeline View\u2060",
+      "How to use Timeline view\u2060",
+      "Product roadmap planning\u2060",
+      "Launch planning\u2060",
+      "Cross-team project coordination\u2060",
+      "Resource planning\u2060",
+      "Timeline Customization\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/custom-views",
+    "headings": [
+      "Custom Views",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Open views\u2060",
+      "Create views\u2060",
+      "Edit views\u2060",
+      "Share views\u2060",
+      "Create views attached to Teams or Projects\u2060",
+      "Copy view link\u2060",
+      "Share a one-off list of issues\u2060",
+      "Favorite views\u2060",
+      "Collapse view group headers\u2060",
+      "View sidebars\u2060",
+      "Issue view subscriptions\u2060",
+      "View owners\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/triage",
+    "headings": [
+      "Triage",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Create issues\u2060",
+      "Take actions\u2060",
+      "Automation\u2060",
+      "Triage rules\u2060",
+      "Triage Intelligence\u2060",
+      "Triage responsibility\u2060",
+      "Integrations\u2060",
+      "Asks\u2060",
+      "Support integrations\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/user-views",
+    "headings": [
+      "User views",
+      "Overview\u2060",
+      "Basics\u2060",
+      "User profiles\u2060",
+      "Custom Views\u2060",
+      "Filter and Group\u2060",
+      "Cycle sidebar\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/peek",
+    "headings": [
+      "Peek preview",
+      "Overview\u2060",
+      "Using peek\u2060",
+      "Basics\u2060",
+      "Command menu\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/label-views",
+    "headings": [
+      "Label views",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Workspace labels\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/search",
+    "headings": [
+      "Search",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Search workspace\u2060",
+      "Search filters\u2060",
+      "Recent issues\u2060",
+      "Search specific views\u2060",
+      "Quick search\u2060",
+      "Q&A\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/filters",
+    "headings": [
+      "Filters",
+      "Apply filters\u2060",
+      "Advanced Filters\u2060",
+      "Filter with AI\u2060",
+      "Working with filters\u2060",
+      "Quick search filters\u2060",
+      "Added to cycle\u2060",
+      "Build with operators\u2060",
+      "Filter with API\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/display-options",
+    "headings": [
+      "Display options",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Saving display options\u2060",
+      "Available display options\u2060",
+      "Issue view\u2060",
+      "Initiatives and project views\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-asks",
+    "headings": [
+      "Linear Asks",
+      "Overview\u2060",
+      "Purpose and use cases\u2060",
+      "Multi-channel request intake\u2060",
+      "Asks with Slack\u2060",
+      "Email Asks\u2060",
+      "Web Asks\u2060",
+      "Linear Asks vs Advanced Linear Asks\u2060",
+      "Shared concepts\u2060",
+      "Shared workflow\u2060",
+      "Synced conversations\u2060",
+      "Templates\u2060",
+      "Next steps\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-asks-slack",
+    "headings": [
+      "Asks with Slack",
+      "Overview\u2060",
+      "Purpose and use cases\u2060",
+      "Linear Asks vs Advanced Linear Asks\u2060",
+      "Configure Slack Asks\u2060",
+      "Install Asks\u2060",
+      "Permissions and visibility\u2060",
+      "Managing Asks configuration\u2060",
+      "Behavior for Slack users outside your Linear workspace\u2060",
+      "Linear Asks Agent\u2060",
+      "Connect teams and invite the app\u2060",
+      "Per-channel configuration (Enterprise)\u2060",
+      "Add templates to channels\u2060",
+      "Enable auto-creation\u2060",
+      "Submitting Asks from Slack\u2060",
+      "Synced thread behavior\u2060",
+      "Managing Asks from Slack\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-asks-email",
+    "headings": [
+      "Asks with Email",
+      "Overview\u2060",
+      "Configure \u2060",
+      "Permissions\u2060",
+      "Create an intake email\u2060",
+      "Configure Email Forwarding\u2060",
+      "Configure the reply sender email address\u2060",
+      "Configure DMARC policy requirements\u2060",
+      "Default policy\u2060",
+      "Enforced policies\u2060",
+      "Synced email thread behavior\u2060",
+      "Customize auto-replies\u2060",
+      "Enable Customer Requests\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-asks-web-forms",
+    "headings": [
+      "Asks Web Forms",
+      "Overview\u2060",
+      "How web forms work\u2060",
+      "Configure\u2060",
+      "Enable web forms\u2060",
+      "Choose a hosting option\u2060",
+      "Custom Domain Setup\u2060",
+      "Set up SAML authentication\u2060",
+      "Add pages\u2060",
+      "Add templates\u2060",
+      "Synced thread behavior\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/integration-directory",
+    "headings": [
+      "Integration Directory",
+      "Overview\u2060",
+      "Basics\u2060",
+      "Linear crafted\u2060",
+      "Third-party integrations\u2060",
+      "Build your own\u2060",
+      "Submit your integration\u2060",
+      "Update or delist an integration\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/mcp",
+    "headings": [
+      "MCP server",
+      "Setup\u2060",
+      "General\u2060",
+      "Claude\u2060",
+      "Claude Code\u2060",
+      "Codex\u2060",
+      "Cursor\u2060",
+      "Jules\u2060",
+      "Visual Studio Code\u2060",
+      "v0 by Vercel\u2060",
+      "Windsurf\u2060",
+      "Zed\u2060",
+      "Others\u2060",
+      "Common use cases\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/agents-in-linear",
+    "headings": [
+      "AI Agents",
+      "Overview\u2060",
+      "Adding Agents\u2060",
+      "Using Agents in Linear\u2060",
+      "Guiding Agents\u2060",
+      "Viewing Agent Activity\u2060",
+      "Building Your Own Agent\u2060",
+      "FAQs\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/airbyte",
+    "headings": [
+      "Airbyte",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Set up Airbyte locally\u2060",
+      "Set up Linear Source\u2060",
+      "Connect your destination\u2060",
+      "Choose your sync frequency\u2060",
+      "Remove connection\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-asks",
+    "headings": [
+      "Linear Asks",
+      "Overview\u2060",
+      "Purpose and use cases\u2060",
+      "Multi-channel request intake\u2060",
+      "Asks with Slack\u2060",
+      "Email Asks\u2060",
+      "Web Asks\u2060",
+      "Linear Asks vs Advanced Linear Asks\u2060",
+      "Shared concepts\u2060",
+      "Shared workflow\u2060",
+      "Synced conversations\u2060",
+      "Templates\u2060",
+      "Next steps\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/discord",
+    "headings": [
+      "Discord",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Integration setup\u2060",
+      "Basics\u2060",
+      "Create issues\u2060",
+      "Search issues\u2060",
+      "Post your daily wrap\u2060",
+      "Link Discord messages in Linear issues\u2060",
+      "Unlink issues\u2060",
+      "Filter for Discord links\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/figma",
+    "headings": [
+      "Figma",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Embed Figma Previews\u2060",
+      "Linear Plugin for Figma\u2060",
+      "Create issues\u2060",
+      "Figma Plugin \u2060",
+      "Privacy Policy\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/front",
+    "headings": [
+      "Front",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Create new issues\u2060",
+      "Link existing issues\u2060",
+      "Link Front conversations in Linear issues\u2060",
+      "Re-open conversations\u2060",
+      "Link multiple issues\u2060",
+      "Unlink issues\u2060",
+      "Merge duplicate reports\u2060",
+      "Filter for Front links\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/github-integration",
+    "headings": [
+      "GitHub",
+      "Getting started",
+      "Overview",
+      "Organization connection",
+      "Account connection",
+      "Linking your work",
+      "Pull request linking",
+      "Commit linking",
+      "Magic words",
+      "Workflow automation",
+      "Issue status automation",
+      "Branch-specific rules",
+      "Assign and move forward",
+      "Reviews",
+      "Configure Diffs",
+      "Code Review PRs",
+      "PR Notifications",
+      "Github Issues Syncing",
+      "Configure Issues Sync",
+      "Github Issues Importer"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/gitlab",
+    "headings": [
+      "GitLab",
+      "Overview\u2060",
+      "Configure the GitLab integration\u2060",
+      "Link Merge Requests\u2060",
+      "Create a new branch\u2060",
+      "Add the issue ID in the MR title\u2060",
+      "Use a magic word\u2060",
+      "Merge Request automation\u2060",
+      "Ready for merge automation\u2060",
+      "Custom merge queues\u2060",
+      "Branch-specific rules\u2060",
+      "Issue linkbacks\u2060",
+      "Auto-assign and update status\u2060",
+      "Auto-linking\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/google-sheets",
+    "headings": [
+      "Google Sheets",
+      "Overview \u2060",
+      "Configure\u2060",
+      "Synced data\u2060",
+      "Issues\u2060",
+      "Projects\u2060",
+      "Initiatives\u2060",
+      "Updating data\u2060",
+      "Custom project analytics\u2060",
+      "Custom issue analytics\u2060",
+      "Timestamp FAQs\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/gong",
+    "headings": [
+      "Gong",
+      "Overview\u2060",
+      "How it works\u2060\u2060",
+      "Configure\u2060",
+      "Customer requests\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/intercom",
+    "headings": [
+      "Intercom",
+      "Overview\u2060",
+      "Configure\u2060",
+      "User Access\u2060",
+      "Create new issues\u2060",
+      "Create with Linear Agent\u2060",
+      "Use templates\u2060",
+      "Search and link issues\u2060",
+      "View issue details\u2060",
+      "Link multiple issues \u2060",
+      "Re-open conversations\u2060",
+      "Internal notes\u2060",
+      "Link Intercom conversations in Linear issues\u2060",
+      "Remove links\u2060",
+      "Filter for Intercom links\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/jira",
+    "headings": [
+      "Jira",
+      "Overview\u2060",
+      "Limitations\u2060",
+      "Permissions required\u2060",
+      "Configure\u2060",
+      "Manual webhook\u2060",
+      "Linking spaces and teams\u2060",
+      "Filtering issues for import\u2060",
+      "Syncing user accounts\u2060",
+      "Synced properties\u2060",
+      "Issues:\u2060",
+      "Epics/Projects:\u2060",
+      "Jira integration vs Jira import\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/microsoft-teams",
+    "headings": [
+      "Microsoft Teams",
+      "Overview\u2060",
+      "Integration configuration\u2060",
+      "Personal account connection\u2060",
+      "Project channel connection\u2060",
+      "Private channel connection\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/notion",
+    "headings": [
+      "Notion",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/salesforce",
+    "headings": [
+      "Salesforce",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Contact us\u2060",
+      "Configure from Salesforce AgentExchange\u2060",
+      "Configure from Linear\u2060",
+      "Enable the Linear component\u2060",
+      "Linear x Salesforce integration configuration video\u2060",
+      "Permissions\u2060",
+      "Settings\u2060",
+      "Restrict issue visibility\u2060",
+      "Internal notes\u2060",
+      "Automatic case reopening\u2060",
+      "Templates\u2060",
+      "Mapping attributes from Salesforce to Linear\u2060",
+      "Using the integration\u2060",
+      "Create a new issue\u2060",
+      "Link cases to existing issues or projects\u2060",
+      "Link to cases from Linear\u2060",
+      "Synced details\u2060",
+      "Status and priority\u2060",
+      "User account attribution\u2060",
+      "Customer information\u2060",
+      "Triage rules\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/sentry",
+    "headings": [
+      "Sentry",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Basics\u2060",
+      "Create issues\u2060",
+      "Link issues\u2060",
+      "Automations\u2060",
+      "Remove links\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/slack",
+    "headings": [
+      "Slack",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Integration setup\u2060",
+      "Connect multiple Slack workspaces\u2060",
+      "Linear Agent for Slack\u2060",
+      "Set Linear Agent guidance\u2060",
+      "Use Slack with Loops\u2060",
+      "Linear with Slackbot\u2060",
+      "Create issues with message actions\u2060",
+      "Use templates\u2060",
+      "Sync threads\u2060",
+      "Add Slack messages to existing issues\u2060",
+      "Notifications\u2060",
+      "Team notifications\u2060",
+      "Project & initiative notifications\u2060",
+      "Personal notifications\u2060",
+      "View subscriptions\u2060",
+      "Project Slack channels\u2060",
+      "Rich unfurls and issue actions \u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/zapier",
+    "headings": [
+      "Zapier",
+      "Overview\u2060",
+      "Getting Started\u2060",
+      "Basics\u2060",
+      "Build workflows\u2060",
+      "Actions\u2060",
+      "Triggers\u2060",
+      "Example workflows\u2060",
+      "Update to latest version\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/zendesk",
+    "headings": [
+      "Zendesk",
+      "Overview \u2060",
+      "Configure\u2060",
+      "Install\u2060",
+      "Requirements\u2060",
+      "Basics\u2060",
+      "Create new issues\u2060",
+      "Create with Linear Agent\u2060",
+      "Use templates\u2060",
+      "Link existing issues\u2060",
+      "Re-open conversations\u2060",
+      "Link multiple issues\u2060",
+      "Link Zendesk tickets in Linear issues\u2060",
+      "Unlink issues\u2060",
+      "Merge duplicate reports\u2060",
+      "Filter for Zendesk links\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/diffs-integrations",
+    "headings": [
+      "Diffs Integrations",
+      "Review Platform\u2060",
+      "On behalf of attribution\u2060",
+      "Risk score\u2060",
+      "Add data from GitHub\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/dashboards",
+    "headings": [
+      "Dashboards",
+      "Overview\u2060",
+      "Creating dashboards\u2060",
+      "Using dashboards\u2060",
+      "Filtering dashboards\u2060",
+      "Managing dashboards\u2060",
+      "Private teams\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/insights",
+    "headings": [
+      "Insights",
+      "Overview\u2060",
+      "Configure\u2060",
+      "Examples\u2060",
+      "Create Insights\u2060",
+      "Apply filters\u2060",
+      "Select Insights Parameters\u2060",
+      "Graph Interactions\u2060",
+      "Share Insights\u2060",
+      "Full Screen view\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/project-graph",
+    "headings": [
+      "Project graph",
+      "Overview\u2060",
+      "Where to find it\u2060",
+      "How to read it\u2060",
+      "Live predictions\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/cycle-graph",
+    "headings": [
+      "Cycle graph",
+      "Overview\u2060",
+      "How to read a cycle graph\u2060",
+      "Understanding scope\u2060",
+      "Assign completed issues to previous cycles\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/exporting-data",
+    "headings": [
+      "Exporting Data",
+      "Overview\u2060",
+      "Workspace CSV exports\u2060",
+      "Member list CSV exports\u2060",
+      "Issue view CSV exports\u2060",
+      "Copy issues as markdown for LLMs\u2060",
+      "Export individual issues as PDFs\u2060",
+      "Project and Initiative list CSV exports\u2060",
+      "Customer request CSV exports\u2060",
+      "Integrations\u2060",
+      "API\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/import-issues",
+    "headings": [
+      "Importing guidance",
+      "Linear Concepts\u2060",
+      "Pre-import best practices\u2060",
+      "Which data is worth importing?\u2060",
+      "Choose an import method\u2060",
+      "Understand the import process\u2060",
+      "Troubleshooting\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/jira-to-linear",
+    "headings": [
+      "Jira",
+      "Data included in the import\u2060",
+      "What import method should I choose?\u2060",
+      "Considerations before importing\u2060",
+      "Syncing changes back to Jira\u2060",
+      "Mapping Jira users to Linear\u2060",
+      "Matching Jira IDs in Linear\u2060",
+      "Sub-teams\u2060",
+      "Running the import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/github-to-linear",
+    "headings": [
+      "GitHub Issues",
+      "Migration Approaches\u2060",
+      "Pre-Migration Planning\u2060",
+      "Important Considerations\u2060",
+      "Running the import\u2060",
+      "Prerequisites\u2060",
+      "Import process\u2060",
+      "Data included in the import\u2060",
+      "Syncing issues\u2060",
+      "Mapping GitHub users to Linear\u2060",
+      "Post import clean-up\u2060",
+      "Label Organization\u2060",
+      "Projects Management\u2060",
+      "Status Alignment\u2060",
+      "Team Membership Cleanup\u2060",
+      "GitHub Sync Options\u2060",
+      "Starting Over\u2060",
+      "Revert an import\u2060",
+      "Alternative: CLI Import for a flexible import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/asana-to-linear",
+    "headings": [
+      "Asana",
+      "Prerequisites\u2060",
+      "Running the import\u2060",
+      "Data included in the import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/shortcut-to-linear",
+    "headings": [
+      "Shortcut",
+      "Running the import\u2060",
+      "Data included in the import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-to-linear",
+    "headings": [
+      "Linear to Linear Import",
+      "Prerequisites\u2060",
+      "Running the import\u2060",
+      "Data included in the import\u2060",
+      "Data excluded in the import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/cli-importer",
+    "headings": [
+      "CLI Importer",
+      "Preparing your CSV file for import\u2060",
+      "Running the import\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/triage-manage-unplanned-work",
+    "headings": [
+      "How to manage unplanned work",
+      "Build a Triage process\u2060",
+      "1. Lower the friction to file\u2060",
+      "2. Route issues to one place\u2060",
+      "3. Choose Triage captains\u2060",
+      "4. Review issues regularly\u2060",
+      "Optimize your workflow\u2060",
+      "Level up\u2060",
+      "Prioritize time-sensitive issues with SLAs\u2060",
+      "Enable support automations\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/team-issue-limit",
+    "headings": [
+      "Team Issue limits",
+      "Overview\u2060",
+      "Recommended next steps\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/view-demos",
+    "headings": [
+      "View demos",
+      "Watch demos\u2060",
+      "Ask our Slack community\u2060",
+      "Ask our AI Help Center\u2060",
+      "Reach out to us\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/beta-project-planning",
+    "headings": [
+      "Linear Beta: Project planning",
+      "Set custom project statuses\u2060",
+      "Start planning at the idea stage\u2060",
+      "Build out an implementation plan with milestones\u2060",
+      "Seamlessly move from planning to building\u2060",
+      "Organize your view with Swimlanes\u2060",
+      "See key project details in an updated timeline design\u2060",
+      "View project updates on the Activity page\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/ops-and-marketing",
+    "headings": [
+      "Linear for Ops and Marketing",
+      "Basics\u2060",
+      "Custom workflows\u2060",
+      "Views\u2060",
+      "Recurring issues\u2060",
+      "Create issues outside Linear\u2060",
+      "Support tooling\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/joining-your-team-on-linear",
+    "headings": [
+      "Tips for joining your team on Linear",
+      "Learn the core concepts\u2060",
+      "Get familiar with your team\u2019s workflow\u2060",
+      "Configure notifications and manage your inbox\u2060",
+      "Connect your accounts\u2060",
+      "Practice keyboard shortcuts\u2060",
+      "Favorite your views\u2060",
+      "Check how issues are coming in\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/making-the-most-of-linear",
+    "headings": [
+      "Making the most of Linear",
+      "Discover\u2060",
+      "Plan\u2060",
+      "Initiatives, Projects, Milestones\u2060",
+      "Build\u2060",
+      "Issues\u2060",
+      "Triage\u2060",
+      "Customizing Linear for your organization\u2060",
+      "Insights\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/jira-terminology-translated",
+    "headings": [
+      "Jira Terminology Translated"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-for-growth",
+    "headings": [
+      "How to use Linear for Growth",
+      "Setting up your workspace\u2060",
+      "Migrate your data into Linear\u2060",
+      "Set up integrations\u2060",
+      "Set up Teams\u2060",
+      "Configure team workflows\u2060",
+      "Planning\u2060",
+      "Using Initiatives\u2060",
+      "Using Projects\u2060",
+      "Building\u2060",
+      "Using Issues\u2060",
+      "Manage feature requests and bugs with Triage\u2060",
+      "Working in Cycles\u2060",
+      "Reporting\u2060",
+      "Custom Views\u2060",
+      "Insights\u2060",
+      "Initiative & Project updates\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/making-the-most-of-linear-business",
+    "headings": [
+      "Making the most of Linear Business",
+      "Linear Asks: simplified request management\u2060",
+      "Support Integrations: managing customer feedback and tracking bugs\u2060",
+      "Insights: Data-informed decision making\u2060",
+      "Triage responsibility: clear ownership roles\u2060",
+      "Private Teams: Secure collaboration\u2060",
+      "Need guidance? Join our Slack community\u2060\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/how-to-use-linear",
+    "headings": [
+      "How to use Linear",
+      "The basics\u2060",
+      "For admins\u2060",
+      "For organizations\u2060",
+      "By role\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/agents-api-deprecated",
+    "headings": [
+      "App platform",
+      "Key changes",
+      "Setup",
+      "Usage",
+      "Webhooks",
+      "Known issues"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-for-product-managers",
+    "headings": [
+      "Linear for Product Managers",
+      "Shaping plans\u2060",
+      "Start with Projects\u2060",
+      "Begin with an outline\u2060",
+      "Refine your thoughts\u2060",
+      "Build conviction with customer feedback\u2060",
+      "Building products\u2060",
+      "Turn ideas into development tasks\u2060",
+      "Make your backlog work for you\u2060",
+      "Understanding and communicating progress\u2060",
+      "Gathering information\u2060",
+      "Communicating updates\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/ai-at-linear",
+    "headings": [
+      "AI at Linear",
+      "Product Intelligence: Managing information\u2060",
+      "FAQs\u2060",
+      "Pulse: Managing information\u2060",
+      "FAQs\u2060",
+      "Agents: Taking action on information\u2060",
+      "FAQs\u2060",
+      "Linear MCP: Connecting information\u2060",
+      "FAQs\u2060",
+      "Roadmap\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/how-to-use-linear-small-teams",
+    "headings": [
+      "How to use Linear: Small teams",
+      "Setting up your workspace\u2060",
+      "Plan recommendation\u2060",
+      "Key integrations to setup\u2060",
+      "Organizing Teams\u2060",
+      "Configure workflows\u2060",
+      "Set up Issue Triage\u2060",
+      "Migrating to Linear\u2060",
+      "Building & Planning\u2060",
+      "Start with Issues\u2060",
+      "Here\u2019s an example workflow using issues:\u2060",
+      "Using Projects for planning\u2060",
+      "Managing a Project\u2060",
+      "Understanding progress\u2060",
+      "Updates\u2060",
+      "Go deeper with custom views\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/linear-for-growth",
+    "headings": [
+      "How to use Linear for Growth",
+      "Setting up your workspace\u2060",
+      "Migrate your data into Linear\u2060",
+      "Set up integrations\u2060",
+      "Set up Teams\u2060",
+      "Configure team workflows\u2060",
+      "Planning\u2060",
+      "Using Initiatives\u2060",
+      "Using Projects\u2060",
+      "Building\u2060",
+      "Using Issues\u2060",
+      "Manage feature requests and bugs with Triage\u2060",
+      "Working in Cycles\u2060",
+      "Reporting\u2060",
+      "Custom Views\u2060",
+      "Insights\u2060",
+      "Initiative & Project updates\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/how-to-use-linear-large-scaling-companies",
+    "headings": [
+      "How to use Linear: Large & scaling companies",
+      "Setting up your workspace\u2060",
+      "Workspace access management\u2060",
+      "Workspace structure\u2060",
+      "Teams\u2060",
+      "Team structure recommendation at scale\u2060",
+      "When to create a new team\u2060",
+      "Team-level permissions\u2060",
+      "Where sub-teams retain autonomy\u2060",
+      "Workspace-level enforcement\u2060",
+      "Migrating to Linear\u2060",
+      "Core integrations\u2060",
+      "Set up Issue Triage\u2060",
+      "Set up Linear Asks\u2060",
+      "Planning\u2060",
+      "Using Initiatives, Projects, and Milestones\u2060",
+      "Assign a lead\u2060",
+      "Draft the specification\u2060",
+      "Building\u2060",
+      "Using Issues\u2060",
+      "Understanding progress\u2060",
+      "Updates\u2060",
+      "Go deeper with custom views and dashboards\u2060",
+      "Insights and dashboards\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/how-to-use-linear",
+    "headings": [
+      "How to use Linear",
+      "The basics\u2060",
+      "For admins\u2060",
+      "For organizations\u2060",
+      "By role\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/how-to-use-linear-startups-mid-size-companies",
+    "headings": [
+      "How to use Linear: Startups & mid-size companies",
+      "Setting up your workspace\u2060",
+      "Plan recommendation\u2060",
+      "Key integrations to setup:\u2060",
+      "Enable Issue Triage\u2060",
+      "Set up Linear Asks\u2060",
+      "Organizing Teams\u2060",
+      "Configure workflows\u2060",
+      "Migrating to Linear\u2060",
+      "Planning\u2060",
+      "Using Initiatives, Projects, and Milestones\u2060",
+      "Assign a lead\u2060",
+      "Draft the specification\u2060",
+      "Building\u2060",
+      "Using Issues\u2060",
+      "Working in Cycles\u2060",
+      "Understanding progress\u2060",
+      "Updates\u2060",
+      "Go deeper with custom views and Insights\u2060",
+      "Insights\u2060",
+      ""
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/workspace-owner",
+    "headings": [
+      "Workspace Owner",
+      "Basics\u2060",
+      "Permissions by role\u2060",
+      "Managing admin and owner roles with SCIM\u2060",
+      "Migrating from admins to owners\u2060",
+      "Starting fresh\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/changes-to-user-roles-when-upgrading-to-enterprise",
+    "headings": [
+      "Changes to user roles when upgrading to Enterprise",
+      "Migrating from admins to owners with SCIM\u2060",
+      "Option 1: Rename the admins group\u2060",
+      "Option 2: Re-link the admins group\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/team-owner",
+    "headings": [
+      "Team owners",
+      "Configure team owners\u2060",
+      "Who are team owners?\u2060",
+      "Team owner only operations\u2060",
+      "Configurable permissions\u2060",
+      "Team access\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/changes-to-linears-pricing-plans",
+    "headings": [
+      "Changes to Linear\u2019s pricing plans",
+      "We\u2019re moving all workspaces onto our current plans\u2060",
+      "What\u2019s changing\u2060",
+      "Timeline\u2060",
+      "FAQ\u2060",
+      "\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/private-issue-sharing",
+    "headings": [
+      "Private issue sharing",
+      "Beta: Private issue sharing\u2060",
+      "Overview",
+      "Sharing an issue\u2060",
+      "Interacting with shared issues\u2060",
+      "Sub-issues\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/report-performance-issues",
+    "headings": [
+      "Report performance issues",
+      "",
+      "What to include in your performance report\u2060",
+      "How to record a performance snapshot\u2060",
+      "1. Open Chrome DevTools\u2060",
+      "2. Navigate to the Performance tab\u2060",
+      "3. Start recording\u2060",
+      "4. Reproduce the issue\u2060",
+      "5. Save the performance profile\u2060",
+      "6. Send everything to support\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/gus-integration",
+    "headings": [
+      "GUS Integration",
+      "GUS to Linear Integration Guide",
+      "Recommended Architecture for Salesforce DMT\u2060",
+      "Scope\u2060",
+      "Decision Matrix\u2060",
+      "GUS Hierarchy Context\u2060",
+      "GUS Hierarchy (from Salesforce documentation)\u2060",
+      "Recommended Mapping to Linear\u2060",
+      "Entity and Field Mapping\u2060",
+      "GUS Epic \u2194 Linear Project (Core Sync)\u2060",
+      "GUS Work Item \u2194 Linear Issue\u2060",
+      "GUS Sprint \u2194 Linear Cycle\u2060",
+      "GUS Program \u2192 Linear Initiative\u2060",
+      "Status Mapping\u2060",
+      "Linear Workspace Architecture\u2060",
+      "Teams\u2060",
+      "Labels\u2060",
+      "Custom Fields\u2060",
+      "Cycles\u2060",
+      "Workflow States\u2060",
+      "Linear API Reference\u2060",
+      "Authentication\u2060",
+      "Project Operations (for GUS Epic sync)\u2060",
+      "Issue Operations (for GUS Work Items, Bugs, Incidents)\u2060",
+      "Cycle Operations (for GUS Sprint sync)\u2060",
+      "Initiative Operations (for GUS Program sync)\u2060",
+      "Issue Relations (for GUS Team Dependencies)\u2060",
+      "External Links (for GUS back-references)\u2060",
+      "Query Operations (for reconciliation)\u2060",
+      "Webhook Payload\u2060",
+      "User Resolution\u2060",
+      "Core Sync Engine\u2060",
+      "Entity Mapping Table\u2060",
+      "Reconciliation Flow\u2060",
+      "Conflict Resolution\u2060",
+      "Sync Loop Prevention\u2060",
+      "Rate Limiting\u2060",
+      "Tier 1: Agile Workflow Migration\u2060",
+      "Epic \u2192 Project Migration\u2060",
+      "Work Item \u2192 Issue Migration\u2060",
+      "Sprint \u2192 Cycle Migration\u2060",
+      "Linear Equivalents for Other Tier 1 Capabilities\u2060",
+      "Tier 2: Bi-directional Integrations\u2060",
+      "CODEOWNERS Bug Routing\u2060",
+      "Git Integration (replacing Git2GUS)\u2060",
+      "Incident and Problem Management\u2060",
+      "CI/CD Bug Sync (SFCI, SFBT, Fpolicy, Skywalker)\u2060",
+      "HPS / Kaiju\u2060",
+      "Intake Requests\u2060",
+      "PagerDuty\u2060",
+      "Tier 3: GUS-Resident Capabilities\u2060",
+      "Falcon/Fedx\u2060",
+      "Change Cases / Change Categories / Change Templates\u2060",
+      "JIT Access\u2060",
+      "Certificate Management / CS Monitor\u2060",
+      "Release Management (OrgESC)\u2060",
+      "FastLane\u2060",
+      "Initial Migration / Bootstrap\u2060",
+      "Phased Rollout Strategy\u2060",
+      "Migration Script\u2060",
+      "Data Validation\u2060",
+      "Error Handling and Monitoring\u2060",
+      "Error Handling\u2060",
+      "Monitoring Alerts\u2060",
+      "Audit Logging\u2060",
+      "Open Questions Summary\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/github-enterprise-cloud-beta",
+    "headings": [
+      "GitHub Enterprise Cloud: Beta",
+      "Overview\u2060",
+      "Setup\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/open-issues-with-custom-scripts",
+    "headings": [
+      "Open issues with custom scripts",
+      "Overview\u2060",
+      "How it works\u2060",
+      "Configuration\u2060",
+      "Template variables\u2060",
+      "Environment variables\u2060",
+      "Example\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/connect-mcp-servers",
+    "headings": [
+      "Connect MCP Servers to Linear Agent",
+      "Overview\u2060",
+      "Available MCP servers\u2060",
+      "Setup\u2060",
+      "Workspace configuration\u2060",
+      "Individual server connection\u2060",
+      "Custom server connection\u2060",
+      "Example prompts\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/github",
+    "headings": [
+      "GitHub",
+      "Overview\u2060",
+      "Permissions\u2060",
+      "Configure\u2060",
+      "Enable the GitHub integration\u2060",
+      "Personal account connection\u2060",
+      "Enable commit linking\u2060",
+      "Configure GitHub Issues Sync\u2060",
+      "Linking Linear issues to GitHub PRs\u2060",
+      "Link through pull requests\u2060",
+      "Link using commits\u2060",
+      "Link multiple issues\u2060",
+      "Viewing a linked Linear issue\u2060",
+      "Remove a PR from an issue\u2060",
+      "PR review state\u2060",
+      "Pull request preview links\u2060",
+      "Workflow automation\u2060",
+      "Issue status updates\u2060",
+      "Automatic PR Cancellation\u2060",
+      "Custom merge queues\u2060",
+      "Branch protection rules\u2060",
+      "Branch-specific rules\u2060",
+      "Auto-assign and move issue to start\u2060",
+      "Other settings\u2060",
+      "Linkbacks\u2060",
+      "Enable Autolink\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/loops",
+    "headings": [
+      "Loops",
+      "Overview\u2060",
+      "Example loops\u2060",
+      "Investigate and delegate bug reports\u2060",
+      "Create follow-up issues from resolved incidents\u2060",
+      "Create platform specific versions of incoming requests\u2060",
+      "Create user-facing messaging after issues close\u2060",
+      "Create loops with Linear Agent\u2060",
+      "Create loops manually\u2060",
+      "Update loops\u2060",
+      "Review a loop\u2019s runs\u2060",
+      "Restoring a previous version\u2060",
+      "Use Slack with Loops\u2060",
+      "What Loops can do in Slack\u2060",
+      "Slack access and limitations\u2060",
+      "MCP Connectors\u2060",
+      "Managing available Connectors\u2060",
+      "Setup\u2060",
+      "Permissions\u2060",
+      "Team access\u2060",
+      "Web access\u2060",
+      "Code Intelligence\u2060",
+      "Coding sessions\u2060",
+      "Externally synced issues and comments\u2060",
+      "External sources\u2060",
+      "Allow changes outside of triggering entity\u2060",
+      "AI credits\u2060",
+      "FAQ\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/terms-update-summary-june-2026",
+    "headings": [
+      "Terms Update Summary: June 2026",
+      "Summary of what\u2019s changing\u2060",
+      "Terms of Service Changes\u2060",
+      "AI Services Addendum\u2060"
+    ]
+  },
+  {
+    "url": "https://linear.app/docs/asana-to-linear",
+    "headings": [
+      "Asana",
+      "Prerequisites\u2060",
+      "Running the import\u2060",
+      "Data included in the import\u2060"
+    ]
+  }
+]

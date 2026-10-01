@@ -1,10 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { refreshWorkSession } from "@/lib/work-session";
+
 const COOKIE = "bt_session";
 
 // Edge-safe signature check. The full check (does the hash match the *current*
 // team code?) happens in the app layout, which can talk to the DB.
-async function hasValidSignature(value: string | undefined, secret: string): Promise<boolean> {
+async function hasValidSignature(
+  value: string | undefined,
+  secret: string,
+): Promise<boolean> {
   if (!value) return false;
   const [hash, sig] = value.split(".");
   if (!hash || !sig) return false;
@@ -15,15 +20,31 @@ async function hasValidSignature(value: string | undefined, secret: string): Pro
     false,
     ["sign"],
   );
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(hash));
-  const hex = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(hash),
+  );
+  const hex = Array.from(new Uint8Array(mac))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   return hex === sig;
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (
+    pathname === "/work" ||
+    pathname.startsWith("/work/") ||
+    pathname.startsWith("/auth/work/") ||
+    pathname.startsWith("/api/work/")
+  )
+    return refreshWorkSession(request);
   const secret = process.env.SESSION_SECRET ?? "";
-  const ok = await hasValidSignature(request.cookies.get(COOKIE)?.value, secret);
+  const ok = await hasValidSignature(
+    request.cookies.get(COOKIE)?.value,
+    secret,
+  );
 
   // /login decides for itself (it does the full DB-backed check), so a stale
   // cookie with a valid signature can't bounce between / and /login.

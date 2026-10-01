@@ -9,7 +9,7 @@
  * Server actions made while offline are queued by the app itself
  * (components/offline.tsx), not here.
  */
-const VERSION = "bt-v5";
+const VERSION = "bt-v7";
 const PAGES = `${VERSION}-pages`;
 const ASSETS = `${VERSION}-assets`;
 const NAV_TIMEOUT_MS = 6000;
@@ -42,7 +42,9 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/")) return;
+  // Development assets reuse URLs across edits and must always stay fresh.
+  if (url.pathname.startsWith("/_next/") && ["localhost", "127.0.0.1"].includes(url.hostname)) return;
+  if (url.pathname.startsWith("/api/") || url.pathname === "/work" || url.pathname.startsWith("/work/") || url.pathname.startsWith("/auth/work/")) return;
   // RSC payloads / prefetches are not page shells; let the app handle failures.
   if (req.headers.get("RSC") === "1" || req.headers.get("Next-Router-Prefetch") === "1") return;
 
