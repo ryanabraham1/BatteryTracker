@@ -11,6 +11,8 @@ import {
   BEFORE_CUT,
   fileKind,
   guessKind,
+  isLengthKind,
+  isLengthSpec,
   isPartKind,
   kindFromProcess,
   MACHINE_PROCESSES,
@@ -31,6 +33,7 @@ import {
   USES_STOCK,
   type CotsStatus,
   type FabPart,
+  type LengthSpec,
   type MachineProcess,
   type PartGeometry,
   type PartKind,
@@ -470,6 +473,14 @@ async function fillFromText(row: Record<string, unknown>, part: Partial<FabPart>
   }
 }
 
+/** The length spec a form sent: blank clears it. */
+function lengthSpecOf(fd: FormData): LengthSpec | null {
+  const v = str(fd, "length_spec");
+  if (!v) return null;
+  if (!isLengthSpec(v)) throw new Error("Pick how exact the length has to be");
+  return v;
+}
+
 /** Add a part by hand, from the board or the tracker table. */
 export async function addPart(fd: FormData): Promise<FabResult<string>> {
   return run(async () => {
@@ -492,6 +503,7 @@ export async function addPart(fd: FormData): Promise<FabResult<string>> {
       notes: str(fd, "notes"),
     };
     if (materialId) row.material_id = materialId;
+    if (isLengthKind(kind) && fd.has("length_spec")) row.length_spec = lengthSpecOf(fd);
     for (const k of ["size_l_mm", "size_w_mm", "size_t_mm"]) if (num(fd, k) !== null) row[k] = num(fd, k);
     await fillFromText(row, {});
     const { data, error } = await db().from("fab_parts").insert(row).select("id").single();
@@ -520,6 +532,7 @@ export async function updatePart(fd: FormData): Promise<FabResult<string>> {
         patch.status_changed_at = new Date().toISOString();
       }
     }
+    if (fd.has("length_spec")) patch.length_spec = lengthSpecOf(fd);
     if (fd.has("cut_qty")) patch.cut_qty = Math.max(0, Math.round(num(fd, "cut_qty") ?? 0));
     if (fd.has("material_id")) {
       const m = str(fd, "material_id");

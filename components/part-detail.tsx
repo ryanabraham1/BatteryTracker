@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { assignPart, deleteFile, deletePart, fetchOnshapeFile, fileUploadUrl, recordFile, setPartStatus, updatePart } from "@/app/parts-actions";
-import { KIND_LABEL, needed, PART_KINDS, trackerOf, type FabDesign, type FabPart, type FabPartEvent, type FabPartFile, type PartKind } from "@/lib/parts";
+import { isLengthKind, KIND_LABEL, LENGTH_SPEC_LABEL, needed, PART_KINDS, trackerOf, type FabDesign, type FabPart, type FabPartEvent, type FabPartFile, type PartKind } from "@/lib/parts";
 import { isJobStatus, priorityLabel, PRIORITIES, STATUS_LABEL, STATUSES, type JobStatus } from "@/lib/tracker";
 import type { DfmResult } from "@/lib/dfm";
+import { sheetFabability } from "@/lib/fabable";
 import { materialName, type FabMaterial } from "@/lib/fab";
 import { fmtArea, fmtLength, type Units } from "@/lib/units";
 import { fmtDateTime, timeAgo } from "@/lib/format";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { Sheet } from "./sheet";
-import { DfmPill, IssueList, Outline, PersonChip } from "./parts-ui";
+import { DfmPill, FabablePill, IssueList, LengthFitField, Outline, PersonChip } from "./parts-ui";
 import { ErrorText, Field, LengthInput, SubmitButton, UnitsToggle, useFabAction } from "./fab-ui";
 import { ConfirmButton } from "./confirm-button";
 
@@ -245,6 +246,17 @@ export function PartDetail({
             <p className="mono text-sm">
               {p.size_l_mm === null ? "Unknown" : [p.size_l_mm, p.size_w_mm, p.size_t_mm].map((d) => L(d)).join(" × ")}
             </p>
+            {p.kind === "plate" && (
+              <p className="text-sm mt-2 flex items-center gap-2 flex-wrap">
+                <FabablePill part={p} /> <span style={{ color: "var(--muted)" }}>{sheetFabability(p).reason}</span>
+              </p>
+            )}
+            {isLengthKind(p.kind) && (
+              <p className="text-sm mt-2">
+                <span style={{ color: "var(--muted)" }}>Length: </span>
+                {p.length_spec ? LENGTH_SPEC_LABEL[p.length_spec] : "not set — say whether it must be exact"}
+              </p>
+            )}
             {p.notes && <p className="text-sm mt-2 whitespace-pre-wrap">{p.notes}</p>}
           </section>
 
@@ -531,6 +543,7 @@ function EditSheet({ open, onClose, part: p, units, need }: { open: boolean; onC
           </div>
         )}
         <T name="file" label={print ? "STL file" : "Drawing / CAM file"} value={p.file} placeholder="File name or a Drive / Onshape link" />
+        {isLengthKind(p.kind) && <LengthFitField value={p.length_spec} />}
         <Field label="Already cut" hint={`Of ${need}. Counted automatically when stock comes off the rack.`}>
           <input name="cut_qty" type="number" min={0} className="input mono" defaultValue={p.cut_qty} />
         </Field>

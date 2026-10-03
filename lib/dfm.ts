@@ -7,6 +7,7 @@
 import { fmtLength, type Units } from "./units";
 import { arcInfo, asCircle, loopArea, loopPoints, outline, pointInPoly, type Geometry, type Loop, type Pt, type Seg } from "./geom";
 import type { FabMaterial } from "./fab";
+import { sheetFabability } from "./fabable";
 import {
   KIND_LABEL,
   PROCESS_LABEL,
@@ -240,7 +241,7 @@ function fitsRect(w: number, l: number, bw: number, bl: number): boolean {
 }
 
 export interface DfmInput {
-  part: Pick<FabPart, "kind" | "material_text" | "size_l_mm" | "size_w_mm" | "size_t_mm" | "geometry" | "properties">;
+  part: Pick<FabPart, "kind" | "material_text" | "stock_dims" | "size_l_mm" | "size_w_mm" | "size_t_mm" | "geometry" | "properties">;
   material: FabMaterial | null;
   machines: FabMachine[];
   processProp: string;
@@ -265,6 +266,9 @@ export function checkPart({ part, material, machines, processProp, units }: DfmI
       if (g.stray) notes.push({ level: "warn", text: `${g.stray} shape${g.stray > 1 ? "s" : ""} outside the outline were ignored` });
     }
     if (thick === null) notes.push({ level: "info", text: "Thickness unknown" });
+    // the Standard Stock List says which sheet stock we fabricate
+    const fab = sheetFabability(part);
+    if (fab.fabable === false) notes.push({ level: "warn", text: `Not fab-able — ${fab.reason}` });
   }
 
   const hint = processHint(part.properties?.[processProp]);

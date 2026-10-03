@@ -52,6 +52,37 @@ export const AFTER_CUT: JobStatus = "in_progress";
 /** Moving from a before-cut status to one of these means the stock got used. */
 export const USES_STOCK: JobStatus[] = ["in_progress", "finished", "spares_finished"];
 
+/** Cut to length from stick stock: tubes, bars and rods (lathe/saw work). */
+export const isLengthKind = (k: PartKind) => k === "tube" || k === "shaft";
+
+/**
+ * How exact a tube / rod's length has to be. "exact" = cut to the listed
+ * length with the ends faced perfectly smooth; the others are approximate
+ * (a bandsaw cut is fine) and say which way an error is acceptable.
+ */
+export type LengthSpec = "exact" | "under" | "over" | "any";
+export const LENGTH_SPECS: LengthSpec[] = ["exact", "under", "over", "any"];
+export const isLengthSpec = (v: unknown): v is LengthSpec => LENGTH_SPECS.includes(v as LengthSpec);
+export const LENGTH_SPEC_LABEL: Record<LengthSpec, string> = {
+  exact: "Exact length, smooth ends",
+  under: "Approximate, slightly short",
+  over: "Approximate, slightly long",
+  any: "Approximate, either way",
+};
+/** Short forms for table cells and chips. */
+export const LENGTH_SPEC_SHORT: Record<LengthSpec, string> = {
+  exact: "Exact · smooth",
+  under: "~ slightly short",
+  over: "~ slightly long",
+  any: "~ either way",
+};
+export const LENGTH_SPEC_HINT: Record<LengthSpec, string> = {
+  exact: "Cut to the listed length and faced so the ends are square and perfectly smooth.",
+  under: "A saw cut is fine; if it can't be dead on, cut it a little shorter than listed.",
+  over: "A saw cut is fine; if it can't be dead on, cut it a little longer than listed.",
+  any: "A saw cut is fine; a little over or under the listed length doesn't matter.",
+};
+
 export const isPartKind = (v: unknown): v is PartKind => v === "cots" || PART_KINDS.includes(v as PartKind);
 
 export interface PartSource {
@@ -129,6 +160,8 @@ export interface FabPart {
   spare_qty: number;
   stock_dims: string;
   length_text: string;
+  /** tubes & rods only; null = nobody's said yet */
+  length_spec: LengthSpec | null;
   tapped: string;
   machine: string;
   infill: string;

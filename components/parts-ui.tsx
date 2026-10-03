@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { svgPath, type Loop } from "@/lib/geom";
-import { initials, personHue, PERSON_COOKIE } from "@/lib/parts";
+import { initials, isLengthSpec, LENGTH_SPEC_HINT, LENGTH_SPEC_LABEL, personHue, PERSON_COOKIE, type FabPart, type LengthSpec } from "@/lib/parts";
+import { sheetFabability } from "@/lib/fabable";
 import { LEVEL_LABEL, LEVEL_TONE, type Level } from "@/lib/dfm";
 import { Sheet } from "./sheet";
 
@@ -132,5 +133,59 @@ export function IssueList({ issues }: { issues: { level: string; text: string }[
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Whether we can fabricate a sheet part, worked out from its material and thickness. */
+export function FabablePill({ part }: { part: Pick<FabPart, "material_text" | "stock_dims" | "size_t_mm"> }) {
+  const f = sheetFabability(part);
+  const tone = f.fabable === true ? "good" : f.fabable === false ? "bad" : "muted";
+  return (
+    <span className={`pill pill-${tone}`} title={f.reason}>
+      {f.fabable === true ? "✓ " : f.fabable === false ? "✕ " : ""}
+      {f.label}
+    </span>
+  );
+}
+
+/**
+ * Tubes and rods: exact length with perfectly smooth ends, or approximate —
+ * and if approximate, whether it should come out a little short, a little
+ * long, or either way. Submits one `length_spec` value ("" = not set).
+ */
+export function LengthFitField({ value }: { value: LengthSpec | null }) {
+  const [mode, setMode] = useState<"" | "exact" | "approx">(value === "exact" ? "exact" : value ? "approx" : "");
+  const [approx, setApprox] = useState<Exclude<LengthSpec, "exact">>(value && value !== "exact" ? value : "any");
+  const spec: LengthSpec | "" = mode === "exact" ? "exact" : mode === "approx" ? approx : "";
+  const chip = (on: boolean, label: string, pick: () => void) => (
+    <button key={label} type="button" className="tile tile-chip text-sm" data-selected={on} aria-pressed={on} onClick={pick}>
+      {label}
+    </button>
+  );
+  return (
+    <div role="group" aria-label="Length fit">
+      <span className="label">Length</span>
+      <div className="flex flex-col gap-2 mt-1">
+        <input type="hidden" name="length_spec" value={spec} />
+        <div className="flex flex-wrap gap-2">
+          {chip(mode === "", "Not set", () => setMode(""))}
+          {chip(mode === "exact", "Exact, smooth ends", () => setMode("exact"))}
+          {chip(mode === "approx", "Approximate", () => setMode("approx"))}
+        </div>
+        {mode === "approx" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              If it can&apos;t be dead on:
+            </span>
+            {chip(approx === "under", "Slightly shorter", () => setApprox("under"))}
+            {chip(approx === "over", "Slightly longer", () => setApprox("over"))}
+            {chip(approx === "any", "Doesn't matter", () => setApprox("any"))}
+          </div>
+        )}
+        <span className="text-xs" style={{ color: "var(--muted)" }}>
+          {isLengthSpec(spec) ? `${LENGTH_SPEC_LABEL[spec]}. ${LENGTH_SPEC_HINT[spec]}` : "Does it have to be cut to the exact length?"}
+        </span>
+      </div>
+    </div>
   );
 }
