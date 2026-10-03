@@ -385,6 +385,8 @@ export function guessKind(name: string, material: string, s: ShapeFacts | null):
 
 const SYN: [RegExp, string][] = [
   [/\b(aluminum|aluminium|alu|al)\b/g, "aluminum"],
+  // an aluminum alloy on its own ("6061") is still aluminum
+  [/\b(6061|6063|7075|5052|2024)\b/g, "$1 aluminum"],
   [/\b(polycarbonate|polycarb|lexan|pc)\b/g, "polycarbonate"],
   [/\b(delrin|acetal|pom)\b/g, "acetal"],
   [/\b(uhmw|uhmw-?pe)\b/g, "uhmw"],

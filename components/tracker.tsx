@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { addPart, deletePart, importSheet, setPartStatus, updatePart } from "@/app/parts-actions";
+import { addPart, autoMatchParts, deletePart, importSheet, setPartStatus, updatePart } from "@/app/parts-actions";
 import { isLengthKind, isStockKind, KIND_LABEL, LENGTH_SPEC_SHORT, LENGTH_SPECS, needed, PART_KINDS, type FabPart, type PartKind } from "@/lib/parts";
 import {
   isDone,
@@ -254,7 +254,8 @@ export function TrackerTable({
             <div className="h-full rounded-full" style={{ width: `${total ? (done / total) * 100 : 0}%`, background: "var(--good)" }} />
           </div>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {!print && <AutoMatchButton />}
           <button type="button" className="btn btn-ghost text-sm flex-1 sm:flex-none" onClick={() => setImporting(true)}>
             Import from sheet
           </button>
@@ -379,6 +380,39 @@ export function TrackerTable({
         {importing && <ImportForm tracker={tracker} onDone={() => setImporting(false)} />}
       </Sheet>
     </>
+  );
+}
+
+/** Re-match every part to the rack stock that fits it (parts with stock picked by hand are kept). */
+function AutoMatchButton() {
+  const [note, setNote] = useState<string | null>(null);
+  const a = useFabAction(autoMatchParts, (r) => {
+    if (!r) return;
+    setNote(
+      `${r.changed ? `Updated ${r.changed} ${r.changed === 1 ? "part" : "parts"}` : "Already up to date"} · ${r.matched}/${r.checked} matched${r.unmatched ? `, ${r.unmatched} have nothing on the rack that fits` : ""}${r.skipped ? ` · ${r.skipped} skipped (hand-picked or already cut)` : ""}`,
+    );
+  });
+  return (
+    <div className="flex flex-col gap-1 flex-1 sm:flex-none">
+      <button
+        type="button"
+        className="btn btn-ghost text-sm"
+        disabled={a.pending}
+        title="Match every part to the stock on the rack. Parts whose stock you picked by hand are left alone."
+        onClick={() => {
+          setNote(null);
+          a.call({});
+        }}
+      >
+        {a.pending ? "Matching…" : "Auto-match stock"}
+      </button>
+      {note && (
+        <span className="text-xs max-w-[260px]" role="status" style={{ color: "var(--muted)" }}>
+          {note}
+        </span>
+      )}
+      <ErrorText error={a.error} />
+    </div>
   );
 }
 

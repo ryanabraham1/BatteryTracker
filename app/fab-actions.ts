@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isAuthed } from "@/lib/auth";
 import { getFabSettings } from "@/lib/fab-data";
+import { rematchQuietly } from "@/lib/parts-match";
 import { clipZones, FAB_SHAPES, isSheet, SHAPE_DIMS, toZones, type FabMaterial, type FabPiece, type FabShape, type OrderStatus, type Zone } from "@/lib/fab";
 import { fmtLength, fmtRect, isUnits } from "@/lib/units";
 
@@ -153,10 +154,12 @@ export async function saveMaterial(fd: FormData): Promise<FabResult<string>> {
     if (id) {
       const { error } = await db().from("fab_materials").update(row).eq("id", id);
       if (error) throw error;
+      await rematchQuietly();
       return id;
     }
     const { data, error } = await db().from("fab_materials").insert(row).select("id").single();
     if (error) throw error;
+    await rematchQuietly();
     return data.id as string;
   });
 }
@@ -165,6 +168,7 @@ export async function setMaterialArchived(fd: FormData): Promise<FabResult> {
   return run(async () => {
     const { error } = await db().from("fab_materials").update({ archived: str(fd, "archived") === "1" }).eq("id", str(fd, "id"));
     if (error) throw error;
+    await rematchQuietly();
   });
 }
 

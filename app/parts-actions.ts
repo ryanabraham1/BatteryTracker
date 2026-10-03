@@ -40,6 +40,7 @@ import {
   type PartSource,
 } from "@/lib/parts";
 import { toPartGeometry } from "@/lib/dfm";
+import { rematchParts, type RematchResult } from "@/lib/parts-match";
 import { isJobStatus, jobKey, readSheet, SHEET_TO_PART, splitPeople, SUGGEST, TEXT_FIELDS, type ImportRow, type JobStatus } from "@/lib/tracker";
 import { checkPart } from "@/lib/dfm";
 import { findVendorLink } from "@/lib/vendors";
@@ -471,6 +472,11 @@ async function fillFromText(row: Record<string, unknown>, part: Partial<FabPart>
     const m = matchMaterial({ ...merged, ...(row as Partial<FabPart>) } as FabPart, await getMaterials());
     row.material_id = m?.id ?? null;
   }
+}
+
+/** Re-match every part's "cut from" to the stock on the rack (hand-picked ones are kept). */
+export async function autoMatchParts(): Promise<FabResult<RematchResult>> {
+  return run(() => rematchParts());
 }
 
 /** The length spec a form sent: blank clears it. */
