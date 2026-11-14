@@ -8,8 +8,6 @@ import {
   done,
   filterIssues,
   KIND_NAMES,
-  PRIORITIES,
-  progress,
   type WorkData,
   type WorkFilter,
   type WorkItem,
@@ -21,7 +19,7 @@ import { Timeline } from "./timeline";
 import { ProjectDetail } from "./project-detail";
 import { ItemDetail, RichText } from "./detail";
 import { Field, ItemEditor, Modal } from "./editor";
-import { Icon, statusLabel } from "./icons";
+import { Icon } from "./icons";
 import { AccessPanel } from "./access";
 import { HelpGuide } from "./help";
 import { WorkHome } from "./home";
@@ -53,7 +51,7 @@ const NAV = [
       ["robot", "Robot issues"],
       ["projects", "Projects"],
       ["initiatives", "Initiatives"],
-      ["updates", "Team"],
+      ["updates", "Updates"],
     ],
   },
 ];
@@ -73,14 +71,6 @@ const PAGE_GROUPS = [
     ],
     more: [
       ["archive", "Archive & trash"],
-    ],
-  },
-  {
-    paths: ["updates", "documents", "insights"],
-    tabs: [
-      ["updates", "Updates"],
-      ["documents", "Documents"],
-      ["insights", "Insights"],
     ],
   },
 ];
@@ -115,17 +105,15 @@ const SECTIONS: Record<string, { title: string; kind?: WorkKind; blurb?: string 
     kind: "view",
     blurb: "Saved filters you can reuse.",
   },
+  // No page of its own any more; kept so project documents still open at /work/documents/<id>.
   documents: {
-    title: "Team",
+    title: "Documents",
     kind: "document",
   },
   inbox: { title: "Notifications", blurb: "Mentions and changes on things you follow." },
   updates: {
-    title: "Team",
-    blurb: "Progress updates posted by the team.",
-  },
-  insights: {
-    title: "Team",
+    title: "Updates",
+    blurb: "Progress updates on projects and initiatives. Post one here or from the project itself.",
   },
   archive: {
     title: "Archive & trash",
@@ -179,7 +167,7 @@ export function WorkWorkspace() {
   const [commandQuery, setCommandQuery] = useState("");
   const [error, setError] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
-  const [dialog, setDialog] = useState<"view" | "import" | "help" | "report" | null>(null);
+  const [dialog, setDialog] = useState<"view" | "import" | "help" | "report" | "update" | null>(null);
   const [viewName, setViewName] = useState("");
   const [importText, setImportText] = useState("");
   const [settingsTab, setSettingsTab] = useState<WorkKind | "access">(
@@ -513,7 +501,7 @@ export function WorkWorkspace() {
                   aria-current={(path === "my-issues" || path === "inbox" ? section === path : navActive(path)) ? "page" : undefined}
                   onGo={() => navigate(path)}
                 >
-                  <Icon name={path === "updates" ? "team" : path === "inbox" ? "bell" : path} size={17} />
+                  <Icon name={path === "inbox" ? "bell" : path} size={17} />
                   <span>{title}</span>
                   {path === "issues" && (
                     <span className="work-nav-count">
@@ -700,6 +688,11 @@ export function WorkWorkspace() {
                   {section === "robot" && (
                     <button className="btn btn-primary" disabled={readOnly} onClick={() => setDialog("report")}>
                       <Icon name="plus" size={16} /> Report an issue
+                    </button>
+                  )}
+                  {section === "updates" && (
+                    <button className="btn btn-primary" disabled={readOnly} onClick={() => setDialog("update")}>
+                      <Icon name="plus" size={16} /> New update
                     </button>
                   )}
                   {section === "views" && (
@@ -1012,15 +1005,13 @@ export function WorkWorkspace() {
                 {!snapshot.events.some((e) => e.type === "update") && (
                   <Empty
                     title="No updates"
-                    description="Post progress updates from a project or initiative. They’ll come together here."
+                    description="Use New update to share how a project or initiative is going. Updates posted from a project show up here too."
                     icon="updates"
                   />
                 )}
               </div>
             ) : section === "robot" ? (
               <RobotIssues items={items} readOnly={readOnly} onOpen={open} onReport={() => setDialog("report")} onMakeTask={makeTask} />
-            ) : section === "insights" ? (
-              <Insights items={live} now={snapshot.now} />
             ) : section === "archive" ? (
               <>
                 <div className="work-toolbar">
@@ -1226,6 +1217,7 @@ export function WorkWorkspace() {
         </Modal>
       )}
       {dialog === "report" && <ReportIssueDialog items={items} onClose={() => setDialog(null)} />}
+      {dialog === "update" && <UpdateComposer items={live} onPost={comment} onClose={() => setDialog(null)} />}
       {dialog === "help" && (
         <Modal title="Guide & shortcuts" onClose={() => setDialog(null)}>
           <HelpGuide />
@@ -1352,132 +1344,50 @@ export function WorkWorkspace() {
     </ItemMenuProvider>
   );
 }
-function Insights({
+/** Post a progress update from the Updates page; it lands on the chosen project or initiative like one posted there. */
+function UpdateComposer({
   items,
-  now: timestamp,
+  onPost,
+  onClose,
 }: {
   items: WorkItem[];
-  now: string;
+  onPost: (item: WorkItem, body: string, type: string) => Promise<boolean>;
+  onClose: () => void;
 }) {
-  const issues = items.filter((i) => i.kind === "issue");
-  const finished = issues.filter(done);
-  const now = new Date(timestamp).toLocaleDateString("en-CA", {
-    timeZone: "America/Los_Angeles",
-  });
-  const overdue = issues.filter(
-    (i) => !done(i) && i.data.due && i.data.due < now,
-  );
-  const totalPoints = issues.reduce(
-    (sum, i) => sum + (i.data.estimate || 0),
-    0,
-  );
+  const targets = items.filter((i) => i.kind === "project" || i.kind === "initiative").sort((a, b) => a.title.localeCompare(b.title));
+  const [target, setTarget] = useState(targets.length === 1 ? targets[0].id : "");
+  const [body, setBody] = useState("");
+  const [posting, setPosting] = useState(false);
+  const item = targets.find((i) => i.id === target);
   return (
-    <div className="work-insights">
-      <div className="work-insight-stats">
-        {[
-          ["Total tasks", issues.length],
-          ["Completed", finished.length],
-          ["Overdue", overdue.length],
-          ["Estimated points", totalPoints],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <p>{label}</p>
-            <b>{value}</b>
-          </div>
-        ))}
-      </div>
-      <div className="work-chart-grid">
-        <section>
-          <h2>Work by status</h2>
-
-          {[...new Set(issues.map((i) => i.data.status || "Backlog"))].map(
-            (s) => {
-              const n = issues.filter(
-                (i) => (i.data.status || "Backlog") === s,
-              ).length;
-              return (
-                <div className="work-chart-row" key={s}>
-                  <span>{statusLabel(s)}</span>
-                  <div className="work-chart-bar">
-                    <span
-                      style={{
-                        width: `${issues.length ? (100 * n) / issues.length : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <b>{n}</b>
-                </div>
-              );
-            },
-          )}
-          {!issues.length && (
-            <p className="work-muted mt-5">
-              Create tasks to see the breakdown.
-            </p>
-          )}
-        </section>
-        <section>
-          <h2>Team workload</h2>
-
-          {items
-            .filter((i) => i.kind === "member")
-            .map((m) => {
-              const n = issues.filter(
-                (i) => i.data.assignee === m.id && !done(i),
-              ).length;
-              return (
-                <div className="work-chart-row" key={m.id}>
-                  <span>{m.title}</span>
-                  <div className="work-chart-bar">
-                    <span
-                      style={{
-                        width: `${issues.length ? (100 * n) / issues.length : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <b>{n}</b>
-                </div>
-              );
-            })}
-          <div className="work-chart-row">
-            <span>Unassigned</span>
-            <b>{issues.filter((i) => !i.data.assignee && !done(i)).length}</b>
-          </div>
-        </section>
-        <section>
-          <h2>Project delivery</h2>
-          {items
-            .filter((i) => i.kind === "project")
-            .map((p) => {
-              const list = issues.filter((i) => i.data.project === p.id);
-              return (
-                <div className="work-chart-row" key={p.id}>
-                  <span>{p.title}</span>
-                  <div className="work-chart-bar">
-                    <span style={{ width: `${progress(list)}%` }} />
-                  </div>
-                  <b>{progress(list)}%</b>
-                </div>
-              );
-            })}
-        </section>
-        <section>
-          <h2>Priority distribution</h2>
-          {PRIORITIES.map((p, n) => (
-            <div className="work-chart-row" key={p}>
-              <span>{p}</span>
-              <div className="work-chart-bar">
-                <span
-                  style={{
-                    width: `${issues.length ? (100 * issues.filter((i) => (i.data.priority || 0) === n).length) / issues.length : 0}%`,
-                  }}
-                />
-              </div>
-              <b>{issues.filter((i) => (i.data.priority || 0) === n).length}</b>
-            </div>
-          ))}
-        </section>
-      </div>
-    </div>
+    <Modal title="New update" onClose={onClose}>
+      <form
+        className="work-update-composer"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!item) return;
+          setPosting(true);
+          const ok = await onPost(item, body, "update");
+          setPosting(false);
+          if (ok) onClose();
+        }}
+      >
+        <Field label="Project or initiative">
+          <PropertyPicker
+            label="Project or initiative"
+            value={target}
+            display={item?.title ?? "Choose one…"}
+            onChange={setTarget}
+            options={targets.map((i) => ({ value: i.id, label: i.title, icon: <Icon name={i.kind === "project" ? i.data.icon || "projects" : "initiatives"} size={15} /> }))}
+          />
+        </Field>
+        {!targets.length && <p className="work-muted">Create a project or initiative first, then post updates on it.</p>}
+        <textarea data-autofocus className="input" aria-label="Update" placeholder="Share progress, blockers, and next steps…" rows={8} required value={body} onChange={(e) => setBody(e.target.value)} />
+        <div>
+          <span className="work-muted">Markdown supported</span>
+          <button className="btn btn-primary" disabled={posting || !item || !body.trim()}>{posting ? "Posting…" : "Post update"}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }

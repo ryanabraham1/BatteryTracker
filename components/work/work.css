@@ -2108,8 +2108,9 @@
 .work-project-event time { margin-left:auto; color:var(--muted); }
 .work-update-composer { padding:24px; }
 .work-update-composer h2 { font-size:18px; margin-bottom:18px; }
+.work-update-composer > .work-field, .work-update-composer > p { margin-bottom:14px; }
 .work-update-composer textarea { width:100%; resize:vertical; }
-.work-update-composer > div { display:flex; justify-content:space-between; align-items:center; margin-top:15px; }
+.work-update-composer > div:last-child { display:flex; justify-content:space-between; align-items:center; margin-top:15px; }
 .work-roadmap-toolbar { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:12px 20px; font-size:13px; color:var(--muted); }
 .work-roadmap-toolbar > span { display:flex; gap:8px; align-items:center; }
 .work-roadmap-toolbar > div { display:flex; gap:8px; }
