@@ -21,10 +21,10 @@
 .wtl-head-track { position: relative; flex: none; height: 64px; }
 .wtl-months { position: absolute; inset: 0 0 auto; height: 34px; }
 .wtl-months > span { position: absolute; top: 0; height: 34px; padding: 9px 10px 0; box-sizing: border-box; font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--line); }
-.wtl-months > span[data-alt="true"] { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+.wtl-months > span[data-alt="true"] { background: color-mix(in srgb, var(--ink) 4%, transparent); }
 .wtl-weeks { position: absolute; left: 0; right: 0; top: 34px; height: 30px; }
-.wtl-weeks > span { position: absolute; top: 7px; transform: translateX(4px); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.wtl-today-pill { position: absolute; bottom: 4px; transform: translateX(-50%); z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.wtl-weeks > span { position: absolute; top: 0; bottom: 0; padding: 7px 0 0 5px; border-left: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wtl-today-pill { position: absolute; bottom: 5px; transform: translateX(-50%); z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--purple); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; box-shadow: 0 0 0 3px var(--surface); }
 
 /* Rows */
 .wtl-row { display: flex; border-bottom: 1px solid var(--line); }
@@ -40,9 +40,12 @@
 .wtl-side-meta .work-status-pill { min-width: 0; }
 
 .wtl-track { position: relative; flex: none; }
-.wtl-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--paper) 55%, transparent); }
-.wtl-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line) 55%, transparent); }
-.wtl-today-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--purple); opacity: .8; z-index: 1; }
+/* Ink-based tints so the grid reads in light and dark; --paper is too close to --surface to show. */
+.wtl-past { position: absolute; top: 0; bottom: 0; left: 0; background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--ink) 3%, transparent) 7px 8px); }
+.wtl-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
+.wtl-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.wtl-month-line { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.wtl-today-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--purple); z-index: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple) 14%, transparent); }
 
 .wtl-bar { position: absolute; top: 16px; height: 46px; z-index: 1; overflow: clip; display: flex; align-items: center; border-radius: 12px; text-align: left; background: color-mix(in srgb, var(--bar) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bar) 45%, var(--line)); box-shadow: var(--shadow-sm); }
 .wtl-bar:hover { border-color: var(--bar); box-shadow: var(--shadow-md); }
@@ -54,8 +57,11 @@
 .wtl-bar[data-narrow="true"] .wtl-bar-fill { border-radius: 11px 0 0 11px; }
 .wtl-bar[data-narrow="true"] .wtl-bar-label { position: absolute; left: 100%; padding-left: 10px; }
 
-.wtl-no-dates { position: absolute; top: 20px; z-index: 1; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1.5px dashed var(--line); border-radius: 12px; background: var(--surface); font-size: 14px; color: var(--muted); white-space: nowrap; }
-.wtl-no-dates:hover { border-color: var(--purple); color: var(--purple-dark); }
+.wtl-no-dates { position: absolute; top: 16px; z-index: 3; width: 280px; height: 46px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; text-align: left; border: 1.5px dashed color-mix(in srgb, var(--bar) 60%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--bar) 6%, var(--surface)); color: color-mix(in srgb, var(--bar) 75%, var(--ink)); }
+.wtl-no-dates:hover { border-style: solid; border-color: var(--bar); background: color-mix(in srgb, var(--bar) 12%, var(--surface)); }
+.wtl-no-dates > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.wtl-no-dates b { font-size: 14px; font-weight: 700; color: var(--ink); }
+.wtl-no-dates > span > span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .wtl-marker { position: absolute; top: 70px; z-index: 2; transform: translateX(-50%); width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; }
 .wtl-marker:hover { background: var(--purple-soft); }

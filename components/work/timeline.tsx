@@ -131,12 +131,12 @@ export function Timeline({
                 ))}
               </div>
               <div className="wtl-weeks">
-                {showWeekLabels &&
-                  weeks.map((t) => (
-                    <span key={t} style={{ left: x(t) }}>
-                      {new Date(t).getUTCDate()}
-                    </span>
-                  ))}
+                {weeks.map((t) => (
+                  <span key={t} style={{ left: x(t) }}>
+                    {/* Leave room for the Today pill instead of printing a date under it. */}
+                    {showWeekLabels && Math.abs(x(t) + 8 - x(today)) > 40 ? new Date(t).getUTCDate() : ""}
+                  </span>
+                ))}
               </div>
               <span className="wtl-today-pill" style={{ left: x(today) }}>
                 Today
@@ -179,10 +179,12 @@ export function Timeline({
                   </div>
                 </div>
                 <div className="wtl-track" style={{ width }}>
+                  <span className="wtl-past" style={{ width: x(today) }} />
                   {months.map((m, i) => i % 2 === 1 && <span key={m.t} className="wtl-band" style={{ left: m.left, width: m.width }} />)}
                   {weeks.map((t) => (
                     <span key={t} className="wtl-guide" style={{ left: x(t) }} />
                   ))}
+                  {months.map((m, i) => i > 0 && <span key={m.t} className="wtl-month-line" style={{ left: m.left }} />)}
                   <span className="wtl-today-line" style={{ left: x(today) }} />
                   {start !== null && end !== null ? (
                     <button
@@ -203,8 +205,16 @@ export function Timeline({
                       </span>
                     </button>
                   ) : (
-                    <button className="wtl-no-dates" style={{ left: Math.max(8, x(today) - 120) }} onClick={() => onOpen(p)}>
-                      <Icon name="timeline" size={15} /> No dates yet — open the project to set a start and target date
+                    <button
+                      className="wtl-no-dates"
+                      style={{ left: Math.max(8, Math.min(x(today) + 10, width - 290)), ["--bar" as string]: color }}
+                      onClick={() => onOpen(p)}
+                    >
+                      <Icon name="timeline" size={16} />
+                      <span>
+                        <b>No dates yet</b>
+                        <span>Click to set a start and target date</span>
+                      </span>
                     </button>
                   )}
                   {slots.map(({ m, left, lane, width: labelWidth }) => {
