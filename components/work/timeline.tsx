@@ -186,7 +186,7 @@ export function Timeline({
                   ))}
                   {months.map((m, i) => i > 0 && <span key={m.t} className="wtl-month-line" style={{ left: m.left }} />)}
                   <span className="wtl-today-line" style={{ left: x(today) }} />
-                  {start !== null && end !== null ? (
+                  {start !== null && end !== null && (
                     <button
                       className="wtl-bar"
                       data-narrow={barWidth < 190}
@@ -202,18 +202,6 @@ export function Timeline({
                         <span>
                           {p.data.start ? dateLabel(p.data.start) : "No start"} – {p.data.due ? dateLabel(p.data.due) : "No end"}
                         </span>
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      className="wtl-no-dates"
-                      style={{ left: Math.max(8, Math.min(x(today) + 10, width - 290)), ["--bar" as string]: color }}
-                      onClick={() => onOpen(p)}
-                    >
-                      <Icon name="timeline" size={16} />
-                      <span>
-                        <b>No dates yet</b>
-                        <span>Click to set a start and target date</span>
                       </span>
                     </button>
                   )}
